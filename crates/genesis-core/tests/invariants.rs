@@ -277,6 +277,31 @@ fn agents_awake_and_remember() {
 }
 
 #[test]
+fn needs_stay_bounded() {
+    // Cognition (0.0.3, tranche 4) : les trois jauges de tout agent restent dans [0, 1] et
+    // finies, sur toute la duree.
+    let cfg = SimConfig::default();
+    let mut w = WorldState::new(3, &cfg);
+    let mut saw_hunger = false;
+    for _ in 0..40_000 {
+        let _ = tick(&mut w, &cfg);
+        for a in w.entities.iter() {
+            let Some(m) = &a.mind else { continue };
+            for v in [m.needs.hunger, m.needs.fear, m.needs.solitude] {
+                assert!(v.is_finite() && (0.0..=1.0).contains(&v), "jauge hors bornes : {v}");
+            }
+            if m.needs.hunger > 0.3 {
+                saw_hunger = true;
+            }
+        }
+        if w.entities.is_empty() {
+            break;
+        }
+    }
+    assert!(saw_hunger, "aucun agent n'a jamais eu faim");
+}
+
+#[test]
 fn witnessed_memories_are_anchored() {
     // Cognition (0.0.3, tranche 3) : un agent temoin d'une mort en garde un souvenir de
     // genre `Witnessed` dont `event_seq` pointe le vrai `EntityDied`, anterieur ou du meme

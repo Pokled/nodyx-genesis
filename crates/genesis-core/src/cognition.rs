@@ -55,6 +55,40 @@ pub struct Memory {
     pub strength: f32,
 }
 
+/// Jauges internes d'un agent (0.0.3, tranche 4), chacune dans [0, 1]. Montent et descendent
+/// selon le vecu, ponderent le comportement : un agent bien nourri explore, un agent effraye
+/// evite plus fort ses souvenirs, un agent isole derive vers les siens.
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
+pub struct Needs {
+    /// Suit vers le haut le manque d'energie, se relache lentement.
+    pub hunger: f32,
+    /// Monte pres d'un souvenir aversif et apres un choc de peril recent, se relache lentement.
+    pub fear: f32,
+    /// `1 - support de colonie` : haut = l'agent est loin des siens.
+    pub solitude: f32,
+}
+
+impl Needs {
+    /// Met a jour les jauges. `energy_frac` = energie / seuil de reproduction ;
+    /// `near_aversive` dans [0, 1] = proximite ponderee du souvenir aversif le plus proche ;
+    /// `shock_peril_recent` = l'agent a frole la famine il y a peu ; `solitude` deja calcule.
+    pub fn update(
+        &mut self,
+        hunger_relief: f32,
+        fear_relief: f32,
+        energy_frac: f32,
+        near_aversive: f32,
+        shock_peril_recent: bool,
+        solitude: f32,
+    ) {
+        let raw_hunger = (1.0 - energy_frac).clamp(0.0, 1.0);
+        self.hunger = raw_hunger.max(self.hunger * hunger_relief);
+        let threat = if shock_peril_recent { 1.0 } else { near_aversive.clamp(0.0, 1.0) };
+        self.fear = threat.max(self.fear * fear_relief);
+        self.solitude = solitude.clamp(0.0, 1.0);
+    }
+}
+
 /// L'esprit d'un agent. Attache a l'entite quand elle s'eveille, retire si elle retombe.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Mind {
@@ -62,11 +96,14 @@ pub struct Mind {
     pub awoke_tick: u64,
     /// Memoire episodique, bornee a `max_memories` (le plus faible cede la place).
     pub episodic: Vec<Memory>,
+    /// Jauges internes (0.0.3, tranche 4).
+    #[serde(default)]
+    pub needs: Needs,
 }
 
 impl Mind {
     pub fn new(awoke_tick: u64, first: Memory) -> Self {
-        Mind { awoke_tick, episodic: vec![first] }
+        Mind { awoke_tick, episodic: vec![first], needs: Needs::default() }
     }
 
     /// Fait decroitre chaque souvenir et retire ceux qui sont passes sous le seuil.

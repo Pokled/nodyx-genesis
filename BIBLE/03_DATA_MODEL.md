@@ -166,7 +166,10 @@ et vient de subir un choc. Elle gagne un `Mind`. Réversible : sans souvenir dep
 struct Mind {
     awoke_tick: u64,
     episodic:   Vec<Memory>,   // borné à max_memories, le plus faible cède la place
+    needs:      Needs,         // (0.0.3 tranche 4) faim, peur, solitude ; pondèrent le comportement
 }
+
+struct Needs { hunger: f32, fear: f32, solitude: f32 }   // chacune dans [0, 1]
 
 struct Memory {
     formed_tick: u64,
@@ -185,8 +188,10 @@ struct Shock { tick: u64, place: Position, peril: bool }   // écrit pour toutes
 La mémoire biaise le déplacement de l'agent (phase 2/3, hors des lieux de péril et de mort
 vue, vers les lieux d'aubaine). En tranche 3, un agent témoin d'un `EntityDied` proche (un
 membre de sa lignée) en garde un souvenir `Witnessed` ancré sur ce `seq` : c'est le premier
-souvenir vérifiable au sens fort. Besoins, personnalité héritée et modèle de comportement
-complet sont des tranches suivantes.
+souvenir vérifiable au sens fort. En tranche 4, les trois besoins (mis à jour en phase 5c)
+pondèrent cette même cible : la faim pousse à foncer manger, la peur fait fuir le danger
+même affamé, la solitude fait dériver vers les siens. Personnalité héritée et modèle de
+comportement complet sont des tranches suivantes.
 
 ## Génome
 

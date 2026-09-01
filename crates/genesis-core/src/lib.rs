@@ -21,7 +21,7 @@ pub mod sim;
 pub mod spatial;
 pub mod world;
 
-pub use cognition::{Memory, MemoryKind, Mind, Shock};
+pub use cognition::{Memory, MemoryKind, Mind, Needs, Shock};
 pub use config::SimConfig;
 pub use entity::{Action, Entity, EntityId, Position};
 pub use event::{DeathCause, Event, EventKind};
@@ -45,4 +45,6 @@ pub const ENGINE_VERSION: &str = env!("CARGO_PKG_VERSION");
 ///      l'escalier. Un agent porte une memoire episodique qui biaise son deplacement.
 /// v8 : souvenirs ancres (`MemoryKind::Witnessed`, `Memory.event_seq` peuple pour les morts
 ///      vues) : la memoire subjective pointe le fait objectif (invariant 5).
-pub const SCHEMA_VERSION: u32 = 8;
+/// v9 : besoins (`Mind.needs` : faim, peur, solitude) : l'agent a un etat interne qui
+///      pondere ses choix, plus seulement un reflexe.
+pub const SCHEMA_VERSION: u32 = 9;

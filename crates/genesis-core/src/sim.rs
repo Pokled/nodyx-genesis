@@ -159,6 +159,9 @@ pub fn tick(world: &mut WorldState, cfg: &SimConfig) -> Vec<Event> {
     // lieux de peril, vers les lieux d'aubaine. Lecture seule sur `e.mind` : sur en parallele.
     let cog_weight = cfg.cognition.mem_weight;
     let cog_radius = cfg.cognition.mem_radius.max(0.5);
+    let cog_needs_weight = cfg.cognition.needs_weight;
+    let cog_fear_gain = cfg.cognition.fear_gain;
+    let cog_social_pull = cfg.cognition.social_pull;
     let plans: Vec<Option<(Position, f32)>> = entities_ref
         .par_iter()
         .enumerate()
@@ -221,16 +224,30 @@ pub fn tick(world: &mut WorldState, cfg: &SimConfig) -> Vec<Event> {
                 forage
             };
 
-            // Biais memoire (agents seulement). Un agent affame l'ignore et fonce manger.
+            // Biais memoire et besoins (agents seulement). Sans besoins (`needs_weight` = 0)
+            // le calcul est celui de la tranche 3 : la faim (via l'energie) baisse le poids,
+            // les souvenirs aversifs repoussent, les aubaines attirent.
             let target = match e.mind.as_deref() {
                 Some(mind) if !mind.episodic.is_empty() => {
-                    let sated = ((e.energy / repro_threshold - 0.5) / 0.5).clamp(0.0, 1.0);
-                    if sated <= 0.0 {
+                    let nw = cog_needs_weight;
+                    let n = &mind.needs;
+                    // Envie d'explorer : haute quand rassasie. Avec les besoins, c'est
+                    // `1 - faim` (memoire ratchetee) ; sans, l'ancien indicateur d'energie.
+                    let drive = if nw > 0.0 {
+                        (1.0 - n.hunger).clamp(0.0, 1.0)
+                    } else {
+                        ((e.energy / repro_threshold - 0.5) / 0.5).clamp(0.0, 1.0)
+                    };
+                    let fear = n.fear * nw;
+                    // Un agent effraye evite le danger meme affame : le gate aversif est le
+                    // max de l'envie d'explorer et de la peur.
+                    let gate_av = drive.max(fear);
+                    if drive <= 0.0 && gate_av <= 0.0 {
                         target
                     } else {
-                        // Personnalite derivee des traits (tranche 1 : pas encore heritee).
                         let caution = 0.3 + 0.5 * e.genome.traits.lifespan;
                         let curiosity = 0.4 + 0.6 * e.genome.traits.perception;
+                        let av_amp = 1.0 + fear * cog_fear_gain;
                         let inv2s2 = 1.0 / (2.0 * cog_radius * cog_radius);
                         let (mut vx, mut vy) = (0.0f32, 0.0f32);
                         for m in mind.episodic.iter() {
@@ -239,25 +256,43 @@ pub fn tick(world: &mut WorldState, cfg: &SimConfig) -> Vec<Event> {
                             let d2 = dx * dx + dy * dy;
                             let d = d2.sqrt().max(1e-3);
                             let k = m.strength * (-d2 * inv2s2).exp();
-                            // Peril et mort vue : repoussent (direction pos - place),
-                            // moduls par la prudence. Aubaine : attire, modulee par la curiosite.
-                            let scale = if m.kind.is_aversive() { caution } else { -curiosity };
+                            let scale = if m.kind.is_aversive() {
+                                caution * av_amp * if nw > 0.0 { gate_av } else { 1.0 }
+                            } else {
+                                -curiosity * if nw > 0.0 { drive } else { 1.0 }
+                            };
                             vx += scale * k * dx / d;
                             vy += scale * k * dy / d;
                         }
                         let mag = (vx * vx + vy * vy).sqrt();
-                        if mag < 1e-4 {
+                        let cw = space_ref.width as f32 - 0.001;
+                        let ch = space_ref.height as f32 - 0.001;
+                        let mut tgt = if mag < 1e-4 {
                             target
                         } else {
-                            let w = (cog_weight * mag.clamp(0.0, 1.0) * sated).clamp(0.0, 0.9);
+                            let base = if nw > 0.0 {
+                                mag.clamp(0.0, 1.0)
+                            } else {
+                                // Chemin tranche 3 exact : clamp puis * drive.
+                                mag.clamp(0.0, 1.0) * drive
+                            };
+                            let w = (cog_weight * base).clamp(0.0, 0.9);
                             let shift = cog_radius * w;
                             Position {
-                                x: (target.x + vx / mag * shift)
-                                    .clamp(0.0, space_ref.width as f32 - 0.001),
-                                y: (target.y + vy / mag * shift)
-                                    .clamp(0.0, space_ref.height as f32 - 0.001),
+                                x: (target.x + vx / mag * shift).clamp(0.0, cw),
+                                y: (target.y + vy / mag * shift).clamp(0.0, ch),
                             }
+                        };
+                        // Solitude : un agent isole glisse vers le centre de masse des siens.
+                        if nw > 0.0 && wsum > 0.0 && n.solitude > 0.0 {
+                            let w_soc =
+                                (n.solitude * cog_social_pull * nw).clamp(0.0, 0.8);
+                            tgt = Position {
+                                x: (tgt.x + (cx / wsum - tgt.x) * w_soc).clamp(0.0, cw),
+                                y: (tgt.y + (cy / wsum - tgt.y) * w_soc).clamp(0.0, ch),
+                            };
                         }
+                        tgt
                     }
                 }
                 _ => target,
@@ -1056,6 +1091,9 @@ fn cognition_phase(world: &mut WorldState, cfg: &SimConfig, t: u64, events: &mut
     let cg = &cfg.cognition;
     let lifespan_mean = cfg.lifecycle.lifespan_ticks_mean as f32;
     let max_mem = cg.max_memories as usize;
+    let repro_threshold = cfg.reproduction.energy_threshold.max(0.01);
+    let support_cap = cfg.cohesion.support_cap.max(0.001);
+    let fear_inv2s2 = 1.0 / (2.0 * cg.fear_radius.max(0.5) * cg.fear_radius.max(0.5));
 
     for i in 0..world.entities.len() {
         // Age attendu de l'entite, pour le seuil de maturite cognitive.
@@ -1063,6 +1101,10 @@ fn cognition_phase(world: &mut WorldState, cfg: &SimConfig, t: u64, events: &mut
         let age = world.entities[i].age_ticks;
         let perception = world.entities[i].genome.traits.perception;
         let shock = world.entities[i].last_shock;
+        let (epos, eenergy, esupport) = {
+            let e = &world.entities[i];
+            (e.position, e.energy, e.colony_support)
+        };
 
         if let Some(mind) = world.entities[i].mind.as_deref_mut() {
             mind.decay_and_prune(cg.memory_decay, cg.memory_eps);
@@ -1084,6 +1126,25 @@ fn cognition_phase(world: &mut WorldState, cfg: &SimConfig, t: u64, events: &mut
                     );
                 }
             }
+
+            // Besoins : faim, peur, solitude. Ponderent le comportement en phase 2/3.
+            let near_aversive = mind
+                .episodic
+                .iter()
+                .filter(|m| m.kind.is_aversive())
+                .map(|m| m.strength * (-epos.dist2(&m.place) * fear_inv2s2).exp())
+                .fold(0.0f32, f32::max);
+            let shock_peril_recent = shock
+                .is_some_and(|s| s.peril && t.saturating_sub(s.tick) < cg.fear_shock_window);
+            let solitude = 1.0 - (esupport / support_cap).clamp(0.0, 1.0);
+            mind.needs.update(
+                cg.hunger_relief,
+                cg.fear_relief,
+                eenergy / repro_threshold,
+                near_aversive,
+                shock_peril_recent,
+                solitude,
+            );
 
             // Retombee : plus aucun souvenir, et l'agent a passe le delai de grace et de latence.
             let since_awoke = t.saturating_sub(mind.awoke_tick);

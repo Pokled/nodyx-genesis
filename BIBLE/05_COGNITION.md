@@ -1,10 +1,11 @@
 # 05. Cognition
 
-Statut : TRANCHES 1 A 3 FAITES (le premier souvenir, la page biographie, les souvenirs
-ancrés). Le pont Entity vers Agent et la question semé ou cultivé sont posés ; la mémoire
-épisodique tourne, se lit dans `lives.html`, et un souvenir de mort vue pointe désormais le
-fait objectif. L'architecture détaillée (Context Builder, Model Router, RAG) attend 0.0.5 et
-sera reprise ici à ce moment.
+Statut : TRANCHES 1 A 4 FAITES (le premier souvenir, la page biographie, les souvenirs
+ancrés, les besoins). Le pont Entity vers Agent et la question semé ou cultivé sont posés ;
+la mémoire épisodique tourne, se lit dans `lives.html`, un souvenir de mort vue pointe le
+fait objectif, et l'agent a un état interne (faim, peur, solitude) qui pondère ses choix.
+L'architecture détaillée (Context Builder, Model Router, RAG) attend 0.0.5 et sera reprise
+ici à ce moment.
 
 Dernière révision : 2026-09-01.
 
@@ -163,9 +164,43 @@ est fortement adaptatif : les agents évitent les grappes de mortalité. Effet s
 pression sur la perception se relâche un peu (perception moyenne 0,92 -> 0,88). Déterministe
 byte-identique 1 vs 8 threads. Test `witnessed_memories_are_anchored`.
 
-**Ce qui reste (tranche 4 et après).** Besoins (jauges), personnalité héritée (paramètres au
-génome, pas dérivés), modèle de comportement complet, dé-simulation de la biologie sous
-l'agent.
+## Tranche 4 : les besoins (fait, 2026-09-01)
+
+Le comportement d'un agent était un réflexe : viser la nourriture perçue, s'écarter des
+lieux de sa mémoire. Il a maintenant un **état interne**. `Mind.needs` (schema v9), trois
+jauges dans [0, 1], mises à jour en phase 5c de `sim.rs`, sans RNG :
+
+- **faim** : suit vers le haut le manque d'énergie instantané, se relâche lentement
+  (`hunger_relief`). Un agent récemment affamé reste tendu vers la nourriture même à énergie
+  correcte.
+- **peur** : monte près d'un souvenir aversif (noyau gaussien, `fear_radius`) et après un
+  choc de famine récent (`fear_shock_window`), se relâche lentement (`fear_relief`).
+- **solitude** : `1 - support_de_colonie / support_cap`, déjà calculé sur l'entité (aucune
+  requête spatiale nouvelle).
+
+En phase 2/3 (décision, parallèle, lecture seule), les besoins pondèrent la cible : `drive =
+1 - faim` remplace l'indicateur d'énergie (affamé -> fonce manger, ignore la mémoire
+d'aubaine) ; le gate d'évitement des souvenirs aversifs est `max(drive, peur)` (un agent
+effrayé fuit le danger **même affamé**) et la peur amplifie cet évitement (`fear_gain`) ;
+un agent isolé glisse vers le centre de masse des siens (`social_pull`). Bouton maître
+`needs_weight` (défaut 1) : à 0, le comportement est exactement celui de la tranche 3.
+
+**Résultat (A/B graine 3, 60000 ticks, `needs_weight` 1 vs 0).** Les morts par famine
+tombent de 8 700 à 4 000 (**-54 %**, après les -15 % et -33 % des tranches 1 et 3). Les
+morts d'âge doublent (850 -> 1 600) : la population meurt maintenant surtout de vieillesse.
+Agents vivants ~520 -> ~790. La perception moyenne descend encore (0,91 -> 0,83) : plus la
+cognition porte la survie, moins la perception brute pèse ; la cohésion monte un peu (0,51
+-> 0,54, la solitude récompense la proximité des siens). Déterministe byte-identique 1 vs 8
+threads, `needs_weight = 0` reproduit la tranche 3 à l'octet près. Test `needs_stay_bounded`.
+
+`lives.html` : une troisième figure par chapitre (les trois jauges dans le temps) et une
+phrase de tempérament (« Il a vécu surtout affamé, sur ses gardes... »). Les chapitres
+mettent en avant les survivants (mémoire riche = a duré), leurs jauges sont donc calmes ;
+c'est la population large qui montre l'effet (l'A/B).
+
+**Ce qui reste (tranche 5 et après).** Personnalité héritée (`caution` / `curiosity` au
+génome, pas dérivées de `lifespan` / `perception`), modèle de comportement complet et
+lisible (choix explicite fuir / manger / errer), dé-simulation de la biologie sous l'agent.
 
 ---
 

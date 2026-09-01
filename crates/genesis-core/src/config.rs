@@ -428,6 +428,24 @@ pub struct CognitionCfg {
     pub witness_radius: f32,
     /// Ne retenir que la mort d'un membre de sa propre lignee fondatrice (« un des siens »).
     pub witness_kin_only: bool,
+
+    // -- Besoins (0.0.3, tranche 4). Jauges internes qui ponderent le comportement.
+    /// Facteur de relachement de la faim par tick (elle suit vite la baisse d'energie,
+    /// redescend lentement).
+    pub hunger_relief: f32,
+    /// Facteur de relachement de la peur par tick.
+    pub fear_relief: f32,
+    /// Portee, en cases, du noyau de menace autour d'un souvenir aversif (pour la peur).
+    pub fear_radius: f32,
+    /// Un choc de peril de moins de N ticks maintient la peur au maximum.
+    pub fear_shock_window: u64,
+    /// De combien la peur amplifie l'evitement des souvenirs aversifs.
+    pub fear_gain: f32,
+    /// Poids maximal du glissement vers le centre des siens quand l'agent est isole.
+    pub social_pull: f32,
+    /// Bouton maitre des besoins : met a l'echelle leurs effets sur le comportement.
+    /// `0` = comportement de la tranche 3 (pour comparer).
+    pub needs_weight: f32,
 }
 impl Default for CognitionCfg {
     fn default() -> Self {
@@ -447,6 +465,13 @@ impl Default for CognitionCfg {
             mem_radius: 7.0,
             witness_radius: 4.0,
             witness_kin_only: true,
+            hunger_relief: 0.996,
+            fear_relief: 0.99,
+            fear_radius: 6.0,
+            fear_shock_window: 200,
+            fear_gain: 1.2,
+            social_pull: 0.3,
+            needs_weight: 1.0,
         }
     }
 }
