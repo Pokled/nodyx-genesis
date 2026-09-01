@@ -16,6 +16,7 @@
 
 use rayon::prelude::*;
 
+use crate::cognition::{Memory, Mind};
 use crate::config::SimConfig;
 use crate::entity::{Action, Entity, EntityId, Position};
 use crate::event::{DeathCause, Event, EventKind, ReplicationFail};
@@ -30,14 +31,14 @@ mod prof {
     use std::time::Instant;
     pub static ON: AtomicBool = AtomicBool::new(false);
     static INIT: std::sync::Once = std::sync::Once::new();
-    pub static NS: [AtomicU64; 9] = [
+    pub static NS: [AtomicU64; 10] = [
         AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0),
         AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0),
-        AtomicU64::new(0),
+        AtomicU64::new(0), AtomicU64::new(0),
     ];
-    pub const NAMES: [&str; 9] = [
-        "p1 regen", "p2/3 decide", "p4 move", "p5 metab", "p5b cells", "p6 life", "p7 repro",
-        "p8b watch", "cap",
+    pub const NAMES: [&str; 10] = [
+        "p1 regen", "p2/3 decide", "p4 move", "p5 metab", "p5b cells", "p5c cog", "p6 life",
+        "p7 repro", "p8b watch", "cap",
     ];
     pub fn enabled() -> bool {
         INIT.call_once(|| {
@@ -61,7 +62,7 @@ mod prof {
     pub fn dump() {
         if !enabled() { return; }
         eprintln!("--- profil (ms cumules) ---");
-        for i in 0..9 {
+        for i in 0..10 {
             eprintln!("  {:<14} {:>8.1}", NAMES[i], NS[i].load(Ordering::Relaxed) as f64 / 1e6);
         }
     }
@@ -154,6 +155,10 @@ pub fn tick(world: &mut WorldState, cfg: &SimConfig) -> Vec<Event> {
     let index_ref = &index;
     let space_ref = &space;
     let coh_ref = &coh;
+    // Cognition (0.0.3) : un agent laisse sa memoire episodique tirer sa cible hors des
+    // lieux de peril, vers les lieux d'aubaine. Lecture seule sur `e.mind` : sur en parallele.
+    let cog_weight = cfg.cognition.mem_weight;
+    let cog_radius = cfg.cognition.mem_radius.max(0.5);
     let plans: Vec<Option<(Position, f32)>> = entities_ref
         .par_iter()
         .enumerate()
@@ -215,6 +220,50 @@ pub fn tick(world: &mut WorldState, cfg: &SimConfig) -> Vec<Event> {
             } else {
                 forage
             };
+
+            // Biais memoire (agents seulement). Un agent affame l'ignore et fonce manger.
+            let target = match e.mind.as_deref() {
+                Some(mind) if !mind.episodic.is_empty() => {
+                    let sated = ((e.energy / repro_threshold - 0.5) / 0.5).clamp(0.0, 1.0);
+                    if sated <= 0.0 {
+                        target
+                    } else {
+                        // Personnalite derivee des traits (tranche 1 : pas encore heritee).
+                        let caution = 0.3 + 0.5 * e.genome.traits.lifespan;
+                        let curiosity = 0.4 + 0.6 * e.genome.traits.perception;
+                        let inv2s2 = 1.0 / (2.0 * cog_radius * cog_radius);
+                        let (mut vx, mut vy) = (0.0f32, 0.0f32);
+                        for m in mind.episodic.iter() {
+                            let dx = pos.x - m.place.x;
+                            let dy = pos.y - m.place.y;
+                            let d2 = dx * dx + dy * dy;
+                            let d = d2.sqrt().max(1e-3);
+                            let k = m.strength * (-d2 * inv2s2).exp();
+                            // Peril : repousse (direction pos - place). Aubaine : attire.
+                            let scale = match m.kind {
+                                crate::cognition::MemoryKind::Peril => caution,
+                                crate::cognition::MemoryKind::Bounty => -curiosity,
+                            };
+                            vx += scale * k * dx / d;
+                            vy += scale * k * dy / d;
+                        }
+                        let mag = (vx * vx + vy * vy).sqrt();
+                        if mag < 1e-4 {
+                            target
+                        } else {
+                            let w = (cog_weight * mag.clamp(0.0, 1.0) * sated).clamp(0.0, 0.9);
+                            let shift = cog_radius * w;
+                            Position {
+                                x: (target.x + vx / mag * shift)
+                                    .clamp(0.0, space_ref.width as f32 - 0.001),
+                                y: (target.y + vy / mag * shift)
+                                    .clamp(0.0, space_ref.height as f32 - 0.001),
+                            }
+                        }
+                    }
+                }
+                _ => target,
+            };
             Some((target, support))
         })
         .collect();
@@ -261,6 +310,10 @@ pub fn tick(world: &mut WorldState, cfg: &SimConfig) -> Vec<Event> {
     let base_burn = cfg.metabolism.base_burn;
     let eat_rate = cfg.metabolism.eat_rate;
     let strain_per_harvest = cfg.environment.strain_per_harvest;
+    // Cognition (0.0.3) : seuils de choc, ecrits pour toutes les entites (graine d'un souvenir).
+    let peril_energy = cfg.cognition.peril_frac * repro_threshold;
+    let bounty_abs = cfg.cognition.bounty_abs;
+    let shock_interval = cfg.cognition.shock_interval;
     for i in 0..world.entities.len() {
         let (pos, burn, want0, restraint) = {
             let e = &world.entities[i];
@@ -284,6 +337,19 @@ pub fn tick(world: &mut WorldState, cfg: &SimConfig) -> Vec<Event> {
         let e = &mut world.entities[i];
         e.energy = (e.energy - burn + gain).min(energy_ceiling);
         e.last_action = if gain > 0.05 { Action::Eat } else { Action::Forage };
+
+        // Choc marquant : famine (peril) ou repas exceptionnel (aubaine). Espace dans le
+        // temps pour ne pas enregistrer le meme episode a chaque tick.
+        let recent = e
+            .last_shock
+            .is_some_and(|s| t.saturating_sub(s.tick) < shock_interval);
+        if !recent {
+            if e.energy < peril_energy {
+                e.last_shock = Some(crate::cognition::Shock { tick: t, place: e.position, peril: true });
+            } else if gain > bounty_abs {
+                e.last_shock = Some(crate::cognition::Shock { tick: t, place: e.position, peril: false });
+            }
+        }
     }
 
     drop(_sp.take()); _sp = prof::Span::start(4);
@@ -294,6 +360,13 @@ pub fn tick(world: &mut WorldState, cfg: &SimConfig) -> Vec<Event> {
     cell_phase(world, cfg, &space, t, &mut events);
 
     drop(_sp.take()); _sp = prof::Span::start(5);
+    // -- Phase 5c, cognition (0.0.3, tranche 1). Eveil des entites qui percoivent assez et
+    //    ont vecu assez ; entretien de la memoire des agents (decroissance, nouveaux
+    //    souvenirs) ; retombee des agents sans souvenir depuis longtemps. Sequentiel, sans
+    //    RNG, avant la mort pour qu'un frole-la-mort non fatal soit memorise.
+    cognition_phase(world, cfg, t, &mut events);
+
+    drop(_sp.take()); _sp = prof::Span::start(6);
     // -- Phase 6, cycle de vie : vieillissement, mort par famine ou par age. Sequentiel :
     // travail par entite minuscule. Le retrait des morts et le depot des cadavres ecrivent
     // sur les cases, donc de toute facon sequentiels.
@@ -374,7 +447,7 @@ pub fn tick(world: &mut WorldState, cfg: &SimConfig) -> Vec<Event> {
         world.entities.retain(|e| !gone.contains(&e.id));
     }
 
-    drop(_sp.take()); _sp = prof::Span::start(6);
+    drop(_sp.take()); _sp = prof::Span::start(7);
     // -- Phase 7, replication : scission asexuee (stade molecule).
     //
     // Chaque entite, dans l'ordre des EntityId, tente de se diviser si elle a l'energie
@@ -544,6 +617,9 @@ pub fn tick(world: &mut WorldState, cfg: &SimConfig) -> Vec<Event> {
             // Un nouveau-ne est libre ; il rejoindra une cellule voisine a la prochaine
             // detection s'il est proche et parent.
             cell_id: None,
+            // Un nouveau-ne n'a pas d'histoire : ni esprit, ni choc.
+            mind: None,
+            last_shock: None,
         });
         emit(
             &mut events,
@@ -561,7 +637,7 @@ pub fn tick(world: &mut WorldState, cfg: &SimConfig) -> Vec<Event> {
         emit(&mut events, &mut world.next_event_seq, t, EventKind::EntitySpawned { entity: id });
     }
 
-    drop(_sp.take()); _sp = prof::Span::start(7);
+    drop(_sp.take()); _sp = prof::Span::start(8);
     // -- Phase 8b, veilleurs : detecteurs mecanises. Ils ne mutent que `world.watch` et
     //    produisent des evenements saillants (le materiau des chapitres). Jamais un `if`
     //    qui nomme le resultat (tranchee 7).
@@ -569,7 +645,7 @@ pub fn tick(world: &mut WorldState, cfg: &SimConfig) -> Vec<Event> {
         run_watchers(world, cfg, t, &mut events);
     }
 
-    drop(_sp.take()); _sp = prof::Span::start(8);
+    drop(_sp.take()); _sp = prof::Span::start(9);
     // -- Phase 8 (journal) et 9 (instantane) sont pilotees par l'appelant (CLI).
 
     // Garde-fou anti-cascade : on plafonne les evenements du tick, en gardant les plus
@@ -934,6 +1010,80 @@ fn cell_detect(
         }
     }
     world.watch.cell_pending = new_pending;
+}
+
+/// Phase 5c : cognition (0.0.3, tranche 1). Sequentiel, sans RNG.
+///
+/// - Un agent existant : sa memoire decroit ; si son dernier choc est plus recent que son
+///   dernier souvenir, il l'enregistre ; s'il n'a plus aucun souvenir depuis longtemps, il
+///   retombe entite de fond (`AgentLapsed`).
+/// - Une entite non agent qui percoit assez, a vecu assez et vient de subir un choc
+///   s'eveille (`AgentAwoke`) : elle gagne un `Mind` avec un premier souvenir.
+fn cognition_phase(world: &mut WorldState, cfg: &SimConfig, t: u64, events: &mut Vec<Event>) {
+    let cg = &cfg.cognition;
+    let lifespan_mean = cfg.lifecycle.lifespan_ticks_mean as f32;
+    let max_mem = cg.max_memories as usize;
+
+    for i in 0..world.entities.len() {
+        // Age attendu de l'entite, pour le seuil de maturite cognitive.
+        let expected = lifespan_mean * (0.5 + world.entities[i].genome.traits.lifespan);
+        let age = world.entities[i].age_ticks;
+        let perception = world.entities[i].genome.traits.perception;
+        let shock = world.entities[i].last_shock;
+
+        if let Some(mind) = world.entities[i].mind.as_deref_mut() {
+            mind.decay_and_prune(cg.memory_decay, cg.memory_eps);
+
+            // Nouveau souvenir : le dernier choc est-il posterieur au dernier souvenir enregistre ?
+            if let Some(s) = shock {
+                let last_formed = mind.episodic.iter().map(|m| m.formed_tick).max().unwrap_or(0);
+                if s.tick > last_formed || mind.episodic.is_empty() {
+                    mind.record(
+                        Memory {
+                            formed_tick: s.tick,
+                            place: s.place,
+                            kind: s.kind(),
+                            event_seq: None,
+                            strength: 1.0,
+                        },
+                        max_mem,
+                        cg.memory_merge_dist,
+                    );
+                }
+            }
+
+            // Retombee : plus aucun souvenir, et l'agent a passe le delai de grace et de latence.
+            let since_awoke = t.saturating_sub(mind.awoke_tick);
+            if mind.episodic.is_empty()
+                && since_awoke > cg.grace_ticks
+                && since_awoke > cg.lapse_ticks
+            {
+                let id = world.entities[i].id;
+                world.entities[i].mind = None;
+                emit(events, &mut world.next_event_seq, t, EventKind::AgentLapsed { entity: id });
+            }
+            continue;
+        }
+
+        // Eveil.
+        if let Some(s) = shock {
+            if perception < cg.perception_min || (age as f32) < cg.age_min_frac * expected {
+                continue;
+            }
+            let id = world.entities[i].id;
+            world.entities[i].mind = Some(Box::new(Mind::new(
+                t,
+                Memory {
+                    formed_tick: s.tick,
+                    place: s.place,
+                    kind: s.kind(),
+                    event_seq: None,
+                    strength: 1.0,
+                },
+            )));
+            emit(events, &mut world.next_event_seq, t, EventKind::AgentAwoke { entity: id });
+        }
+    }
 }
 
 /// Distance L1 entre deux traits, en unites de trait (un cran = 0.25).

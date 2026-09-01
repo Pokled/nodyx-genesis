@@ -21,6 +21,7 @@ pub struct SimConfig {
     pub reproduction: ReproductionCfg,
     pub cohesion: CohesionCfg,
     pub cells: CellsCfg,
+    pub cognition: CognitionCfg,
     pub watch: WatchCfg,
     pub view: ViewCfg,
     pub persistence: PersistenceCfg,
@@ -41,6 +42,7 @@ impl Default for SimConfig {
             reproduction: ReproductionCfg::default(),
             cohesion: CohesionCfg::default(),
             cells: CellsCfg::default(),
+            cognition: CognitionCfg::default(),
             watch: WatchCfg::default(),
             view: ViewCfg::default(),
             persistence: PersistenceCfg::default(),
@@ -380,6 +382,64 @@ impl Default for CellsCfg {
             leave_factor: 1.9,
             energy_share: 0.15,
             cell_birth_relief: 0.4,
+        }
+    }
+}
+
+/// Cognition (0.0.3, tranche 1 « le premier souvenir »). Une entite qui percoit assez bien
+/// (`perception_min`), a vecu assez longtemps (`age_min_frac`) et vient de subir un choc
+/// s'eveille en agent : elle gagne une memoire episodique spatiale qui biaise son
+/// deplacement. Reversible : un agent sans souvenir depuis `lapse_ticks` retombe. Substrat
+/// seme, pas de personnalite heritee ni de besoins pour l'instant (voir `05_COGNITION.md`).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct CognitionCfg {
+    /// Perception minimale pour s'eveiller. Au-dessus du milieu de la plage de depart
+    /// (0.35..0.65) : seuls certains individus, et la selection peut pousser le trait si
+    /// etre agent aide a survivre.
+    pub perception_min: f32,
+    /// Fraction de l'esperance de vie a avoir vecu avant de pouvoir s'eveiller : un juvenile
+    /// n'a pas d'histoire.
+    pub age_min_frac: f32,
+    /// Energie sous `peril_frac * energy_threshold` : choc de peril (lieu a eviter).
+    pub peril_frac: f32,
+    /// Gain d'energie en un tick au-dessus de ce seuil : choc d'aubaine (lieu a retrouver).
+    pub bounty_abs: f32,
+    /// Intervalle minimal, en ticks, entre deux chocs enregistres pour une meme entite.
+    pub shock_interval: u64,
+    /// Un agent fraichement eveille ne peut pas retomber avant cet age (comme les cellules).
+    pub grace_ticks: u64,
+    /// Un agent sans aucun souvenir depuis ce delai retombe entite de fond.
+    pub lapse_ticks: u64,
+    /// Facteur de decroissance de la force d'un souvenir, par tick.
+    pub memory_decay: f32,
+    /// Un souvenir sous cette force est oublie.
+    pub memory_eps: f32,
+    /// Nombre maximal de souvenirs episodiques (le plus faible cede la place).
+    pub max_memories: u32,
+    /// Deux souvenirs de meme nature a moins de `memory_merge_dist` cases fusionnent.
+    pub memory_merge_dist: f32,
+    /// Poids maximal du biais memoire dans la cible de deplacement d'un agent.
+    pub mem_weight: f32,
+    /// Portee spatiale du noyau de souvenir, en cases.
+    pub mem_radius: f32,
+}
+impl Default for CognitionCfg {
+    fn default() -> Self {
+        CognitionCfg {
+            perception_min: 0.62,
+            age_min_frac: 0.15,
+            peril_frac: 0.18,
+            bounty_abs: 3.0,
+            shock_interval: 150,
+            grace_ticks: 800,
+            lapse_ticks: 2500,
+            memory_decay: 0.9985,
+            memory_eps: 0.05,
+            max_memories: 12,
+            memory_merge_dist: 3.0,
+            mem_weight: 0.5,
+            mem_radius: 7.0,
         }
     }
 }

@@ -209,6 +209,8 @@ impl WorldState {
                 target: None,
                 colony_support: 0.0,
                 cell_id: None,
+                mind: None,
+                last_shock: None,
             });
         }
 
@@ -276,6 +278,21 @@ impl WorldState {
 
     pub fn population(&self) -> u32 {
         self.entities.len() as u32
+    }
+
+    /// Agents vivants (0.0.3) : combien portent un `Mind`, et le nombre moyen de souvenirs
+    /// episodiques parmi eux.
+    pub fn agent_stats(&self) -> (u32, f32) {
+        let mut count = 0u32;
+        let mut mem = 0u64;
+        for e in self.entities.iter() {
+            if let Some(m) = &e.mind {
+                count += 1;
+                mem += m.episodic.len() as u64;
+            }
+        }
+        let mean = if count > 0 { mem as f32 / count as f32 } else { 0.0 };
+        (count, mean)
     }
 
     pub fn mean_age(&self) -> f64 {

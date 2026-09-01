@@ -120,6 +120,27 @@ leave_factor      = 1.9    # un membre à plus de rayon * ce facteur du centre q
 energy_share      = 0.15   # fraction de l'écart à la moyenne d'énergie de la cellule corrigée par tick
 cell_birth_relief = 0.4    # part d'échec de division en moins pour un membre de cellule
 
+[cognition]
+# Cognition (0.0.3, tranche 1 « le premier souvenir »). Une entité qui perçoit assez bien
+# (perception_min), a vécu assez longtemps (age_min_frac) et vient de subir un choc s'éveille
+# en agent : elle gagne une mémoire épisodique spatiale, bornée et décroissante, qui biaise
+# son déplacement (elle évite les lieux de péril, revient aux lieux d'aubaine). Réversible :
+# un agent sans souvenir depuis lapse_ticks retombe entité de fond. Substrat semé : pas de
+# personnalité héritée ni de besoins pour l'instant (voir 05_COGNITION.md).
+perception_min    = 0.62   # perception minimale pour l'éveil (plage de départ : 0.35..0.65)
+age_min_frac      = 0.15   # fraction de l'espérance de vie à avoir vécu avant l'éveil
+peril_frac        = 0.18   # énergie sous peril_frac * energy_threshold : choc de péril
+bounty_abs        = 3.0    # gain d'énergie en un tick au-dessus de ça : choc d'aubaine
+shock_interval    = 150    # intervalle mini entre deux chocs enregistrés pour une entité
+grace_ticks       = 800    # un agent frais ne peut pas retomber avant cet âge
+lapse_ticks       = 2500   # un agent sans aucun souvenir depuis ce délai retombe
+memory_decay      = 0.9985 # facteur de décroissance de la force d'un souvenir, par tick
+memory_eps        = 0.05   # un souvenir sous cette force est oublié
+max_memories      = 12     # nombre maximal de souvenirs (le plus faible cède la place)
+memory_merge_dist = 3.0    # deux souvenirs de même nature à moins de N cases fusionnent
+mem_weight        = 0.5    # poids maximal du biais mémoire dans la cible de déplacement
+mem_radius        = 7.0    # portée spatiale du noyau de souvenir, en cases
+
 [view]
 # Niveau de détail de la projection (genesis-view::project). Au delà du seuil, la frame
 # envoie des amas au lieu d'individus : le fichier reste petit quelle que soit la population.

@@ -85,34 +85,46 @@ fn causes_are_wired() {
     // `EntityDied` anterieur.
     use genesis_core::EventKind;
     let cfg = SimConfig::default();
-    let mut w = WorldState::new(3, &cfg);
-    let mut died: std::collections::HashMap<u64, u64> = std::collections::HashMap::new(); // seq -> tick
     let mut linked = 0usize;
-    for _ in 0..60_000 {
-        let ev = tick(&mut w, &cfg);
-        for e in ev.iter() {
-            match &e.kind {
-                EventKind::EntityDied { .. } => {
-                    died.insert(e.seq, e.tick);
-                }
-                EventKind::PopulationCrash { .. } | EventKind::LineageExtinct { .. } => {
-                    for &c in e.causes.iter() {
-                        assert!(c < e.seq, "cause {} apres l'effet {}", c, e.seq);
-                        let dtick = died.get(&c).copied().unwrap_or_else(|| {
-                            panic!("cause {} n'est pas un EntityDied connu", c)
-                        });
-                        assert!(dtick <= e.tick, "cause au tick {} apres l'effet {}", dtick, e.tick);
-                        linked += 1;
+    // Un balayage de graines : selon la trajectoire, la lignee qui s'eteint ou le crash
+    // n'arrive pas toujours dans la fenetre. On s'arrete des qu'un lien est verifie.
+    for seed in [3u64, 1, 7, 12, 20, 31] {
+        let mut w = WorldState::new(seed, &cfg);
+        let mut died: std::collections::HashMap<u64, u64> = std::collections::HashMap::new();
+        for _ in 0..60_000 {
+            let ev = tick(&mut w, &cfg);
+            for e in ev.iter() {
+                match &e.kind {
+                    EventKind::EntityDied { .. } => {
+                        died.insert(e.seq, e.tick);
                     }
+                    EventKind::PopulationCrash { .. } | EventKind::LineageExtinct { .. } => {
+                        for &c in e.causes.iter() {
+                            assert!(c < e.seq, "cause {} apres l'effet {}", c, e.seq);
+                            let dtick = died.get(&c).copied().unwrap_or_else(|| {
+                                panic!("cause {} n'est pas un EntityDied connu", c)
+                            });
+                            assert!(
+                                dtick <= e.tick,
+                                "cause au tick {} apres l'effet {}",
+                                dtick,
+                                e.tick
+                            );
+                            linked += 1;
+                        }
+                    }
+                    _ => {}
                 }
-                _ => {}
+            }
+            if w.entities.is_empty() {
+                break;
             }
         }
-        if w.entities.is_empty() {
+        if linked > 0 {
             break;
         }
     }
-    assert!(linked > 0, "aucun lien causal cable sur toute la course");
+    assert!(linked > 0, "aucun lien causal cable sur tout le balayage de graines");
 }
 
 #[test]
@@ -218,6 +230,78 @@ fn series_stats_are_sane() {
     }
     // Sur 20000 ticks la population a traverse plusieurs generations.
     assert!(final_gen > 2.0, "la generation moyenne n'a pas progresse : {final_gen}");
+}
+
+#[test]
+fn agents_awake_and_remember() {
+    // Cognition (0.0.3, tranche 1) : des entites s'eveillent en agents, accumulent des
+    // souvenirs bornes et decroissants, chaque souvenir ancre pointe un evenement anterieur.
+    use genesis_core::EventKind;
+    let cfg = SimConfig::default();
+    let max_mem = cfg.cognition.max_memories as usize;
+    let mut w = WorldState::new(3, &cfg);
+    let mut seen_seq: std::collections::HashSet<u64> = std::collections::HashSet::new();
+    let mut awoke = 0usize;
+    let mut peak_agents = 0u32;
+    for _ in 0..60_000 {
+        let ev = tick(&mut w, &cfg);
+        for e in ev.iter() {
+            seen_seq.insert(e.seq);
+            if let EventKind::AgentAwoke { .. } = e.kind {
+                awoke += 1;
+            }
+        }
+        let (n, _) = w.agent_stats();
+        peak_agents = peak_agents.max(n);
+        for a in w.entities.iter() {
+            if let Some(m) = &a.mind {
+                assert!(m.episodic.len() <= max_mem, "trop de souvenirs au tick {}", w.tick);
+                for mem in m.episodic.iter() {
+                    assert!(
+                        mem.strength > 0.0 && mem.strength <= 1.0 + 1e-4,
+                        "force de souvenir hors bornes : {}",
+                        mem.strength
+                    );
+                    if let Some(seq) = mem.event_seq {
+                        assert!(seen_seq.contains(&seq), "souvenir ancre sur un seq inconnu");
+                    }
+                }
+            }
+        }
+        if w.entities.is_empty() {
+            break;
+        }
+    }
+    assert!(awoke > 0, "aucune entite ne s'est eveillee en agent");
+    assert!(peak_agents > 0, "aucun agent vivant a aucun moment");
+}
+
+#[test]
+fn agent_promotion_is_reversible() {
+    // Un agent qui n'a plus aucun souvenir depuis longtemps retombe entite de fond : aucun
+    // agent ne doit garder une memoire vide au-dela du delai de grace plus de latence.
+    let cfg = SimConfig::default();
+    let slack = cfg.cognition.grace_ticks + cfg.cognition.lapse_ticks + cfg.watch.interval_ticks;
+    let mut w = WorldState::new(7, &cfg);
+    for _ in 0..50_000 {
+        let _ = tick(&mut w, &cfg);
+        for a in w.entities.iter() {
+            if let Some(m) = &a.mind {
+                if m.episodic.is_empty() {
+                    let since = w.tick.saturating_sub(m.awoke_tick);
+                    assert!(
+                        since <= slack,
+                        "agent {} sans souvenir depuis {} ticks, aurait du retomber",
+                        a.id,
+                        since
+                    );
+                }
+            }
+        }
+        if w.entities.is_empty() {
+            break;
+        }
+    }
 }
 
 #[test]

@@ -5,6 +5,7 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::cognition::{Mind, Shock};
 use crate::genome::Genome;
 
 pub type EntityId = u64;
@@ -80,4 +81,16 @@ pub struct Entity {
     /// Un membre partage l'energie du groupe et beneficie d'une reproduction protegee.
     #[serde(default)]
     pub cell_id: Option<u32>,
+
+    /// Esprit d'agent (0.0.3, tranche 1). `None` = organisme sans cognition (la quasi
+    /// totalite). Attache quand l'entite s'eveille (phase 5c), retire si elle retombe.
+    /// `Box` : l'esprit est plus gros que le reste de l'entite et rare, on ne veut pas
+    /// alourdir chaque `Entity` du `Vec`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mind: Option<Box<Mind>>,
+
+    /// Dernier choc marquant (famine ou aubaine), ecrit pour toutes les entites en phase 5.
+    /// Graine d'un futur souvenir : lu a l'eveil et a chaque tick par un agent.
+    #[serde(default)]
+    pub last_shock: Option<Shock>,
 }

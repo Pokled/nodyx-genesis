@@ -73,6 +73,12 @@ pub enum EventKind {
     CellFormed { cell: u32, size: u32 },
     /// Une cellule s'est dissoute : dispersion ou perte de ses membres. Bascule reversible.
     CellDissolved { cell: u32 },
+    /// Une entite s'est eveillee en agent : elle percoit assez, a vecu assez, et vient de
+    /// subir un choc. Elle gagne une memoire (0.0.3, tranche 1).
+    AgentAwoke { entity: EntityId },
+    /// Un agent est retombe entite de fond : plus aucun souvenir depuis longtemps. Bascule
+    /// reversible (la cognition n'est pas un aller simple).
+    AgentLapsed { entity: EntityId },
 }
 
 impl EventKind {
@@ -84,8 +90,10 @@ impl EventKind {
             EventKind::SpeciesEmerged { .. } => 235,
             EventKind::CellFormed { .. } => 230,
             EventKind::LineageExtinct { .. } => 225,
+            EventKind::AgentAwoke { .. } => 215,
             EventKind::PopulationCrash { .. } => 210,
             EventKind::CellDissolved { .. } => 200,
+            EventKind::AgentLapsed { .. } => 195,
             EventKind::PopulationMilestone { .. } => 180,
             EventKind::EntityDied { .. } => 3,
             EventKind::EntitySpawned { .. } => 2,

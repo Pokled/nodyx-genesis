@@ -17,9 +17,25 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use genesis_core::event::{Event, EventKind};
-use genesis_core::{tick, SimConfig, WorldDir, WorldState};
+use genesis_core::{tick, EntityId, Memory, SimConfig, WorldDir, WorldState};
 use genesis_core::persist::WorldMeta;
 use genesis_view::{project, series_row, SeriesRow, ViewFrame};
+
+/// Vie resumee d'un agent (0.0.3, tranche 1). Une ligne de `lives.jsonl` : quand il s'est
+/// eveille, comment sa vie d'agent s'est terminee (mort, retombee, ou toujours vivant), et
+/// sa memoire episodique de fin (pour les agents encore vivants au terme du run).
+#[derive(serde::Serialize)]
+struct AgentLife {
+    id: EntityId,
+    lineage: u16,
+    generation: u32,
+    perception: f32,
+    awoke_tick: u64,
+    ended_tick: Option<u64>,
+    /// "vivant" | "mort" | "sommeil"
+    ended: &'static str,
+    memories: Vec<Memory>,
+}
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
@@ -128,6 +144,8 @@ fn cmd_run(flags: &HashMap<String, String>) -> std::io::Result<()> {
     let mut since_frame: Vec<Event> = Vec::new();
     let mut notable: Vec<Event> = Vec::new();
     let mut extinct_at: Option<u64> = None;
+    // Vies d'agents (0.0.3) : suivies via le journal, figees a la mort ou a la retombee.
+    let mut lives: std::collections::HashMap<EntityId, AgentLife> = std::collections::HashMap::new();
 
     // Seuil de saillance pour le journal des choses qui comptent (chapitres).
     const NOTABLE: u8 = 150;
@@ -144,6 +162,46 @@ fn cmd_run(flags: &HashMap<String, String>) -> std::io::Result<()> {
         since_frame.extend(ev.iter().cloned());
         wdir.append_events(&ev)?;
         notable.extend(ev.iter().filter(|e| e.salience >= NOTABLE).cloned());
+
+        for e in ev.iter() {
+            match &e.kind {
+                EventKind::AgentAwoke { entity } => {
+                    let (lin, gen, per) = world
+                        .get(*entity)
+                        .map(|x| {
+                            (x.genome.lineage, x.genome.generation, x.genome.traits.perception)
+                        })
+                        .unwrap_or((0, 0, 0.0));
+                    lives.entry(*entity).or_insert(AgentLife {
+                        id: *entity,
+                        lineage: lin,
+                        generation: gen,
+                        perception: per,
+                        awoke_tick: world.tick,
+                        ended_tick: None,
+                        ended: "vivant",
+                        memories: Vec::new(),
+                    });
+                }
+                EventKind::AgentLapsed { entity } => {
+                    if let Some(l) = lives.get_mut(entity) {
+                        if l.ended_tick.is_none() {
+                            l.ended_tick = Some(world.tick);
+                            l.ended = "sommeil";
+                        }
+                    }
+                }
+                EventKind::EntityDied { entity, .. } => {
+                    if let Some(l) = lives.get_mut(entity) {
+                        if l.ended_tick.is_none() {
+                            l.ended_tick = Some(world.tick);
+                            l.ended = "mort";
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
 
         let interval = if world.tick <= genesis_window { dense_every } else { frame_every };
         if world.tick % interval == 0 {
@@ -169,6 +227,25 @@ fn cmd_run(flags: &HashMap<String, String>) -> std::io::Result<()> {
         series.push(series_row(&world, &cfg));
     }
 
+    // Agents encore vivants au terme : on capture leur memoire de fin.
+    for e in world.entities.iter() {
+        if let Some(m) = &e.mind {
+            let l = lives.entry(e.id).or_insert(AgentLife {
+                id: e.id,
+                lineage: e.genome.lineage,
+                generation: e.genome.generation,
+                perception: e.genome.traits.perception,
+                awoke_tick: m.awoke_tick,
+                ended_tick: None,
+                ended: "vivant",
+                memories: Vec::new(),
+            });
+            l.memories = m.episodic.clone();
+        }
+    }
+    let mut lives_vec: Vec<AgentLife> = lives.into_values().collect();
+    lives_vec.sort_by_key(|l| (l.awoke_tick, l.id));
+
     let meta = WorldMeta {
         seed,
         engine_version: genesis_core::ENGINE_VERSION.to_string(),
@@ -181,6 +258,7 @@ fn cmd_run(flags: &HashMap<String, String>) -> std::io::Result<()> {
     write_frames_jsonl(&wdir.root, &frames)?;
     write_jsonl(&wdir.root.join("notable.jsonl"), &notable)?;
     write_jsonl(&wdir.root.join("series.jsonl"), &series)?;
+    write_jsonl(&wdir.root.join("lives.jsonl"), &lives_vec)?;
     let html = view_html::render(&meta, &cfg, &frames);
     std::fs::write(wdir.root.join("view.html"), html)?;
     let series_html = series_html::render(&meta, &cfg, &series);
@@ -197,6 +275,13 @@ fn cmd_run(flags: &HashMap<String, String>) -> std::io::Result<()> {
     }
     println!("  frames            {}", frames.len());
     println!("  generation max    {}", series.last().map(|r| r.max_generation).unwrap_or(0));
+    {
+        let (agents_alive, mean_mem) = world.agent_stats();
+        let awoke = lives_vec.len();
+        println!("  agents eveilles   {awoke}");
+        println!("  dont vivants      {agents_alive}");
+        println!("  souvenirs (moy.)  {mean_mem:.1}");
+    }
     println!();
     println!("Ouvre {}", wdir.root.join("view.html").display());
     println!("      {}", wdir.root.join("series.html").display());

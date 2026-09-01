@@ -1,6 +1,7 @@
 # 05. Cognition
 
-Statut : SQUELETTE. Le pont Entity vers Agent et la question semé ou cultivé sont posés.
+Statut : TRANCHE 1 FAITE (le premier souvenir). Le pont Entity vers Agent et la question
+semé ou cultivé sont posés ; la mémoire épisodique minimale est construite et tourne.
 L'architecture détaillée (Context Builder, Model Router, RAG) attend 0.0.5 et sera reprise
 ici à ce moment.
 
@@ -68,6 +69,55 @@ Ce qui est construit en dur pour le jalon 0.0.3, sans LLM :
 
 Critère de réussite du jalon (repris de `10_ROADMAP.md`) : le comportement dépend
 visiblement d'un souvenir vérifiable, une biographie auto-générée tient debout, zéro LLM.
+
+---
+
+## Tranche 1 : le premier souvenir (fait, 2026-09-01)
+
+Une chaîne verticale minimale, bout en bout, pour que la mémoire soit observable tout de
+suite. Schéma v7. Config `[cognition]`.
+
+**Éveil.** Une entité gagne un `Mind` (phase 5c de `sim.rs`, `cognition_phase`, séquentiel,
+sans RNG) quand elle réunit trois conditions : `perception >= perception_min` (au dessus du
+milieu de la plage de départ, donc sélectif, et le trait peut monter si être agent aide à
+survivre), âge `>= age_min_frac` de l'espérance de vie (un juvénile n'a pas d'histoire), et
+un choc récent à mémoriser. Événement `AgentAwoke` (saillance 215). C'est une marche de
+l'escalier des échelles, détectée par seuil comme `SpeciesEmerged` ou `CellFormed`.
+
+**Choc.** Toutes les entités (agents ou non) portent un `last_shock` (coût nul) : écrit en
+phase 5 quand l'énergie tombe sous `peril_frac * energy_threshold` (péril) ou qu'un gain
+dépasse `bounty_abs` (aubaine), espacé de `shock_interval`. C'est la graine d'un souvenir.
+
+**Souvenir.** `Memory { formed_tick, place, kind: Peril | Bounty, event_seq: Option<u64>,
+strength }`. Borné à `max_memories` (le plus faible cède la place), fusion des souvenirs de
+même nature à moins de `memory_merge_dist` cases, décroissance `* memory_decay` par tick,
+oubli sous `memory_eps`. En tranche 1 le péril (sa propre famine) n'a pas d'événement
+source : `event_seq = None`, souvenir purement subjectif. Invariant 5 : un souvenir ancré
+garde son `event_seq`, la divergence avec le fait se mesure, elle ne se corrige jamais.
+
+**Comportement.** En phase 2/3 (décision, parallèle, lecture seule sur `mind`), un agent
+non affamé laisse sa mémoire tirer sa cible de déplacement hors des lieux de péril, vers les
+lieux d'aubaine : somme de noyaux gaussiens pondérés par la force, atténuée par la faim
+(comme `hunger_damp` pour la cohésion) et modulée par une personnalité **dérivée des
+traits** (`caution` de `lifespan`, `curiosity` de `perception`).
+
+**Retombée.** Un agent dont la mémoire est vide depuis `lapse_ticks` (et passé le délai de
+grâce) perd son `Mind` : `AgentLapsed` (saillance 195). La cognition n'est pas un aller
+simple. Observé : dans un monde affamé, les agents meurent souvent avant d'oublier ; la
+retombée est câblée et testée (invariant), elle se déclenche peu avec ces paramètres.
+
+**Résultat (A/B graine 3, 60000 ticks, mémoire active vs `mem_weight = 0`).** Le
+déplacement guidé par la mémoire réduit les morts par famine d'environ 15 % (13 100 contre
+15 400), pour une population d'équilibre inchangée. Effet réel et doux, dans l'esprit de la
+cohésion. La perception est déjà fortement sélectionnée vers le haut (moyenne ~0,92) : avec
+les défauts, l'éveil devient courant en cours de partie (quelques centaines d'agents vivants
+sur ~2300 entités). Rendre l'éveil plus rare ou le lier à une capacité plus discriminante
+est un chantier de tranche 2.
+
+**Ce qui reste (tranche 2 et après).** Besoins (jauges), personnalité héritée (paramètres
+au génome, pas dérivés), souvenirs ancrés sur un événement (mort d'un proche vue), modèle
+de comportement complet, page biographie `lives.html` (la tranche 1 écrit `lives.jsonl`),
+dé-simulation de la biologie sous l'agent.
 
 ---
 

@@ -10,6 +10,7 @@
 //!  - l'etat du RNG fait partie du World State, donc des instantanes (tranchee 5),
 //!  - le mouvement n'est pas un evenement, le journal ne porte que le squelette causal (tranchee 17).
 
+pub mod cognition;
 pub mod config;
 pub mod entity;
 pub mod event;
@@ -20,6 +21,7 @@ pub mod sim;
 pub mod spatial;
 pub mod world;
 
+pub use cognition::{Memory, MemoryKind, Mind, Shock};
 pub use config::SimConfig;
 pub use entity::{Action, Entity, EntityId, Position};
 pub use event::{DeathCause, Event, EventKind};
@@ -39,4 +41,6 @@ pub const ENGINE_VERSION: &str = env!("CARGO_PKG_VERSION");
 /// v5 : cellules (`WorldState.cells`, `Entity.cell_id`) : la premiere marche de l'escalier.
 /// v6 : `seq` d'evenement attribue a la creation (`WorldState.next_event_seq`), tracabilite
 ///      causale de base (`Watch.deaths_since_check`, `last_death_seq_by_lineage`).
-pub const SCHEMA_VERSION: u32 = 6;
+/// v7 : cognition (`Entity.mind`, `Entity.last_shock`) : la marche « individu » de
+///      l'escalier. Un agent porte une memoire episodique qui biaise son deplacement.
+pub const SCHEMA_VERSION: u32 = 7;

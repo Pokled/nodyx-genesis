@@ -132,7 +132,8 @@ struct ResourceField {
 
 ## Entité
 
-En 0.0.1, une entité est un organisme sans cognition.
+En 0.0.1, une entité est un organisme sans cognition. À partir de 0.0.3 elle peut porter un
+esprit (`mind`) : elle devient alors un agent.
 
 ```
 struct Entity {
@@ -143,6 +144,10 @@ struct Entity {
     position:   Position,   // coordonnées grille, en f32 (mouvement sous-case)
     energy:     f32,        // <= starve_at signifie mort. Source de vérité de l'énergie, ici.
     age_ticks:  u64,
+
+    cell_id:    Option<u32>,        // (0.0.2) cellule d'appartenance, None = molécule libre
+    mind:       Option<Box<Mind>>,  // (0.0.3, schema v7) esprit d'agent, None pour la quasi-totalité
+    last_shock: Option<Shock>,      // (0.0.3) dernier choc marquant, graine d'un souvenir
 }
 
 struct Position { x: f32, y: f32 }
@@ -150,6 +155,36 @@ struct Position { x: f32, y: f32 }
 
 Réponse à un manque de l'audit : l'énergie appartient à `WorldState.entities[id].energy`.
 Seul le système Métabolisme l'écrit.
+
+## Cognition (0.0.3, tranche 1)
+
+Une entité s'éveille en agent (phase 5c de `sim.rs`) quand elle perçoit assez, a assez vécu
+et vient de subir un choc. Elle gagne un `Mind`. Réversible : sans souvenir depuis
+`lapse_ticks`, elle retombe. Détails et paramètres : `05_COGNITION.md`, config `[cognition]`.
+
+```
+struct Mind {
+    awoke_tick: u64,
+    episodic:   Vec<Memory>,   // borné à max_memories, le plus faible cède la place
+}
+
+struct Memory {
+    formed_tick: u64,
+    place:       Position,
+    kind:        MemoryKind,     // Peril | Bounty
+    event_seq:   Option<u64>,    // lien vers le fait objectif (Event.seq). Invariant 5 : la
+                                 // mémoire subjective ne réécrit jamais l'histoire objective,
+                                 // la divergence se mesure, elle ne se corrige pas.
+                                 // None en tranche 1 (péril = famine subjective, sans événement).
+    strength:    f32,            // (0, 1], décroît * memory_decay par tick, oubli sous memory_eps
+}
+
+struct Shock { tick: u64, place: Position, peril: bool }   // écrit pour toutes les entités
+```
+
+En tranche 1 la mémoire biaise seulement le déplacement de l'agent (phase 2/3, hors des
+lieux de péril, vers les lieux d'aubaine). Besoins, personnalité héritée et modèle de
+comportement complet sont des tranches suivantes.
 
 ## Génome
 
@@ -210,6 +245,8 @@ enum EventKind {
     PopulationCrash { from: u32, to: u32 },
     CellFormed { cell: u32, size: u32 },   // (0.0.2, tranche 2)
     CellDissolved { cell: u32 },
+    AgentAwoke { entity: EntityId },        // (0.0.3, tranche 1) une entité s'éveille en agent
+    AgentLapsed { entity: EntityId },       // ... et retombe entité de fond. Réversible.
 }
 ```
 

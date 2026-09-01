@@ -196,6 +196,10 @@
       <div class="stat"><span class="tip" data-tip="Nombre d'entites actuellement membres d'une cellule. Etre en cellule apporte le partage d'energie (tampon contre la famine) et une reproduction protegee.">entites en cellule</span><b id="s-cellent">0</b></div>
       <div class="stat"><span class="tip" data-tip="Effectif moyen d'une cellule.">taille moyenne</span><b id="s-cellsize">0</b></div>
       <div class="stat"><span class="tip" data-tip="Cellules formees puis dissoutes depuis le debut. Une bascule reversible : une cellule qui se disperse ou perd ses membres se dissout.">formees / dissoutes</span><b id="s-cellfd">0 / 0</b></div>
+
+      <h2>Agents</h2>
+      <div class="stat"><span class="tip" data-tip="Entites eveillees : elles percoivent assez bien et ont assez vecu pour porter une memoire episodique. Un agent evite les lieux ou il a failli mourir et revient aux lieux ou il a bien mange. Reversible : un agent sans souvenir depuis longtemps retombe entite de fond. Marques d'un anneau sur la scene.">agents vivants</span><b id="s-agents">0</b></div>
+      <div class="stat"><span class="tip" data-tip="Nombre moyen de souvenirs episodiques que portent les agents. Chaque souvenir est un lieu, une valence (peril ou aubaine) et une force qui decroit avec le temps.">souvenirs (moyenne)</span><b id="s-agmem">0</b></div>
     </div>
   </aside>
 </main>
@@ -381,6 +385,8 @@ function chapterLabel(e) {
     palier: 'Palier de population',
     cellule: 'Une cellule se forme',
     cellule_dissoute: 'Une cellule se dissout',
+    agent_eveille: "Un individu s'eveille",
+    agent_endormi: 'Un individu retombe entite de fond',
   }[e.kind] || e.kind;
   return e.note ? l + ' (' + e.note + ')' : l;
 }
@@ -525,6 +531,14 @@ function paintEntity(e, px, py, ep, ap, alpha, born) {
     ctx.strokeStyle = 'rgba(109, 179, 138, 0.7)';
     ctx.lineWidth = 1.2;
     ctx.arc(x, y, rr + 3.5, 0, 6.2832);
+    ctx.stroke();
+  }
+  // Agent (0.0.3) : un anneau clair, fin, un peu detache. Une entite qui se souvient.
+  if (e.agent) {
+    ctx.beginPath();
+    ctx.strokeStyle = 'rgba(233, 227, 208, 0.72)';
+    ctx.lineWidth = 1;
+    ctx.arc(x, y, rr + 2.5, 0, 6.2832);
     ctx.stroke();
   }
   ctx.globalAlpha = 1;
@@ -684,6 +698,8 @@ function updatePanels(i) {
   set('s-cellent', (st.entities_in_cells || 0).toLocaleString('fr'));
   set('s-cellsize', (st.mean_cell_size || 0).toFixed(1));
   set('s-cellfd', (st.cells_formed_total || 0).toLocaleString('fr') + ' / ' + (st.cells_dissolved_total || 0).toLocaleString('fr'));
+  set('s-agents', (st.agents_alive || 0).toLocaleString('fr'));
+  set('s-agmem', (st.mean_memories || 0).toFixed(1));
 
   for (let k = 0; k < TRAITS.length; k++) {
     traitVals[k].textContent = st.trait_mean[k].toFixed(2) + '  +/- ' + st.trait_spread[k].toFixed(2);

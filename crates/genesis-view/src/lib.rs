@@ -16,7 +16,7 @@ use genesis_core::event::{Event, EventKind};
 use genesis_core::genome::N_TRAITS;
 use genesis_core::{EntityId, SimConfig, WorldState};
 
-pub const VIEW_VERSION: u16 = 5;
+pub const VIEW_VERSION: u16 = 6;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct ViewFrame {
@@ -124,6 +124,9 @@ pub struct EntityView {
     /// teinte 0..359, deja calculee depuis le genome.
     pub hue: u16,
     pub state: &'static str,
+    /// `true` si l'entite est un agent (elle porte un `Mind`, 0.0.3). Omis sinon.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub agent: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -190,6 +193,11 @@ pub struct WorldStats {
     pub mean_cell_size: f32,
     pub cells_formed_total: u64,
     pub cells_dissolved_total: u64,
+
+    /// Agents (0.0.3, tranche 1) : entites vivantes qui portent une memoire, et le nombre
+    /// moyen de souvenirs episodiques parmi elles.
+    pub agents_alive: u32,
+    pub mean_memories: f32,
 }
 
 /// Une ligne de la serie temporelle (`series.jsonl`). Fonction pure de `(WorldState, config)`
@@ -211,6 +219,8 @@ pub struct SeriesRow {
     pub genetic_diversity: f32,
     pub cells_alive: u32,
     pub entities_in_cells: u32,
+    /// Agents vivants (0.0.3, tranche 1).
+    pub agents_alive: u32,
     pub carrying_capacity: u32,
     /// Par trait (metabolism, speed, perception, efficiency, fertility, lifespan, cohesion).
     pub trait_mean: [f32; N_TRAITS],
@@ -228,6 +238,7 @@ pub fn series_row(world: &WorldState, cfg: &SimConfig) -> SeriesRow {
     let (_, _, max_generation) = world.lineage_stats();
     let (_, carrying_capacity, _) = world.matter_stats(cfg.bricks.body_matter);
     let (cells_alive, entities_in_cells, _) = world.cell_stats();
+    let (agents_alive, _) = world.agent_stats();
     let clock = WorldClock::from_tick(world.tick, cfg.time.tick_duration_seconds);
     SeriesRow {
         tick: world.tick,
@@ -243,6 +254,7 @@ pub fn series_row(world: &WorldState, cfg: &SimConfig) -> SeriesRow {
         genetic_diversity: world.genetic_diversity(),
         cells_alive,
         entities_in_cells,
+        agents_alive,
         carrying_capacity,
         trait_mean,
         trait_spread,
@@ -295,6 +307,7 @@ pub fn project(
                 age: (age_pct * 100.0).round() as u8,
                 hue: hue_of(&e.genome.traits) as u16,
                 state: e.last_action.as_str(),
+                agent: e.mind.is_some(),
             });
         }
     } else {
@@ -351,6 +364,7 @@ pub fn project(
     let (free_matter, carrying_capacity, matter_locked_fraction) =
         world.matter_stats(cfg.bricks.body_matter);
     let (cells_alive, entities_in_cells, mean_cell_size) = world.cell_stats();
+    let (agents_alive, mean_memories) = world.agent_stats();
 
     ViewFrame {
         view_version: VIEW_VERSION,
@@ -395,6 +409,8 @@ pub fn project(
             mean_cell_size,
             cells_formed_total: world.cells_formed_total,
             cells_dissolved_total: world.cells_dissolved_total,
+            agents_alive,
+            mean_memories,
         },
     }
 }
@@ -538,6 +554,8 @@ fn event_view(e: &Event) -> Option<EventView> {
         EventKind::CellDissolved { cell } => {
             ("cellule_dissoute", vec![], format!("cellule {}", cell))
         }
+        EventKind::AgentAwoke { entity } => ("agent_eveille", vec![*entity], String::new()),
+        EventKind::AgentLapsed { entity } => ("agent_endormi", vec![*entity], String::new()),
         // EntityAte et SnapshotTaken sont trop bruyants, on ne les remonte pas.
         _ => return None,
     };

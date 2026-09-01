@@ -1,0 +1,120 @@
+//! Cognition, 0.0.3 : la marche « individu » de l'escalier des echelles.
+//!
+//! Tranche 1 (« le premier souvenir ») : une entite qui perçoit assez bien, a vecu assez
+//! longtemps et vient de subir un choc s'eveille en Agent. Elle gagne un `Mind` : une
+//! memoire episodique spatiale, bornee, qui decroit. Cette memoire biaise son deplacement
+//! (elle evite les lieux de peril, elle revient aux lieux d'aubaine). Rien d'autre pour
+//! l'instant : pas de besoins, pas de personnalite heritee, pas de LLM (voir
+//! `BIBLE/05_COGNITION.md`).
+//!
+//! Invariant 5 : la memoire subjective ne reecrit jamais l'histoire objective. Un souvenir
+//! ancre sur un evenement garde son `event_seq` ; la divergence entre le souvenir et le
+//! fait se mesure, elle ne se corrige pas.
+//!
+//! Invariant 6 : seuls les agents paient le cout cognitif. Le reste de la population ne
+//! porte qu'un `Option` a `None` et un petit `last_shock`.
+
+use serde::{Deserialize, Serialize};
+
+use crate::entity::Position;
+
+/// Nature d'un souvenir episodique. Tranche 1 : deux valences spatiales.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MemoryKind {
+    /// Un lieu ou l'agent a failli mourir (famine). A eviter.
+    Peril,
+    /// Un lieu ou l'agent a trouve beaucoup a manger d'un coup. A retrouver.
+    Bounty,
+}
+
+/// Un souvenir episodique : un lieu, une valence, une force qui decroit.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Memory {
+    pub formed_tick: u64,
+    /// Ou, en coordonnees monde.
+    pub place: Position,
+    pub kind: MemoryKind,
+    /// `seq` de l'evenement objectif a l'origine du souvenir, s'il y en a un. En tranche 1
+    /// le peril (sa propre famine) n'a pas d'evenement source : `None`, souvenir purement
+    /// subjectif. Les souvenirs ancres (mort d'un proche vue) arrivent en tranche 2.
+    #[serde(default)]
+    pub event_seq: Option<u64>,
+    /// Force dans (0, 1]. Decroit chaque tick, le souvenir s'efface sous `memory_eps`.
+    pub strength: f32,
+}
+
+/// L'esprit d'un agent. Attache a l'entite quand elle s'eveille, retire si elle retombe.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Mind {
+    /// Tick de l'eveil. Sert au delai de grace et a la retombee.
+    pub awoke_tick: u64,
+    /// Memoire episodique, bornee a `max_memories` (le plus faible cede la place).
+    pub episodic: Vec<Memory>,
+}
+
+impl Mind {
+    pub fn new(awoke_tick: u64, first: Memory) -> Self {
+        Mind { awoke_tick, episodic: vec![first] }
+    }
+
+    /// Fait decroitre chaque souvenir et retire ceux qui sont passes sous le seuil.
+    pub fn decay_and_prune(&mut self, decay: f32, eps: f32) {
+        for m in self.episodic.iter_mut() {
+            m.strength *= decay;
+        }
+        self.episodic.retain(|m| m.strength >= eps);
+    }
+
+    /// Enregistre un souvenir. Si un souvenir de meme nature existe deja tout pres (moins de
+    /// `merge_dist` cases), on le renforce et on le rafraichit au lieu d'en ajouter un. Sinon
+    /// on insere ; si la memoire est pleine, le souvenir le plus faible cede la place.
+    pub fn record(&mut self, m: Memory, max: usize, merge_dist: f32) {
+        let md2 = merge_dist * merge_dist;
+        if let Some(existing) = self.episodic.iter_mut().find(|e| {
+            e.kind == m.kind && e.place.dist2(&m.place) <= md2
+        }) {
+            existing.strength = (existing.strength + m.strength).min(1.0);
+            existing.formed_tick = m.formed_tick;
+            if existing.event_seq.is_none() {
+                existing.event_seq = m.event_seq;
+            }
+            return;
+        }
+        if self.episodic.len() >= max.max(1) {
+            // remplace le plus faible si le nouveau est plus fort, sinon ignore
+            if let Some((wi, weakest)) = self
+                .episodic
+                .iter()
+                .enumerate()
+                .min_by(|a, b| a.1.strength.partial_cmp(&b.1.strength).unwrap_or(std::cmp::Ordering::Equal))
+            {
+                if m.strength > weakest.strength {
+                    self.episodic[wi] = m;
+                }
+            }
+            return;
+        }
+        self.episodic.push(m);
+    }
+}
+
+/// Trace du dernier choc marquant vecu par une entite (agent ou non). Ecrit en phase 5,
+/// lu en phase 5c : c'est la graine d'un souvenir, pas encore de la cognition.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub struct Shock {
+    pub tick: u64,
+    pub place: Position,
+    /// `true` = famine (peril), `false` = gain de nourriture exceptionnel (aubaine).
+    pub peril: bool,
+}
+
+impl Shock {
+    pub fn kind(&self) -> MemoryKind {
+        if self.peril {
+            MemoryKind::Peril
+        } else {
+            MemoryKind::Bounty
+        }
+    }
+}
