@@ -1,0 +1,9 @@
+# Fins de ligne normalisees en LF dans le depot, quel que soit l'OS.
+* text=auto eol=lf
+
+# Binaires : pas de conversion.
+*.png binary
+*.jpg binary
+*.webp binary
+*.pdf binary
+*.svg -text

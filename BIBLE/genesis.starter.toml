@@ -1,0 +1,148 @@
+# Nodyx Genesis, configuration de départ (tranchée 12)
+# Toutes ces valeurs sont des points de départ, à mesurer et ajuster.
+# Le principe est de partir avec des nombres, pas avec "configurable".
+# Périmètre : Genesis 0.0.1.
+
+[world]
+grid_width  = 128
+grid_height = 128
+bounded     = true          # des bords, pas de repli toroïdal
+
+[planet]
+# Constantes du monde, fixées à la création. En 0.0.1 elles sont seulement affichées
+# (savoir dans quel environnement on se trouve). Les jalons suivants les feront moduler
+# des coefficients : métabolisme selon la température, déplacement selon la gravité,
+# efficacité selon la pression et le milieu.
+temperature_c = 15.0        # température moyenne de l'environnement, degrés Celsius
+medium        = "eau"       # milieu où baigne la vie : eau, acide, air, ...
+gravity       = 1.0         # en multiples de la gravité terrestre
+pressure_atm  = 1.0         # en atmosphères
+
+[time]
+tick_duration_seconds        = 3600   # 1 tick = 1 heure-monde en 0.0.1
+target_ticks_per_real_second = 60     # la sim vise environ 60 fois le temps réel
+
+[resources]
+regen_rate   = 0.015  # fraction du plafond de la case régénérée, par passage de régen
+max_per_cell = 10.0   # plafond d'une case parfaitement fertile
+initial_fill = 0.5    # remplissage initial, en fraction du plafond propre à chaque case
+regen_every  = 4      # la régénération ne tourne qu'un tick sur N (taux multiplié par N),
+                      # le milieu change lentement : on évite de balayer 16 000 cases chaque tick
+
+# Le plafond réel d'une case = max_per_cell * fertilité(case). La fertilité est un champ
+# statique généré à la création (quelques bosses douces sur fond pauvre), voir world.rs.
+
+[bricks]
+# Briques élémentaires (0.0.2) : la matière structurelle dont sont faits les corps. Le monde
+# en contient une quantité finie (matter_per_cell x nombre de cases). Un corps vivant en
+# immobilise body_matter ; le reste est le stock libre. Une division prend body_matter du
+# stock pour bâtir l'enfant ; si le stock est à sec, la division cale et le parent patiente.
+# La mort rend body_matter au stock. Somme conservée exactement.
+# C'est le vrai frein de capacité : la population plafonne autour de
+# matter_per_cell x cases / body_matter, avec une oscillation (au plafond les divisions
+# calent, des morts libèrent de la matière, ça repart). Distinct de l'énergie (le carburant)
+# et de la surexploitation (la fatigue du sol). Non spatial en 0.0.2 : une géographie de la
+# matière viendra avec les biomes.
+matter_per_cell = 0.14   # matière totale du monde = ceci x nombre de cases (128x128 -> ~2290)
+body_matter     = 1.0    # matière immobilisée par un corps vivant, libérée à la mort
+comfort_frac    = 0.06   # V2 : sous ce coussin (fraction de la matière totale), la division
+                         # devient probabiliste. La population respire dans cette bande au
+                         # lieu d'être épinglée au plafond.
+retry_frac      = 0.4    # patience après un échec faute de matière (fraction de la gestation ;
+                         # deux fois moins sur un échec probabiliste, la matière se libère vite)
+
+[environment]
+corpse_nutrients     = 1.5    # matière rendue à la case à la mort (le corps)
+corpse_energy_return = 0.5    # + cette fraction de l'énergie restante de l'entité
+strain_per_harvest   = 0.06   # tension de surexploitation ajoutée par unité récoltée
+strain_decay         = 0.997  # décroissance de la tension par tick (récupération du sol)
+
+[metabolism]
+base_burn = 0.05   # énergie/tick pour metabolism = 0.5
+move_cost = 0.02   # énergie par unité de distance
+eat_rate  = 2.0    # énergie max absorbée d'une case par tick
+
+[lifecycle]
+starve_at           = 0.0
+lifespan_ticks_mean = 20000   # environ 2,3 années-monde, à régler
+age_death_curve     = 4.0
+
+[reproduction]
+mode                 = "asexual"  # stade molécule : scission. Le sexué arrive à 0.0.2+
+energy_threshold     = 8.0        # énergie minimale pour se scinder
+energy_cost          = 1.5        # surcoût de réplication, retiré avant le partage en deux
+partner_radius       = 2.0        # inutilisé en 0.0.1, gardé pour 0.0.2
+mutation_rate        = 0.05       # par trait
+mutation_scale       = 0.1        # écart-type de la mutation gaussienne
+lethal_mutation_rate = 0.06       # chance qu'une mutation soit létale : pas d'enfant
+gestation_ticks_base = 700        # après division, cooldown = base * (1.5 - fertilité)
+birth_loss_base      = 0.30       # échec de division sans infrastructure, avant surpopulation
+crowding_half        = 1.8        # entités en surplus sur une case pour un échec quasi certain
+maturity_frac        = 0.05       # fraction de l'espérance de vie avant la 1re division
+                                  # (un juvénile ne se reproduit pas ; casse la croissance exponentielle)
+
+[cohesion]
+# Le trait `cohesion` du génome. La FORCE de mouvement (pull_max) est éteinte : elle
+# déstabilise l'écosystème (voir expérience 003). L'agrégation reste passive : les entités
+# convergent sur la nourriture, ça fait des amas de fait.
+# Ce que fait `cohesion` en V1 : la retenue sur les communs. Une entité cohésion haute,
+# entourée de parents, mange un peu moins (coût privé) et fatigue beaucoup moins la case
+# partagée (bien commun). Sélection par parentèle : la coopération monte là où il y a des
+# colonies de parents, redescend chez les solitaires.
+radius               = 4.0
+pull_max             = 0.0    # force de mouvement, éteinte
+similarity_scale     = 2.0    # distance L1 de génome au delà de laquelle "pas parent"
+support_cap          = 4.0
+support_birth_relief = 0.0
+hunger_damp          = 0.0
+eat_restraint        = 0.25   # intake en moins pour un coopérateur entouré de parents
+strain_restraint     = 0.7    # surexploitation en moins dans la même situation
+
+[cells]
+# Cellules (0.0.2, tranche 2, étape 1 « membrane »). Un amas d'entités proches,
+# génétiquement parentes, cohésives et persistant devient une cellule : une unité reconnue.
+# Les membres restent simulés un à un (l'étape 2 les dé-simulera). Être en cellule apporte
+# le partage d'énergie (chaque membre tend vers la moyenne du groupe, un tampon contre la
+# famine locale) et une reproduction protégée. C'est ce qui rend le trait `cohesion`
+# vraiment adaptatif. Bascule réversible : une cellule qui se disperse ou perd ses membres
+# se dissout (tranchée 7). Détecteur bâti sur le modèle de l'émergence d'espèce.
+check_every       = 200    # détection tous les N ticks ; l'entretien tourne chaque tick
+link_dist         = 2.0    # deux entités se lient si à moins de N cases l'une de l'autre
+kin_dist          = 0.7    # ... et si leur distance L1 de génome est sous ce seuil
+min_cohesion      = 0.45   # cohésion moyenne minimale du groupe pour former une cellule
+min_members       = 12     # taille minimale d'un amas pour former une cellule
+max_spread        = 6.0    # rayon moyen maximal des membres pour former une cellule
+dissolve_members  = 6      # V2, hystérésis : une cellule formée ne se dissout qu'en dessous de ça
+dissolve_spread   = 11.0   # V2, hystérésis : ... et seulement au delà de ce rayon
+grace_ticks       = 600    # V2 : une cellule fraîche ne se dissout pas avant cet âge (sauf 0 membre)
+persist_checks    = 4      # contrôles consécutifs où le candidat doit tenir avant de former
+leave_factor      = 1.9    # un membre à plus de rayon * ce facteur du centre quitte la cellule
+energy_share      = 0.15   # fraction de l'écart à la moyenne d'énergie de la cellule corrigée par tick
+cell_birth_relief = 0.4    # part d'échec de division en moins pour un membre de cellule
+
+[view]
+# Niveau de détail de la projection (genesis-view::project). Au delà du seuil, la frame
+# envoie des amas au lieu d'individus : le fichier reste petit quelle que soit la population.
+detail_max_entities = 500
+cluster_grid        = 30    # cluster_grid^2 amas au plus en mode région
+
+[watch]
+# Détecteurs mécanisés qui produisent les événements saillants (les chapitres).
+# Ils ne mutent que WorldState.watch, jamais les entités ni le milieu.
+interval_ticks         = 200    # un contrôle tous les N ticks
+species_min_size       = 25     # effectif minimal d'un groupe pour être candidat espèce
+species_min_distance   = 0.9    # distance L1 sur les 7 traits, groupe vs stock dominant
+species_persist_checks = 3      # contrôles consécutifs où le candidat doit tenir
+species_max_spread     = 18.0   # rayon moyen max des membres : au delà, c'est de la dérive dispersée
+crash_drop_frac        = 0.5    # fraction de population perdue pour parler d'effondrement
+crash_window_checks    = 6      # longueur de la fenêtre de détection d'effondrement
+
+[persistence]
+snapshot_interval_ticks   = 5000
+event_log_partition_ticks = 100000
+series_every              = 500    # une ligne de série temporelle de stats (series.jsonl) tous les N ticks
+                                   # (le matériau du graphe d'évolution génétique, series.html)
+
+[events]
+max_events_per_tick = 4096
+max_cascade_depth   = 12

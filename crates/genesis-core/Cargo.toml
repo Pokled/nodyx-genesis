@@ -1,0 +1,13 @@
+[package]
+name = "genesis-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Nodyx Genesis, coeur du moteur : World State, tick, evenements, persistance. Ne depend d'aucun rendu."
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+toml.workspace = true
+rayon.workspace = true

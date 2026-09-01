@@ -1,0 +1,222 @@
+# 00. Registre des décisions, Nodyx Genesis
+
+Ce fichier est la référence. Toute décision du projet y figure avec son statut.
+Les 22 documents d'origine sont gelés dans `_sources/`. Ils ne font plus autorité.
+
+Dernière révision : 2026-08-31 (soir : moteur 0.0.1 compile et tourne, freins de natalité).
+
+## Statuts
+
+| Statut | Sens |
+|---|---|
+| LOCKED | Décidé. Ne bouge pas sans raison forte et sans passer par une expérience. |
+| PROPOSED | Proposé dans le document de direction. Tenu pour acquis sauf veto. |
+| OPEN | Pas tranché. En attente d'une décision. |
+| DEFERRED | Repoussé volontairement (joker). Le cap est connu, le détail viendra. |
+
+---
+
+## A. Les 10 invariants du noyau [LOCKED]
+
+Jamais contredits sur les 22 documents d'origine. Détail dans `02_ARCHITECTURE.md`.
+
+1. Le LLM propose, Genesis valide, le moteur applique. Le LLM n'écrit jamais le World State.
+2. Nodyx ne mute jamais le World State. Il retourne un résultat, Genesis confirme puis intègre.
+3. Genesis tourne sans LLM, sans Nodyx, sans réseau.
+4. Toute mutation importante devient un événement. Les événements sont immuables. Une correction est un nouvel événement.
+5. La mémoire subjective ne réécrit jamais l'histoire objective. Ancrage par `world_event_reference`.
+6. Simulation différentielle. Tous les agents existent, pas au même niveau de détail. L'importance est dynamique et réversible.
+7. Protection anti-cascade. `cascade_depth`, `MAX_EVENTS_PER_TICK`.
+8. Séparation vérité objective, croyance de l'agent, représentation publique.
+9. Les appels LLM sont enregistrés pour rejeu. Les composants non déterministes sont isolés du cœur déterministe.
+10. Le pont vers Nodyx passe par un adaptateur. Genesis ignore React, HTTP, SQL de Nodyx.
+
+---
+
+## B. Les 17 tranchées
+
+| # | Décision | Statut | Détail |
+|---|---|---|---|
+| T-1 | Un seul projet, un seul récit, un seul corpus. Nom public : Nodyx Genesis. | LOCKED | ce fichier |
+| T-2 | Stack : Rust, PostgreSQL, vector store embarqué. | PROPOSED (Rust confirme, Nodyx est aussi en Rust) | `03_DATA_MODEL.md` |
+| T-3 | Le moteur ne dessine rien, il émet un ViewState. | LOCKED | `02_ARCHITECTURE.md` |
+| T-4 | 1 tick = durée fixe de temps-monde par ère. Compression = sauter ou agréger des ticks. Budgets en secondes réelles. **Deux horloges** (fine pour l'observation, grossière pour les ères stables), bascule mécanisée sur la complexité mesurée. | LOCKED | `04_SIMULATION.md` (écrit) |
+| T-5 | Déterminisme strict. L'observation est passive. Le focus joueur ne change que le rendu. | LOCKED | `02_ARCHITECTURE.md`, `03_DATA_MODEL.md` |
+| T-6 | Le LLM propose du sens, le moteur possède les nombres. Jamais requis. Zéro LLM jusqu'à 0.0.4, cloud à 0.0.5. | LOCKED | `05_COGNITION.md` (squelette écrit : pont Entity vers Agent, question semé ou cultivé) |
+| T-7 | Émergence mécanisée, ou pas livrée. Jamais `if age > X`. | LOCKED | `06_EMERGENCE.md` (à écrire), `experiments/001_emergence.md` |
+| T-8 | Mémoire collective ancrée. `origin_events[]` conservé même totalement mythifié. | LOCKED | `06_EMERGENCE.md` |
+| T-9 | Le Voile est le module numéro 1 de la couche humaine. Les habitants ne savent vraiment pas. | LOCKED | `09_NODYX_VOILE.md` (à écrire) |
+| T-10 | Cinq rôles humains : Visiteur, Suiveur, Contributeur, Émissaire, Gardien. | PROPOSED | `09_NODYX_VOILE.md` |
+| T-11 | Une roadmap, sept jalons, un rendu visuel par jalon. Cible probante minimale : « un individu qui se souvient » (0.0.3). | LOCKED | `10_ROADMAP.md` (écrit) |
+| T-12 | Des chiffres de départ, un seul fichier de config. | LOCKED | `genesis.starter.toml` |
+| T-13 | La suite d'expériences est la spec vivante et la non-régression. | LOCKED | `experiments/` |
+| T-14 | Beaucoup de mondes, mais on veut qu'un tienne. La catastrophe est un résultat, pas un échec. | LOCKED | `08_WORLDS.md` (à écrire) |
+| T-15 | L'autopsie traçable est le livrable de chaque monde. Toujours trois candidats de bascule, jamais un verdict. | LOCKED | `07_HISTORY_JUDGMENT.md` (à écrire) |
+| T-16 | Notre jugement est une annotation datée, jamais une modification. On ne règle jamais une règle parce qu'elle a produit un monde plus plaisant. | LOCKED | `07_HISTORY_JUDGMENT.md` |
+| T-17 | Construit pour durer des décennies. Un monde survit aux montées de version. L'état ne grossit jamais sans borne. | LOCKED | `03_DATA_MODEL.md` |
+
+---
+
+## C. Décisions de vision [LOCKED sauf mention]
+
+- **But du projet.** Ne pas prétendre détenir une vérité. Montrer qu'un humain et une IA peuvent construire quelque chose ensemble et apprendre de ce que ça devient. Faire vivre un monde dont quelqu'un, un mauvais jour, pourrait apprendre beaucoup.
+- **L'étoile polaire.** Une civilisation qui vit sur Nodyx pendant des années, se développe assez pour deviner qu'il y a un dehors, et cherche à nous parler. On l'espère, on ne la force jamais.
+- **La cohabitation humain et IA vit à trois endroits :** la lecture commune des mondes (un humain et une IA lisent le même monde et débattent, le désaccord est gardé), l'Émissaire qui parle aux habitants via le Voile, l'infrastructure Nodyx partagée entre civilisations et observateurs.
+- **« Le bon et le juste » est une lecture humaine, jamais une cible du moteur.** Le moteur ne fait remonter que des indicateurs descriptifs.
+- **Le jugement, quand il a lieu, est pluriel.** La grille la moins imposée : juger une civilisation par ses propres valeurs déclarées, plus un plancher mince de dommages visibles de l'extérieur (génocide, destruction de l'environnement, esclavage permanent). [PROPOSED]
+- **L'émergence se prototype maintenant,** en expérience isolée (`experiments/001_emergence.md`), avant de s'engager sur 0.0.5 et 0.0.6.
+- **Cible probante minimale : « un individu qui se souvient » (0.0.3).** Une entité avec mémoire, besoins, personnalité, dont le comportement dépend visiblement de ce qu'elle a vécu ; une biographie lisible ; aucun LLM. Tout jalon antérieur lui est subordonné. L'étoile polaire (une civilisation qui devine le dehors) reste l'horizon long, non daté. Détail : `10_ROADMAP.md`. [LOCKED, décision utilisateur 2026-09-01]
+- **L'instrument sert l'objectif.** La densité de statistiques et la rigueur A/B existent pour détecter l'émergence et régler les pressions sans régler les résultats (T-16), pas comme livrable. Chaque version 0.0.x doit faire avancer le substrat vers la cognition, pas seulement ajouter du réalisme biologique. Test : est-ce que ça rapproche d'un agent qui se souvient, ou est-ce du polish sur la molécule ? [LOCKED, 2026-09-01]
+- **L'escalier des échelles.** L'unité de simulation change à chaque marche : molécule, cellule, organisme, individu (agent), groupe, civilisation. Il suit l'escalier du vivant réel (référence `Transcription/Taille.md` : atome, molécule, cellule, tissu, organe, appareil, organisme). Tissu, organe et appareil ne sont pas des unités distinctes, ce sont la structure interne de la marche « organisme ». Chaque bascule est détectée par un seuil mesurable (comme `SpeciesEmerged`), jamais marquée à la main (T-7), et réversible. La couche quittée devient un substrat agrégé (invariant 6). Détail : `10_ROADMAP.md`. [LOCKED, décision utilisateur 2026-09-01]
+
+---
+
+## D. Décisions techniques
+
+| Décision | Statut |
+|---|---|
+| Identifiants : UUIDv7 a terme. En 0.0.1, compteur `u64` deterministe. | PROPOSED |
+| Grille bornée (des bords), pas toroïdale | LOCKED |
+| **0.0.1 est le stade molécule : reproduction asexuée par scission.** Une entité accumule de l'énergie (`energy_threshold`), se scinde, chaque moitié copie le génome avec micro-mutation. La reproduction sexuée est déplacée à 0.0.2+. | LOCKED (2026-09-01, remplace la décision « sexuée » précédente). Sur choix utilisateur : le sexué n'a de sens qu'au stade organisme, et il ne s'impose jamais, voir « émergence du sexué » plus bas. |
+| Freins de réplication en 0.0.1 : gestation (`cooldown`, `gestation_ticks_base * (1.5 - fertilité)`), mutation létale (`lethal_mutation_rate`), échec environnemental (`birth_loss_base`), surpopulation locale (`crowding_half`), **maturité** (`maturity_frac` : une entité ne se divise pas avant `maturity_frac` de son espérance de vie ; les fondateurs démarrent adultes). Enfant détaché d'environ une case. | LOCKED (2026-09-01, `sim.rs` phase 7). Le stade molécule vise des mondes de l'ordre de la centaine à quelques milliers ; les jalons suivants relâchent avec de vraies couches de ressources. La maturité casse la croissance exponentielle sans plafond artificiel. Variance forte entre graines (85 à ~4000), c'est voulu (beaucoup de mondes, la plupart catastrophiques). **Re-cadrage par ère (`04_SIMULATION.md`) : ces freins façonnent de petits mondes observables en horloge fine ; en ère biologique compressée, en horloge grossière, le renouvellement est statistique et les mêmes paramètres façonnent la distribution, pas le temps de calcul.** |
+| Replanification décalée (`sim.rs` phase 2/3, `REPLAN_TICKS = 8`) : une entité ne recalcule sa cible de nourriture (balayage coûteux) et son support de colonie que tous les 8 ticks, décalé par l'id. `Entity.target` et `Entity.colony_support` sont désormais sérialisés (le rejeu depuis un instantané doit les retrouver). | LOCKED (2026-09-01). |
+| Performance (2026-09-01) : `rayon` sur les phases 1 (régen des cases, `Vec`) et 2/3 (calcul des cibles, `Vec` de plans). Tirages RNG faits avant, en séquence ; calcul parallèle pur ; application séquentielle dans l'ordre des `EntityId` ; phases avec écriture partagée (5, 6-retrait, 7) restent séquentielles. **Déterminisme vérifié byte-identique à 1 thread et à 8 threads.** Plus : `SpatialHash` par tri par comptage (plus de `BTreeMap`), itération de voisins sans allocation (`for_each_neighbor`), régénération groupée (`regen_every`). Le `par_iter_mut` sur `BTreeMap` a été retiré (plus lent que séquentiel : un arbre ne se découpe pas). | LOCKED. Effet : 60 000 ticks passent de ~95 s (timeout) à ~30 s. Le gain du parallélisme seul est modeste (travail par entité minuscule) ; les vraies économies viennent du groupage et des allocations en moins. Profileur : `GENESIS_PROFILE=1`. |
+| Stockage des entités en `Vec<Entity>` trié par id (schema v3, 2026-09-01), plus de `BTreeMap<EntityId, Entity>`. Les nouveaux nés ont un id supérieur à tous les existants (`next_entity_id` monotone), donc un `push` garde le tri ; retrait des morts par `retain` sur un `HashSet` d'id ; accès par id via `binary_search_by_key` (`WorldState::get` / `get_mut`). `SpatialHash` range des indices dans la tranche. Instantanés : les entités sont un tableau JSON, plus un objet. | LOCKED. **Déterminisme vérifié byte-identique à 1 thread et à 8 threads** (instantanés + journaux). Effet : 60 000 ticks (graine 3, population finale ~4700) passent de ~30 s à ~16 s. Nouveau point chaud : phase 2/3 (perception, coût proportionnel à la population). Reste pour aller plus loin : LOD temporel (T-4). |
+| Émergence du sexué (0.0.2+) : jamais un `if`. Trait héritable `sexualité`, le sexué coûte cher et ne gagne que si l'environnement change assez vite pour récompenser la recombinaison. Donc dépend des pressions environnementales (zones de danger mobiles, biomes, saisons). Étape intermédiaire possible : échange de gènes au contact. Si le sexué ne s'installe pas, c'est un résultat. | PROPOSED |
+| Champ de fertilité statique par case (`ResourceField.fertility`, [0,1], quelques bosses radiales douces sur fond pauvre). Le plafond et la vitesse de régénération d'une case y sont proportionnels. Première structure spatiale, ancêtre des biomes. | LOCKED (2026-09-01, `world.rs::make_fertility`). Chaque graine donne un relief différent, donc un monde différent. |
+| Cible de recherche de nourriture : centre de masse des ressources dans le rayon de perception, pondéré par la quantité et atténué par la distance (`sim.rs::forage_target`). Point continu, pas un centre de case : le déplacement se fait dans toutes les directions, c'est de la chimiotaxie. | LOCKED (2026-09-01, remplace `best_cell_within` qui visait des centres de cases et donnait un mouvement collé aux axes de la grille). Effet : bien meilleure recherche de nourriture, graine 1 plateau à ~1100 au lieu de ~60, certaines graines s'éteignent (2 au tick 7558, 7 au tick 1902). Vraie variété de destins. |
+| Génome à **7 traits** (schema v2, 2026-09-01) : ajout de `cohesion` (tendance à s'agréger, évoluable). `genome.rs::N_TRAITS`. Les instantanés d'un schéma antérieur ne se rechargent plus, on régénère les `worlds/`. | LOCKED. Schéma : v3 (entités en `Vec`), v4 (matière structurelle sur `WorldState`), v5 (cellules : `WorldState.cells`, `Entity.cell_id`). |
+| Saillance des événements : `Event.salience: u8`, copié de `kind.base_salience()`, 0 (bruit) à 255 (genèse). Veilleurs mécanisés (`sim.rs` phase 8b, `WorldState.watch`, config `[watch]`) : paliers de population, effondrement, extinction de lignée fondatrice, émergence d'espèce (groupe de génome distinct, nombreux, persistant). Jamais un `if` qui nomme le résultat (T-7). Événements `LineageExtinct`, `SpeciesEmerged`, `PopulationMilestone`, `PopulationCrash`. Le CLI écrit `notable.jsonl` (saillance ≥ 150). Le lecteur en fait des chapitres : liste cliquable + marqueurs sur la frise. | LOCKED (2026-09-01, Dézoomer lot 1). A/B graine 1 : genèse, paliers 10 à 1000, une lignée s'éteint au tick 9800, 4 espèces émergent entre 12800 et 17200. Déterministe (watch dans les snapshots). |
+| Boucle organisme vers milieu : les entités mangent la ressource de leur case ; la mort rend de la matière à la case (`corpse_nutrients` + part de l'énergie restante, décomposition) ; la récolte accumule une `strain` de surexploitation qui freine la régénération et décroît lentement. Un boom dégrade donc son propre milieu, puis reflue. | LOCKED (2026-09-01, `sim.rs` phases 1/5/6, `EnvironmentCfg`). Répond à la question utilisateur « l'activité a-t-elle une répercussion sur l'environnement ». |
+| **Sélection mesurée : série temporelle de stats + graphe d'évolution (0.0.2, tranche 3a).** `series.jsonl` (une ligne tous les `[persistence] series_every` = 500 ticks) porte population, générations (moyenne, écart-type, max), diversité, cellules, capacité de charge, et par trait : moyenne, écart-type, et **quantiles p10 / p50 / p90** (une distribution, pas seulement moyenne plus écart-type : c'est ce qui montre une population bimodale, donc une spéciation). `series.html` en fait le graphe (style éditorial, SVG, comme les pages d'expérience) : dérive des 7 traits par génération, sparklines de distribution, population, diversité, table des deltas. `genesis-view::SeriesRow` / `series_row`, fonctions pures (T-3). Aucun changement de comportement moteur. | LOCKED (2026-09-01). Le moment public de 0.0.2. Sur `worlds/w2` (graine 3, 60k ticks) : ~30 générations, cohésion moyenne 0,49 -> 0,59 (p10 0,49 / p90 0,72), la trajectoire de sélection est lisible. **10 000 générations demandent le modèle à deux horloges (`04_SIMULATION.md`), non construit.** Reste de 0.0.2 : traçabilité causale (`Event.causes`, tranche 3b). |
+| **Bascule molécule vers cellule, étape 1 « membrane » (0.0.2, tranche 2).** Un amas d'entités proches, génétiquement parentes, cohésives et persistant devient une `Cell` (détecteur `sim.rs` phase 5b, sur le modèle de `SpeciesEmerged` : union-find + persistance). Les membres restent dans `entities`, taggués `Entity.cell_id` (l'étape 2 les dé-simulera). Avantage : partage d'énergie (chaque membre tend vers la moyenne du groupe) + reproduction protégée (`cell_birth_relief`). Réversible : dissolution si dispersée / trop petite / cohésion retombée. **V2 : hystérésis de dissolution (`dissolve_members` / `dissolve_spread`) et délai de grâce (`grace_ticks`) pour des cellules durables au lieu d'un scintillement.** Événements `CellFormed` / `CellDissolved`. Config `[cells]`. Schema v5. | LOCKED (2026-09-01, `experiments/006_cell_transition.md`). A/B : graine 3 cohésion 0,61 avec cellules contre 0,37 sans (sélection réelle) ; graine 5 0,46 contre 0,30 ; graine 6 survie 1022 contre 308 ; effet non universel ; zéro destabilisation ; déterministe byte-identique 1 vs 8 threads. V2 : churn divisé par 2 à 4, ~60 % de la population vit en cellule sur `worlds/w2`. Invariants de population et de matière inchangés (but de l'étape 1). |
+| **Capacité de charge par la matière structurelle (briques, 0.0.2, tranche 1).** Le monde contient `matter_per_cell * cases` de matière ; un corps vivant en immobilise `body_matter`, le reste est `WorldState.free_matter`. Une division prend `body_matter` du stock (sinon `ReplicationFail::Materials`, le parent patiente `retry_frac` de sa gestation) ; la mort le rend. `free_matter + population * body_matter` conservé exactement (testé). **V2 : sous un coussin `comfort_frac` de la matière totale, la division devient probabiliste, la population respire au lieu d'être épinglée au plafond.** Non spatial en 0.0.2. Config `[bricks]`. | LOCKED (2026-09-01, `sim.rs` phases 6/7, `experiments/005_carrying_capacity.md`). Plateau à `matter_per_cell * cases / body_matter` (~2293 en 128x128), déterministe byte-identique 1 vs 8 threads, sans extinction induite. Distinct de l'énergie (carburant) et de `strain` (fatigue du sol). |
+| Le mouvement n'est pas un événement. Le journal ne porte que le squelette causal. | LOCKED |
+| L'énergie appartient à `WorldState.entities[id].energy`. Seul le Métabolisme l'écrit. | LOCKED |
+| Pipeline de tick 0.0.1 en 9 phases, ordre fixe | LOCKED (code : `crates/genesis-core/src/sim.rs`) |
+| Persistance : World State mutable, Event Log append-only partitionné, Snapshots éclaircis | LOCKED |
+| Récupération : dernier instantané plus rejeu. L'instantané inclut l'état du RNG. | LOCKED |
+| `ViewFrame` = fonction pure de `(WorldState, bounds, lod)` | LOCKED |
+| L'inspecteur (chaîne causale) est une API séparée, pas dans le flux | LOCKED |
+| Un monde qui utilise le LLM (0.0.5 et après) est reproductible par rejeu des sorties enregistrées, pas par re-simulation | PROPOSED |
+| Autopsie : méthodes 1 et 2 (trajectoire, marche arrière causale) à 0.0.6 ; contrefactuel après 0.1.0 | PROPOSED |
+| Noms : mondes numérotés plus surnom optionnel ; civilisations nommées par leur langue dès 0.0.4 | PROPOSED |
+| Rétention : monde actif chaud dans Postgres ; mondes finis compressés en froid avec autopsie et résumé requêtable chaud ; un SSD sera nécessaire | PROPOSED |
+| Émissaire : ses mots sont « des mots qu'un étranger a dits ». Aucun statut spécial, même s'il donne une vraie idée. | PROPOSED |
+| Gouvernance des règles : une règle change via une expérience qui montre son effet, un mainteneur approuve | PROPOSED |
+| Vector store exact : `sqlite-vec` ou LanceDB | OPEN (choix d'implémentation, échéance 0.0.5) |
+| Rythme : 1 tick = 1 heure-monde en 0.0.1, sim visant environ 60 fois le temps réel | LOCKED |
+
+---
+
+## D bis. Backlog de facteurs de pression (mortalité et sélection)
+
+À ajouter comme mécanismes au fil des jalons, jamais comme un `if age > X` (T-7). Chaque
+ajout passe par une expérience qui montre son effet, à la même graine (T-16).
+
+- ~~Briques élémentaires : une seconde ressource, requise pour se diviser, distincte de l'énergie. Vrai frein de capacité au stade molécule (0.0.2).~~ **FAIT (2026-09-01, `experiments/005_carrying_capacity.md`)** : modèle de matière globale conservée, `free_matter + population * body_matter` constant. La division prend `body_matter` du stock, la mort le rend. Capacité de charge ~ `matter_per_cell * cases / body_matter`. A/B 12 graines : plateau net sur les mondes qui la dépassent (2774 à 4269 -> 2293), aucun effet sur les autres, zéro extinction induite.
+- Zones de danger (chaleur, pH) qui détruisent les entités selon leur génome. Les lignées évoluent pour y résister si de la nourriture s'y trouve.
+- Biomes : régions aux règles distinctes (régénération, dangers, traits favorisés). Moteur de spéciation et de migration.
+- Météo et saisons (effet sur régénération des ressources, sur le métabolisme).
+- Prédation, avec dominance accrue pendant la couvaison ou d'autres périodes de vulnérabilité.
+- Maladies (transmission, immunité, létalité variables).
+- Catastrophes (événement rare à fort impact, local ou global).
+- Infrastructures d'une civilisation qui font baisser `birth_loss` et la mortalité infantile.
+
+Note : les zones mobiles, biomes et saisons sont aussi ce qui rend la reproduction sexuée
+avantageuse. Sans environnement changeant, l'asexué gagne toujours.
+
+### Paramètres planétaires (constantes du monde, pas des pressions dynamiques)
+
+Section `[planet]` de la config : **elle existe depuis 2026-09-01** (`PlanetCfg` :
+`temperature_c`, `medium`, `gravity`, `pressure_atm`). En 0.0.1 elle est seulement
+**affichée** dans le bandeau du lecteur, aucune influence sur la simulation (choix
+délibéré : ne pas rejouer le whack-a-mole d'équilibrage). Les jalons suivants la branchent :
+
+- Température : module le métabolisme (courbe de performance thermique, froid et chaud
+  coûtent plus d'énergie).
+- Milieu (eau / acide / air) : change ce qui est comestible et l'efficacité métabolique.
+- Gravité : module `move_cost`, plafonne la taille corporelle (trait), contraint plus tard
+  les structures et le vol.
+- Pression : efficacité métabolique, zones d'eau liquide, intensité de la météo, plus tard
+  l'accès au feu donc à la technique.
+- Un cataclysme rare peut décaler ces constantes (volcanisme, impact).
+
+### Couche chimie (très lointaine, 0.1+ au plus tôt)
+
+Approche pseudo-chimique : un automate cellulaire, chaque case vide / atome / molécule, des
+règles abstraites tirées des métadonnées d'une table périodique (électronégativité, états
+d'oxydation, bloc, état standard, couleur CPK). Set de départ : CHNOPS, les six éléments de
+la vie (H, C, N, O, P, S). Spec complète, avec les 3 familles de règles et les variantes
+A/B : `experiments/002_pseudo_chemistry.md`. Question architecturale laissée ouverte
+(substrat de la matière, ou couche séparée). Non implémenté, non bloquant. Prochain lot
+code : Dézoomer lot 1, pas la chimie.
+
+Liste ouverte, tenue à jour au fil du projet (demande utilisateur, 2026-08-31 puis 09-01).
+
+---
+
+## E. Repoussé volontairement [DEFERRED]
+
+- **Ce qui termine exactement un monde.** Joker. Cap : que ça dure le plus longtemps possible.
+- Client Godot : après 0.1.0.
+- LLM local : après 1.0.
+- Multi-planète, civilisation annexe dans un même monde : vision longue.
+- Exploration spatiale, entités extérieures, boucle C (le méta-niveau) : vision longue, non datée.
+
+---
+
+## F. Risques ouverts (identifiés par l'audit, toujours vrais)
+
+- **L'émergence mécanisée.** Prototype 001 fait (2026-08-31). Établi : consensus et asymétrie d'influence émergent du mécanisme. Non tranché par le jouet : le mythe engagé, la dérive de mémoire, la défense institutionnelle. Test complet reporté au vrai moteur à partir de 0.0.3. **Pas un bloqueur pour 0.0.1 ni 0.0.2.**
+- **Contenu produit à grande échelle sur le web public** (à partir de 0.1.0) : sécurité, modération, contenu illégal. À spécifier avant 0.1.0.
+- **Auth de l'API Nodyx.** À spécifier avant 0.1.0.
+- **La longévité (T-17)** est une des cibles les plus dures en logiciel. On conçoit pour, sans la garantir.
+- **Le temps évolutif.** À pleine résolution (1 tick = 1 heure-monde, ~1 génération / 1000 à 1500 ticks), on n'atteint jamais les milliers de générations que l'évolution demande. Le modèle à deux horloges (T-4, `04_SIMULATION.md`) est conçu sur le papier mais ni implémenté ni éprouvé : détecteur d'ère stable, forme du pas grossier, déterminisme de l'agrégat, tout est à faire. Sans lui, aucun monde ne tourne assez longtemps pour évoluer quoi que ce soit. **Identifié 2026-09-01, plan dans `04_SIMULATION.md`.**
+- **Freins de reproduction contre débit de générations.** Les freins de 0.0.1 sont réglés pour l'observabilité (mondes de quelques centaines d'entités). En tension directe avec le besoin de milliers de générations. Résolu en principe par le double rôle des paramètres selon l'horloge (`04_SIMULATION.md`), à valider quand T-4 est codé.
+- **La dérive vers l'instrument.** Le travail de biologie fine et de mesure est le chemin de moindre résistance et peut repousser indéfiniment les deux murs ci-dessus. Garde : la règle de subordination (section C, « L'instrument sert l'objectif ») et la cible probante 0.0.3.
+
+---
+
+## G. Etat de l'implementation
+
+- `01_VISION.md`, `02_ARCHITECTURE.md`, `03_DATA_MODEL.md` : ecrits.
+- Experience 001 (emergence) : prototype fait, verdict dans `experiments/001_emergence.md`. Test complet reporte au moteur 0.0.3.
+- Experience 002 (chimie pseudo-cellulaire) : spec consignee dans `experiments/002_pseudo_chemistry.md`. Non implementee, non bloquante, 0.1+.
+- Experience 003 (agregation en colonies) : ouverte. Mecanisme code mais desactive, echec du premier reglage. Spec et pistes dans `experiments/003_cohesion.md`.
+- **Moteur 0.0.1 : ecrit, compile, tourne** (`crates/genesis-core`, `genesis-view`, `genesis-cli`). Toolchain Rust 1.98 stable installee. `cargo build` propre, `cargo test --release` : 8 tests au vert (6 invariants + 2 rng), dont conservation de population sur 40 000 ticks et determinisme image par image. Reproduction asexuee (scission). `genesis run --seed 1 --ticks 40000` : monde 2 -> ~110 entites, `replay` confirme le determinisme, `view.html` genere (~4,5 Mo). Fenetre "genese" : les 4 000 premiers ticks echantillonnes 4x plus fin.
+  - Connu : croissance sans vrai plafond de capacite avant plusieurs milliers d'entites (le frein propre, briques elementaires plus biomes, est du 0.0.2). Longueur de run conseillee pour 0.0.1 : 20 000 a 40 000 ticks.
+  - Vue : trois colonnes (evenements a gauche, monde au centre, stats a droite). Panneaux a hauteur fixe, `scrollbar-gutter: stable`, DOM persistant mis a jour par `textContent` (plus d'`innerHTML` par frame) : le panneau ne tremble plus. Lecture interpolee a 60 img/s (positions lerp entre frames, fondu naissance/mort), 1x = 5 frames de donnees/s. Champ rendu par image hors ecran (2 `drawImage` au lieu de ~4600 `fillRect`). Infobulle unique en `position: fixed`. Couche affichee : ressource / fertilite / surexploitation. Donnees en balises `application/json` (JSON.parse), fertilite envoyee une seule fois.
+  - Journal d'evenements en fenetre roulante (24 frames) : un evenement reste lisible plusieurs secondes au lieu de clignoter. Panneau gauche : chapitres (evenements saillants) au dessus du journal, marqueurs cliquables sur la frise. `EntityView` allege : `hue` pre-calcule au lieu des 6 traits, positions arrondies a 0.01. `view.html` d'un monde a ~1100 entites : ~16 Mo, toujours lourd (voir lot 2).
+  - Mise a l'echelle (monde sans fin) : reponse = pyramide (detail temporel geometrique, detail spatial en amas, colonne vertebrale d'evenements par saillance) plus detection d'emergence mecanisee. Spec : `02_ARCHITECTURE.md` « Un monde qui ne s'arrete jamais ». 3 lots.
+    - **Lot 1 fait (2026-09-01)** : saillance (`Event.salience`), veilleurs mecanises (`[watch]`), evenements `LineageExtinct` / `SpeciesEmerged` / `PopulationMilestone` / `PopulationCrash`, `notable.jsonl`, chapitres dans le lecteur (liste + marqueurs sur la frise).
+    - **Lot 2 partiel (2026-09-01)** : 7e trait de genome `cohesion` (schema v2), `SpatialHash` (`spatial.rs`), detecteur d'especes affine (coherence spatiale), brin d'ADN dans le lecteur (7 rungs avec infobulles, signature de l'espece dominante, se tord lentement).
+      - Force d'agregation sur le mouvement : codee mais **eteinte** (`pull_max = 0`), elle destabilise l'ecosysteme.
+      - **`cohesion` V1 = retenue sur les communs** (`experiments/003_cohesion.md`) : en phase 5, une entite cohesion haute entouree de parents mange moins et fatigue moins la case. A/B 16 graines : survie 10/16 avec, 8/16 sans, pas de destabilisation. Le trait repond a la selection (monte avec les colonies, descend chez les solitaires). Effet reel mais doux.
+    - **Lot 3 fait (2026-09-01)** : `ViewFrame.lod` "detail"/"region". Au dela de `[view] detail_max_entities` (500), `project()` agrege en `ClusterView` sur une grille `cluster_grid` (30). Poids d'une frame plafonne quelle que soit la population. Le lecteur peint des amas.
+    - Reste : le debit de calcul de la sim (independant du lecteur). Un long run reste lent a produire (parallelisme, ou LOD temporel, T-4).
+    - Lot 4 : retention temporelle geometrique cote stockage. Lot 2b : brin d'ADN sur l'amas selectionne.
+  - Ensuite : brancher `[planet]` sur la sim, milieu/biomes, couche chimie (`experiments/002_pseudo_chemistry.md`).
+
+- **Jalon 0.0.2 « Vie », tranche 3a faite (2026-09-01)** : selection mesuree. `WorldState::trait_quantiles` / `generation_stats`, `genesis-view::SeriesRow` / `series_row`, `[persistence] series_every`, `series.jsonl` + `series.html` (graphe d'evolution, style editorial SVG), sortie CLI et `README` a jour, test `series_stats_are_sane`. Aucun changement moteur, pas de bump de schema. Le moment public de 0.0.2. Reste : tracabilite causale (`Event.causes`, tranche 3b).
+
+- **Jalon 0.0.2 « Vie », tranche 2 etape 1 faite (2026-09-01)** : bascule molecule vers cellule, la membrane. Schema v5. `WorldState.cells: Vec<Cell>`, `Entity.cell_id`, `Watch.cell_pending`, phase 5b (`sim.rs`), `EventKind::CellFormed` / `CellDissolved`, `CellsCfg` (`[cells]`), `CellView` + panneau « Cellules » + membranes dans le lecteur, test `cells_stay_consistent`. Detail : `experiments/006_cell_transition.md`. Reste : etape 2 (de-simulation des membres), selection mesuree + tracabilite causale, sexue emergent.
+
+- **Jalon 0.0.2 « Vie », tranche 1 faite (2026-09-01)** : capacite de charge par la matiere structurelle (briques). Schema v4. `WorldState.free_matter` + `repro_blocked_materials`, `ReplicationFail::Materials`, stats `carrying_capacity` / `free_matter` / `matter_locked_fraction` dans le lecteur (panneau Matiere). Test `structural_matter_is_conserved`. Monde de reference `worlds/w2`. Detail : `experiments/005_carrying_capacity.md`. Reste 0.0.2 : bascule molecule -> cellule (tranche 2), selection mesuree + tracabilite causale, sexue emergent (attend un environnement changeant).
+
+- `04_SIMULATION.md` : ecrit (2026-09-01, modele de temps a deux horloges, T-4).
+- `10_ROADMAP.md` : ecrit (2026-09-01, 7 jalons, cible probante 0.0.3, escalier des echelles, T-11).
+- `05_COGNITION.md` : squelette ecrit (2026-09-01, pont Entity vers Agent, question seme ou cultive, T-6).
+
+A ecrire au fur et a mesure : `06_EMERGENCE.md` (avant 0.0.5, avec l'experience 004), `07_HISTORY_JUDGMENT.md`, `08_WORLDS.md`, `09_NODYX_VOILE.md`.
+
+---
+
+## H. Documents de référence hors corpus
+
+| Fichier | Rôle |
+|---|---|
+| `../audit/audit-architecture-genesis.html` | L'audit des 22 documents d'origine |
+| `../direction/genesis-direction.html` | Le document de direction, les 17 tranchées argumentées |
+| `../presentation/nodyx-genesis.html` | Présentation grand public |
+| `_sources/` | Les 22 documents d'origine, gelés |

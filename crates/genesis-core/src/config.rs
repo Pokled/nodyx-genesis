@@ -1,0 +1,467 @@
+//! Configuration de simulation.
+//!
+//! Tranchee 12 : des chiffres de depart, un seul fichier. Les valeurs par defaut ici
+//! sont exactement celles de `BIBLE/genesis.starter.toml`. On peut les surcharger avec
+//! un fichier `.toml`.
+
+use serde::{Deserialize, Serialize};
+use std::path::Path;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct SimConfig {
+    pub world: WorldCfg,
+    pub planet: PlanetCfg,
+    pub time: TimeCfg,
+    pub resources: ResourcesCfg,
+    pub bricks: BricksCfg,
+    pub environment: EnvironmentCfg,
+    pub metabolism: MetabolismCfg,
+    pub lifecycle: LifecycleCfg,
+    pub reproduction: ReproductionCfg,
+    pub cohesion: CohesionCfg,
+    pub cells: CellsCfg,
+    pub watch: WatchCfg,
+    pub view: ViewCfg,
+    pub persistence: PersistenceCfg,
+    pub events: EventsCfg,
+}
+
+impl Default for SimConfig {
+    fn default() -> Self {
+        SimConfig {
+            world: WorldCfg::default(),
+            planet: PlanetCfg::default(),
+            time: TimeCfg::default(),
+            resources: ResourcesCfg::default(),
+            bricks: BricksCfg::default(),
+            environment: EnvironmentCfg::default(),
+            metabolism: MetabolismCfg::default(),
+            lifecycle: LifecycleCfg::default(),
+            reproduction: ReproductionCfg::default(),
+            cohesion: CohesionCfg::default(),
+            cells: CellsCfg::default(),
+            watch: WatchCfg::default(),
+            view: ViewCfg::default(),
+            persistence: PersistenceCfg::default(),
+            events: EventsCfg::default(),
+        }
+    }
+}
+
+impl SimConfig {
+    pub fn load(path: &Path) -> std::io::Result<Self> {
+        let text = std::fs::read_to_string(path)?;
+        toml::from_str(&text)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string()))
+    }
+
+    pub fn to_toml(&self) -> String {
+        toml::to_string(self).unwrap_or_default()
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct WorldCfg {
+    pub grid_width: u32,
+    pub grid_height: u32,
+    pub bounded: bool,
+}
+impl Default for WorldCfg {
+    fn default() -> Self {
+        WorldCfg { grid_width: 128, grid_height: 128, bounded: true }
+    }
+}
+
+/// Constantes du monde, fixees a la creation. En 0.0.1 elles sont seulement affichees :
+/// on sait dans quel environnement on se trouve. Les jalons suivants les feront moduler
+/// des coefficients (metabolisme selon la temperature, cout de deplacement selon la
+/// gravite, efficacite selon la pression et le milieu).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct PlanetCfg {
+    /// Temperature moyenne de l'environnement, en degres Celsius.
+    pub temperature_c: f32,
+    /// Milieu dans lequel baigne la vie : "eau", "acide", "air", ...
+    pub medium: String,
+    /// Gravite, en multiples de celle de la Terre.
+    pub gravity: f32,
+    /// Pression, en atmospheres.
+    pub pressure_atm: f32,
+}
+impl Default for PlanetCfg {
+    fn default() -> Self {
+        PlanetCfg {
+            temperature_c: 15.0,
+            medium: "eau".to_string(),
+            gravity: 1.0,
+            pressure_atm: 1.0,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct TimeCfg {
+    pub tick_duration_seconds: u64,
+    pub target_ticks_per_real_second: f32,
+}
+impl Default for TimeCfg {
+    fn default() -> Self {
+        TimeCfg { tick_duration_seconds: 3600, target_ticks_per_real_second: 60.0 }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct ResourcesCfg {
+    pub regen_rate: f32,
+    pub max_per_cell: f32,
+    pub initial_fill: f32,
+    /// La regeneration des cases ne tourne qu'un tick sur N (avec un taux multiplie par N).
+    /// Le milieu change lentement, ca economise le balayage de la grille sans effet visible.
+    pub regen_every: u32,
+}
+impl Default for ResourcesCfg {
+    fn default() -> Self {
+        ResourcesCfg { regen_rate: 0.015, max_per_cell: 10.0, initial_fill: 0.5, regen_every: 4 }
+    }
+}
+
+/// Briques elementaires (0.0.2) : la matiere structurelle dont sont faits les corps. Un
+/// monde en contient une quantite finie. Un corps vivant en immobilise `body_matter` ; le
+/// reste est le stock libre (`WorldState.free_matter`). Une division prend `body_matter` du
+/// stock libre pour batir l'enfant ; si le stock est a sec, la division echoue et le parent
+/// patiente. La mort rend `body_matter` au stock. La somme est conservee exactement :
+/// `free_matter + population * body_matter = matter_per_cell * nombre de cases`.
+///
+/// C'est le vrai frein de capacite : la population plafonne autour de
+/// `matter_per_cell * cases / body_matter`, avec une oscillation (au plafond les divisions
+/// calent, des morts liberent de la matiere, ca repart). Distinct de l'energie (le
+/// carburant) et de la surexploitation (la fatigue du sol). Non spatial en 0.0.2 : une
+/// geographie de la matiere viendra avec les biomes.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct BricksCfg {
+    /// Matiere totale du monde = ce nombre * nombre de cases de la grille. Fixe la capacite
+    /// de charge : environ `matter_per_cell * cases / body_matter` individus.
+    pub matter_per_cell: f32,
+    /// Matiere immobilisee par un corps vivant, liberee a la mort.
+    pub body_matter: f32,
+    /// Zone tampon, en fraction de la matiere totale du monde, sous laquelle la division
+    /// devient probabiliste (V2). Tant que la matiere libre depasse ce coussin, une division
+    /// reussit toujours ; en dessous, sa chance decroit lineairement jusqu'a 0 quand il ne
+    /// reste la matiere que d'un seul corps. Adoucit le plateau : au lieu d'un plafond dur,
+    /// la population respire dans cette bande. Invariant d'echelle (fraction, pas un nombre).
+    pub comfort_frac: f32,
+    /// Ticks de patience apres un echec de division faute de matiere, pour ne pas re-tenter
+    /// a chaque tick (fraction de la gestation). Un echec probabiliste (matiere juste
+    /// tendue) patiente deux fois moins : la matiere se libere vite au plateau.
+    pub retry_frac: f32,
+}
+impl Default for BricksCfg {
+    fn default() -> Self {
+        BricksCfg {
+            matter_per_cell: 0.14,
+            body_matter: 1.0,
+            comfort_frac: 0.06,
+            retry_frac: 0.4,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct EnvironmentCfg {
+    /// Matiere rendue a la case a la mort d'une entite : une part fixe (le corps) plus
+    /// une part de l'energie restante. Ferme la boucle de decomposition.
+    pub corpse_nutrients: f32,
+    pub corpse_energy_return: f32,
+    /// Surexploitation : chaque unite recoltee ajoute cette fraction de tension a la case.
+    pub strain_per_harvest: f32,
+    /// La tension decroit de ce facteur par tick. Une case surexploitee regenere lentement
+    /// tant qu'elle n'a pas recupere. C'est par la qu'un boom degrade son propre milieu.
+    pub strain_decay: f32,
+}
+impl Default for EnvironmentCfg {
+    fn default() -> Self {
+        EnvironmentCfg {
+            corpse_nutrients: 1.5,
+            corpse_energy_return: 0.5,
+            strain_per_harvest: 0.06,
+            strain_decay: 0.997,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct MetabolismCfg {
+    pub base_burn: f32,
+    pub move_cost: f32,
+    pub eat_rate: f32,
+}
+impl Default for MetabolismCfg {
+    fn default() -> Self {
+        MetabolismCfg { base_burn: 0.05, move_cost: 0.02, eat_rate: 2.0 }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct LifecycleCfg {
+    pub starve_at: f32,
+    pub lifespan_ticks_mean: u64,
+    pub age_death_curve: f32,
+}
+impl Default for LifecycleCfg {
+    fn default() -> Self {
+        LifecycleCfg { starve_at: 0.0, lifespan_ticks_mean: 20000, age_death_curve: 4.0 }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct ReproductionCfg {
+    /// "asexual" en 0.0.1 (scission). "sexual" et l'emergence du sexue viennent a 0.0.2+.
+    pub mode: String,
+    /// Energie minimale pour se scinder.
+    pub energy_threshold: f32,
+    /// Surcout metabolique de la replication, retire avant le partage en deux.
+    pub energy_cost: f32,
+    /// Rayon de recherche d'un partenaire. Inutilise en 0.0.1 (asexue), garde pour 0.0.2.
+    pub partner_radius: f32,
+    pub mutation_rate: f32,
+    pub mutation_scale: f32,
+
+    /// Probabilite qu'une mutation soit letale a la division : pas d'enfant viable.
+    /// C'est le prix de la duplication imparfaite, cote genome.
+    pub lethal_mutation_rate: f32,
+
+    /// Temps de gestation de reference, en ticks. Apres une division, une entite ne peut
+    /// pas se rediviser pendant `gestation_ticks_base * (1.5 - fertilite)` ticks.
+    /// La fertilite est un trait du genome : le rythme de replication varie selon l'espece.
+    pub gestation_ticks_base: u32,
+
+    /// Perte a la naissance d'origine environnementale, dans un etat sans infrastructure.
+    /// Probabilite qu'une division par ailleurs viable ne donne pas d'enfant. Les jalons
+    /// suivants la font baisser quand une civilisation developpe des infrastructures.
+    pub birth_loss_base: f32,
+
+    /// Nombre d'entites en surplus sur une case pour que l'echec de division devienne
+    /// quasi certain. Petit = frein de capacite serre. C'est ce qui empeche le bloom.
+    pub crowding_half: f32,
+
+    /// Maturite : une entite ne peut pas se diviser avant d'avoir vecu cette fraction de
+    /// son esperance de vie. Un juvenile ne se reproduit pas. Ralentit fortement la
+    /// croissance exponentielle sans plafond artificiel. En 0.0.1 on garde des mondes de
+    /// l'ordre de la centaine (jalon "Deux", stade molecule) ; les jalons suivants
+    /// relachent quand de vraies couches de ressources arrivent.
+    pub maturity_frac: f32,
+}
+impl Default for ReproductionCfg {
+    fn default() -> Self {
+        ReproductionCfg {
+            mode: "asexual".to_string(),
+            energy_threshold: 8.0,
+            energy_cost: 1.5,
+            partner_radius: 2.0,
+            mutation_rate: 0.05,
+            mutation_scale: 0.1,
+            lethal_mutation_rate: 0.06,
+            gestation_ticks_base: 700,
+            birth_loss_base: 0.30,
+            crowding_half: 1.8,
+            maturity_frac: 0.05,
+        }
+    }
+}
+
+/// Agregation : les entites proches et genetiquement voisines s'attirent et forment des
+/// colonies. Une colonie protege la reproduction (l'agregat sert d'infrastructure), la
+/// surpopulation d'une case la penalise toujours : l'optimum est une densite moyenne.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct CohesionCfg {
+    /// Portee de l'attraction, en cases.
+    pub radius: f32,
+    /// Poids maximal du melange vers la cible de cohesion, pour un trait `cohesion` de 1.
+    pub pull_max: f32,
+    /// Distance L1 de genome au dela de laquelle deux entites ne s'attirent plus.
+    pub similarity_scale: f32,
+    /// Plafond du support de colonie ressenti par une entite.
+    pub support_cap: f32,
+    /// Baisse du plancher `birth_loss` par unite de support de colonie.
+    pub support_birth_relief: f32,
+    /// Plancher de cohesion quand l'entite a faim (0 = une entite affamee ignore la
+    /// cohesion et ne pense qu'a manger).
+    pub hunger_damp: f32,
+
+    // -- Retenue sur les communs (experience 003, V1). L'agregation reste passive
+    //    (`pull_max` a 0). Ici `cohesion` decrit comment une entite deja dans un groupe de
+    //    parents traite la case partagee : elle mange un peu moins (cout prive) et la
+    //    fatigue beaucoup moins (bien commun). Actif des que l'un des deux est > 0.
+    /// Part d'intake en moins pour un cooperateur pleinement entoure de parents.
+    pub eat_restraint: f32,
+    /// Part de surexploitation en moins dans la meme situation.
+    pub strain_restraint: f32,
+}
+impl Default for CohesionCfg {
+    fn default() -> Self {
+        CohesionCfg {
+            radius: 4.0,
+            // Force de mouvement desactivee : elle destabilise l'ecosysteme (voir
+            // experience 003). L'agregation reste passive (les entites convergent sur la
+            // nourriture). Le trait `cohesion` agit via la retenue ci-dessous.
+            pull_max: 0.0,
+            similarity_scale: 2.0,
+            support_cap: 4.0,
+            support_birth_relief: 0.0,
+            hunger_damp: 0.0,
+            eat_restraint: 0.25,
+            strain_restraint: 0.7,
+        }
+    }
+}
+
+/// Cellules (0.0.2, tranche 2, etape 1 « membrane »). Un amas d'entites proches,
+/// genetiquement parentes, coherentes et persistant devient une `Cell` : une unite
+/// reconnue. Les membres restent simules (l'etape 2 les de-simulera). Etre en cellule
+/// apporte : le partage d'energie (chaque membre tend vers la moyenne du groupe, un tampon
+/// contre la famine locale) et une reproduction protegee (`cell_birth_relief`). C'est ce
+/// qui rend le trait `cohesion` vraiment adaptatif. Bascule reversible : une cellule qui se
+/// disperse ou perd ses membres se dissout (T-7).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct CellsCfg {
+    /// Detection tous les N ticks (comme les veilleurs). L'entretien par tick est separe.
+    pub check_every: u64,
+    /// Deux entites se lient si a moins de N cases l'une de l'autre.
+    pub link_dist: f32,
+    /// ... et si leur distance L1 de genome est sous ce seuil (parentes).
+    pub kin_dist: f32,
+    /// Cohesion moyenne minimale du groupe pour qu'il forme une cellule.
+    pub min_cohesion: f32,
+    /// Taille minimale d'un amas pour former une cellule.
+    pub min_members: u32,
+    /// Rayon moyen maximal des membres autour du centre pour former une cellule.
+    pub max_spread: f32,
+    /// Hysteresis (V2) : une cellule deja formee ne se dissout qu'en dessous de cet effectif,
+    /// pas des `min_members`. Plus bas = cellules plus tenaces.
+    pub dissolve_members: u32,
+    /// Hysteresis (V2) : ... et seulement au dela de ce rayon, pas des `max_spread`.
+    pub dissolve_spread: f32,
+    /// Delai de grace (V2) : une cellule fraiche ne peut pas se dissoudre avant cet age,
+    /// sauf si elle tombe a zero membre. Laisse le temps a un amas de se stabiliser.
+    pub grace_ticks: u64,
+    /// Nombre de controles consecutifs ou le candidat doit tenir avant de former une cellule.
+    pub persist_checks: u16,
+    /// Un membre a plus de `rayon * ce facteur` du centre quitte la cellule.
+    pub leave_factor: f32,
+    /// Fraction de l'ecart a la moyenne d'energie de la cellule corrigee par tick (partage).
+    pub energy_share: f32,
+    /// Part d'echec de division en moins pour un membre de cellule (reproduction protegee).
+    pub cell_birth_relief: f32,
+}
+impl Default for CellsCfg {
+    fn default() -> Self {
+        CellsCfg {
+            check_every: 200,
+            link_dist: 2.0,
+            kin_dist: 0.7,
+            min_cohesion: 0.45,
+            min_members: 12,
+            max_spread: 6.0,
+            dissolve_members: 6,
+            dissolve_spread: 11.0,
+            grace_ticks: 600,
+            persist_checks: 4,
+            leave_factor: 1.9,
+            energy_share: 0.15,
+            cell_birth_relief: 0.4,
+        }
+    }
+}
+
+/// Les veilleurs (sim.rs phase 8b) : detecteurs mecanises qui produisent des evenements
+/// saillants, le materiau des chapitres. Ils ne mutent que `WorldState.watch`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct WatchCfg {
+    /// Un controle tous les N ticks.
+    pub interval_ticks: u64,
+    /// Effectif minimal d'un groupe de genome pour etre un candidat espece.
+    pub species_min_size: u32,
+    /// Distance L1 minimale, sur les 6 traits, entre un groupe et le stock dominant.
+    pub species_min_distance: f32,
+    /// Nombre de controles consecutifs ou le candidat doit tenir avant d'etre reconnu.
+    pub species_persist_checks: u16,
+    /// Rayon moyen maximal des membres autour de leur centroide pour qu'un groupe de genome
+    /// compte comme espece : un groupe distinct mais disperse partout, c'est de la derive.
+    pub species_max_spread: f32,
+    /// Fraction de population perdue sur la fenetre pour parler d'effondrement.
+    pub crash_drop_frac: f32,
+    /// Longueur de la fenetre de detection d'effondrement, en controles.
+    pub crash_window_checks: u16,
+}
+impl Default for WatchCfg {
+    fn default() -> Self {
+        WatchCfg {
+            interval_ticks: 200,
+            species_min_size: 25,
+            species_min_distance: 0.9,
+            species_persist_checks: 3,
+            species_max_spread: 18.0,
+            crash_drop_frac: 0.5,
+            crash_window_checks: 6,
+        }
+    }
+}
+
+/// Le lecteur : niveau de detail de la projection (`genesis-view::project`).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct ViewCfg {
+    /// Au dela de ce nombre d'entites, la frame envoie des amas au lieu d'individus. Le
+    /// fichier reste petit quelle que soit la population.
+    pub detail_max_entities: u32,
+    /// Cote de la grille d'agregation en mode amas. `cluster_grid^2` amas au plus.
+    pub cluster_grid: u32,
+}
+impl Default for ViewCfg {
+    fn default() -> Self {
+        ViewCfg { detail_max_entities: 500, cluster_grid: 30 }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct PersistenceCfg {
+    pub snapshot_interval_ticks: u64,
+    pub event_log_partition_ticks: u64,
+    /// Une ligne de serie temporelle de stats (`series.jsonl`) tous les N ticks. Le
+    /// materiau du graphe d'evolution genetique (`series.html`).
+    pub series_every: u64,
+}
+impl Default for PersistenceCfg {
+    fn default() -> Self {
+        PersistenceCfg {
+            snapshot_interval_ticks: 5000,
+            event_log_partition_ticks: 100000,
+            series_every: 500,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct EventsCfg {
+    pub max_events_per_tick: u32,
+    pub max_cascade_depth: u16,
+}
+impl Default for EventsCfg {
+    fn default() -> Self {
+        EventsCfg { max_events_per_tick: 4096, max_cascade_depth: 12 }
+    }
+}

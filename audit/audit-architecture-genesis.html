@@ -1,0 +1,1244 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Audit Nodyx Genesis</title>
+<meta name="description" content="Revue d'architecture des 22 documents du projet Nodyx Genesis : cartographie, contradictions, reconstruction, verdict.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600&display=swap">
+
+<style>
+  :root {
+    color-scheme: light;
+    --ink: #151a1f;
+    --ink-soft: #39434c;
+    --muted: #64707a;
+    --paper: #f2f4f5;
+    --raised: #ffffff;
+    --sunken: #e9edef;
+    --line: #d6dce0;
+    --line-strong: #b9c3c9;
+    --accent: #2f6f6b;
+    --accent-soft: #e2eeec;
+    --crit: #a5383a;
+    --crit-bg: #f5e6e5;
+    --warn: #8a6220;
+    --warn-bg: #f4eede;
+    --ok: #3a6d51;
+    --ok-bg: #e4ede8;
+    --shadow: 0 1px 2px rgba(20,26,31,.05), 0 10px 30px -18px rgba(20,26,31,.22);
+    --measure: 70ch;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --ink: #e0e5e8;
+      --ink-soft: #b4bfc5;
+      --muted: #869199;
+      --paper: #101418;
+      --raised: #171d22;
+      --sunken: #1c242a;
+      --line: #2a333a;
+      --line-strong: #3a454d;
+      --accent: #64b6ad;
+      --accent-soft: #16302e;
+      --crit: #d98a8a;
+      --crit-bg: #2c1c1d;
+      --warn: #d6ab6a;
+      --warn-bg: #2b2417;
+      --ok: #86bda0;
+      --ok-bg: #182720;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 14px 34px -18px rgba(0,0,0,.6);
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --ink: #e0e5e8;
+    --ink-soft: #b4bfc5;
+    --muted: #869199;
+    --paper: #101418;
+    --raised: #171d22;
+    --sunken: #1c242a;
+    --line: #2a333a;
+    --line-strong: #3a454d;
+    --accent: #64b6ad;
+    --accent-soft: #16302e;
+    --crit: #d98a8a;
+    --crit-bg: #2c1c1d;
+    --warn: #d6ab6a;
+    --warn-bg: #2b2417;
+    --ok: #86bda0;
+    --ok-bg: #182720;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 14px 34px -18px rgba(0,0,0,.6);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Source Serif 4", Georgia, serif;
+    font-optical-sizing: auto;
+    font-size: 17px;
+    line-height: 1.62;
+    margin: 0;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 1120px;
+    margin: 0 auto;
+    padding: 0 clamp(18px, 4vw, 56px) 120px;
+  }
+
+  /* ---- typography ---- */
+  h1, h2, h3, h4 {
+    font-family: "Archivo", "Helvetica Neue", Arial, sans-serif;
+    color: var(--ink);
+    text-wrap: balance;
+    line-height: 1.15;
+    letter-spacing: -0.01em;
+  }
+  h2 {
+    font-size: clamp(1.35rem, 2.4vw, 1.9rem);
+    font-weight: 700;
+    margin: 4.2rem 0 0.4rem;
+    padding-top: 1.6rem;
+    border-top: 2px solid var(--ink);
+  }
+  h2 .ph {
+    display: block;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: .72rem;
+    font-weight: 500;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: .5rem;
+  }
+  h3 {
+    font-size: clamp(1.08rem, 1.7vw, 1.28rem);
+    font-weight: 700;
+    margin: 2.6rem 0 0.6rem;
+  }
+  h4 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 1.8rem 0 0.4rem;
+    color: var(--ink-soft);
+  }
+  p { margin: 0 0 1rem; max-width: var(--measure); }
+  a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+  strong { font-weight: 600; color: var(--ink); }
+  code, .mono {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: .86em;
+  }
+  p code, li code, td code {
+    background: var(--sunken);
+    padding: .08em .38em;
+    border-radius: 3px;
+    border: 1px solid var(--line);
+    white-space: nowrap;
+  }
+  ul, ol { max-width: var(--measure); padding-left: 1.2rem; margin: 0 0 1rem; }
+  li { margin: 0 0 .4rem; }
+  em { color: var(--ink-soft); }
+  .lead { font-size: 1.12rem; color: var(--ink-soft); max-width: 62ch; }
+  .note { color: var(--muted); font-size: .92rem; }
+
+  /* ---- header ---- */
+  header.masthead {
+    padding: clamp(48px, 9vw, 104px) 0 2.4rem;
+    border-bottom: 2px solid var(--ink);
+  }
+  .kicker {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: .74rem;
+    letter-spacing: .22em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 1.4rem;
+  }
+  header.masthead h1 {
+    font-size: clamp(2.3rem, 6.5vw, 4.1rem);
+    font-weight: 800;
+    letter-spacing: -0.025em;
+    margin: 0 0 1rem;
+  }
+  header.masthead h1 .sub {
+    display: block;
+    font-weight: 500;
+    font-size: clamp(1rem, 2.4vw, 1.35rem);
+    color: var(--muted);
+    letter-spacing: 0;
+    margin-top: .6rem;
+  }
+  .verdict-line {
+    max-width: 60ch;
+    font-size: 1.16rem;
+    color: var(--ink-soft);
+    border-left: 3px solid var(--accent);
+    padding-left: 1rem;
+    margin: 1.8rem 0 2.4rem;
+  }
+
+  .meta-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1px;
+    background: var(--line);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    overflow: hidden;
+    margin-top: 1rem;
+  }
+  .meta-grid > div {
+    background: var(--raised);
+    padding: .9rem 1rem 1rem;
+  }
+  .meta-grid dt {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: .68rem;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: .3rem;
+  }
+  .meta-grid dd {
+    margin: 0;
+    font-family: "Archivo", sans-serif;
+    font-weight: 600;
+    font-size: 1.05rem;
+    font-variant-numeric: tabular-nums;
+  }
+  .score-cell dd { color: var(--warn); font-size: 1.5rem; }
+  .score-cell dd small { font-size: .8rem; color: var(--muted); font-weight: 500; }
+
+  /* ---- emergence strata flourish ---- */
+  .strata {
+    margin: 2.6rem 0 0;
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 3px;
+  }
+  .strata div {
+    background: var(--accent-soft);
+    color: var(--accent-ink, var(--accent));
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: .5rem .3rem;
+    text-align: center;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: .62rem;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+  .strata div:nth-child(1) { opacity: .45; }
+  .strata div:nth-child(2) { opacity: .55; }
+  .strata div:nth-child(3) { opacity: .66; }
+  .strata div:nth-child(4) { opacity: .78; }
+  .strata div:nth-child(5) { opacity: .88; }
+  .strata div:nth-child(6) { opacity: .95; }
+  .strata-cap { margin-top: .5rem; }
+  @media (max-width: 560px) { .strata { grid-template-columns: repeat(3, 1fr); } }
+
+  /* ---- toc ---- */
+  nav.toc {
+    margin: 3rem 0 0;
+    padding: 1.4rem 1.5rem 1.6rem;
+    background: var(--raised);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    box-shadow: var(--shadow);
+  }
+  nav.toc h2 {
+    all: unset;
+    display: block;
+    font-family: "Archivo", sans-serif;
+    font-weight: 700;
+    font-size: .8rem;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: .9rem;
+  }
+  nav.toc ol {
+    max-width: none;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    columns: 2;
+    column-gap: 2.5rem;
+  }
+  nav.toc li {
+    break-inside: avoid;
+    margin: 0 0 .5rem;
+    font-family: "Archivo", sans-serif;
+    font-size: .92rem;
+  }
+  nav.toc li a { color: var(--ink-soft); text-decoration: none; display: flex; gap: .6rem; }
+  nav.toc li a:hover { color: var(--accent); }
+  nav.toc li a span { font-family: "IBM Plex Mono", monospace; color: var(--muted); font-size: .8rem; flex: none; }
+  @media (max-width: 620px) { nav.toc ol { columns: 1; } }
+
+  /* ---- tables ---- */
+  .tbl-scroll { overflow-x: auto; margin: 1.2rem 0 1.6rem; border: 1px solid var(--line); border-radius: 8px; }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-family: "Archivo", sans-serif;
+    font-size: .9rem;
+    background: var(--raised);
+  }
+  th, td {
+    text-align: left;
+    padding: .62rem .8rem;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+  }
+  th {
+    font-weight: 700;
+    font-size: .72rem;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--muted);
+    background: var(--sunken);
+    position: sticky;
+    top: 0;
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  td code { font-size: .82em; }
+  .num { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+
+  /* ---- chips / status ---- */
+  .chip {
+    display: inline-block;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: .66rem;
+    font-weight: 500;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    padding: .18em .5em;
+    border-radius: 4px;
+    border: 1px solid currentColor;
+    white-space: nowrap;
+    vertical-align: middle;
+  }
+  .chip.locked { color: var(--ok); background: var(--ok-bg); }
+  .chip.proposed { color: var(--accent); background: var(--accent-soft); }
+  .chip.exp { color: var(--warn); background: var(--warn-bg); }
+  .chip.open { color: var(--crit); background: var(--crit-bg); }
+  .chip.todo { color: var(--muted); background: var(--sunken); }
+
+  /* ---- finding cards ---- */
+  .findings { display: flex; flex-direction: column; gap: .9rem; margin: 1.4rem 0 2rem; }
+  .finding {
+    background: var(--raised);
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--line-strong);
+    border-radius: 8px;
+    padding: 1rem 1.2rem 1.1rem;
+    box-shadow: var(--shadow);
+  }
+  .finding.crit { border-left-color: var(--crit); }
+  .finding.warn { border-left-color: var(--warn); }
+  .finding.info { border-left-color: var(--accent); }
+  .finding-head {
+    display: flex;
+    align-items: baseline;
+    gap: .7rem;
+    flex-wrap: wrap;
+    margin-bottom: .4rem;
+  }
+  .finding-id {
+    font-family: "IBM Plex Mono", monospace;
+    font-weight: 600;
+    font-size: .82rem;
+    color: var(--crit);
+    background: var(--crit-bg);
+    padding: .1em .45em;
+    border-radius: 4px;
+  }
+  .finding.warn .finding-id { color: var(--warn); background: var(--warn-bg); }
+  .finding.info .finding-id { color: var(--accent); background: var(--accent-soft); }
+  .finding-title {
+    font-family: "Archivo", sans-serif;
+    font-weight: 700;
+    font-size: 1.02rem;
+  }
+  .finding p { margin: .4rem 0 0; font-size: .96rem; max-width: none; }
+  .finding p.src { margin-top: .5rem; }
+  .src { font-size: .82rem; color: var(--muted); font-family: "IBM Plex Mono", monospace; }
+
+  /* ---- callout ---- */
+  .callout {
+    background: var(--raised);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 1.3rem 1.5rem;
+    margin: 1.6rem 0;
+    box-shadow: var(--shadow);
+  }
+  .callout.big { border-top: 3px solid var(--accent); }
+  .callout h4 { margin-top: 0; }
+  .pull {
+    font-family: "Archivo", sans-serif;
+    font-weight: 600;
+    font-size: clamp(1.1rem, 2.4vw, 1.5rem);
+    line-height: 1.32;
+    color: var(--ink);
+    max-width: 24ch;
+    margin: 0;
+    letter-spacing: -0.01em;
+  }
+
+  /* ---- score bars ---- */
+  .scoretable td.bar-cell { width: 42%; padding-right: 1.2rem; }
+  .bar {
+    position: relative;
+    height: 8px;
+    background: var(--sunken);
+    border-radius: 5px;
+    overflow: hidden;
+  }
+  .bar > span {
+    position: absolute;
+    inset: 0 auto 0 0;
+    border-radius: 5px;
+    background: var(--ok);
+  }
+  .bar.b-low > span { background: var(--crit); }
+  .bar.b-mid > span { background: var(--warn); }
+  .bar.b-ok > span { background: var(--accent); }
+  .globalscore {
+    display: flex;
+    align-items: baseline;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin: 1.4rem 0 0;
+    padding: 1.4rem 1.6rem;
+    background: var(--warn-bg);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+  }
+  .globalscore b {
+    font-family: "Archivo", sans-serif;
+    font-size: clamp(2.2rem, 6vw, 3.4rem);
+    font-weight: 800;
+    color: var(--warn);
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+  }
+  .globalscore span { max-width: 48ch; color: var(--ink-soft); font-size: .98rem; }
+
+  /* ---- verdict columns ---- */
+  .verdicts { display: grid; gap: 1rem; margin: 1.6rem 0; }
+  @media (min-width: 760px) { .verdicts { grid-template-columns: 1fr 1fr; } }
+  .vcard {
+    background: var(--raised);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 1.1rem 1.3rem 1.2rem;
+    box-shadow: var(--shadow);
+  }
+  .vcard h4 {
+    margin: 0 0 .7rem;
+    font-family: "Archivo", sans-serif;
+    font-size: .95rem;
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+  }
+  .vcard h4::before {
+    content: "";
+    width: 10px; height: 10px;
+    border-radius: 3px;
+    flex: none;
+  }
+  .vcard.v-ok h4::before { background: var(--ok); }
+  .vcard.v-amber h4::before { background: var(--warn); }
+  .vcard.v-red h4::before { background: var(--crit); }
+  .vcard.v-go h4::before { background: var(--accent); }
+  .vcard ol, .vcard ul { max-width: none; margin: 0; padding-left: 1.15rem; font-family: "Archivo", sans-serif; font-size: .9rem; }
+  .vcard li { margin-bottom: .5rem; }
+  .vcard.v-go { grid-column: 1 / -1; border-top: 3px solid var(--accent); }
+  .vcard.v-go ol { columns: 2; column-gap: 2rem; }
+  @media (max-width: 640px) { .vcard.v-go ol { columns: 1; } }
+
+  /* ---- pipeline diagram ---- */
+  .pipe {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: stretch;
+    gap: .35rem;
+    margin: 1.2rem 0 1.6rem;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: .78rem;
+  }
+  .pipe .step {
+    background: var(--raised);
+    border: 1px solid var(--line-strong);
+    border-radius: 6px;
+    padding: .45rem .7rem;
+    display: flex;
+    align-items: center;
+  }
+  .pipe .step.g { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+  .pipe .arw { display: flex; align-items: center; color: var(--muted); }
+
+  /* ---- file tree ---- */
+  pre.tree {
+    background: var(--raised);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 1.2rem 1.4rem;
+    overflow-x: auto;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: .82rem;
+    line-height: 1.7;
+    color: var(--ink-soft);
+    box-shadow: var(--shadow);
+  }
+  pre.tree b { color: var(--ok); font-weight: 600; }
+  pre.tree i { color: var(--muted); font-style: normal; }
+
+  /* ---- theme toggle ---- */
+  .themebtn {
+    position: fixed;
+    top: 14px; right: 14px;
+    z-index: 20;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: .7rem;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    background: var(--raised);
+    color: var(--ink-soft);
+    border: 1px solid var(--line-strong);
+    border-radius: 6px;
+    padding: .4rem .6rem;
+    cursor: pointer;
+    box-shadow: var(--shadow);
+  }
+  .themebtn:hover { color: var(--accent); border-color: var(--accent); }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
+
+  footer.end {
+    margin-top: 5rem;
+    padding-top: 1.6rem;
+    border-top: 2px solid var(--ink);
+    color: var(--muted);
+    font-family: "IBM Plex Mono", monospace;
+    font-size: .78rem;
+    line-height: 1.7;
+  }
+  .pill { display:inline-block; font-family:"IBM Plex Mono",monospace; font-size:.6rem; font-weight:600; letter-spacing:.06em; text-transform:uppercase; padding:.12em .45em; border-radius:4px; vertical-align:middle; border:1px solid currentColor; }
+  .pill.ok { color:var(--ok); background:var(--ok-bg); }
+  .pill.warn { color:var(--warn); background:var(--warn-bg); }
+  .pill.risk { color:var(--crit); background:var(--crit-bg); }
+  .cnil { color:var(--muted); }
+  hr.soft { border: none; border-top: 1px solid var(--line); margin: 2.4rem 0; }
+  img { max-width: 100%; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+
+<button class="themebtn" id="themebtn" aria-label="Basculer le thème">Thème</button>
+
+<div class="wrap">
+
+<header class="masthead">
+  <div class="kicker">Revue d'architecture · lecture seule</div>
+  <h1>Audit Nodyx&nbsp;Genesis
+    <span class="sub">22 documents, ~24&nbsp;000 lignes, cartographie, contradictions, reconstruction, verdict</span>
+  </h1>
+  <p class="verdict-line">Un noyau conceptuel remarquablement sain posé sur un corpus jamais consolidé. Le travail qui reste n'est pas de concevoir davantage, c'est de <strong>trancher</strong>.</p>
+
+  <dl class="meta-grid">
+    <div><dt>Corpus</dt><dd>22 fichiers .md</dd></div>
+    <div><dt>Familles réelles</dt><dd>~5 docs réécrits</dd></div>
+    <div><dt>Contradictions</dt><dd>24 relevées</dd></div>
+    <div><dt>Invariants stables</dt><dd>10</dd></div>
+    <div class="score-cell"><dt>Score global</dt><dd>4.8<small> / 10</small></dd></div>
+    <div><dt>Verdict 0.0.1</dt><dd style="color:var(--ok)">Oui, sous conditions</dd></div>
+  </dl>
+
+  <div class="strata" aria-hidden="true">
+    <div>matière</div><div>vie</div><div>agents</div><div>société</div><div>culture</div><div>civilisation</div><div>numérique</div>
+  </div>
+  <p class="note strata-cap">Les 22 documents partagent une obsession juste : chaque couche doit <em>émerger</em> de la précédente, jamais être déclarée. L'audit teste si l'architecture tient cette promesse.</p>
+</header>
+
+<nav class="toc" aria-label="Sommaire">
+  <h2>Sommaire</h2>
+  <ol>
+    <li><a href="#carto"><span>01</span> Cartographie du corpus</a></li>
+    <li><a href="#contradictions"><span>17</span> Contradictions</a></li>
+    <li><a href="#archi"><span>02</span> Architecture reconstruite</a></li>
+    <li><a href="#sot"><span>03</span> Source of Truth</a></li>
+    <li><a href="#causal"><span>04</span> Causalité &amp; boucles</a></li>
+    <li><a href="#llm"><span>05</span> Intégration LLM</a></li>
+    <li><a href="#memoire"><span>06</span> Mémoire</a></li>
+    <li><a href="#diff"><span>07</span> Simulation différentielle</a></li>
+    <li><a href="#valid"><span>08</span> Validation</a></li>
+    <li><a href="#events"><span>09</span> Event Bus / Scheduler</a></li>
+    <li><a href="#emergence"><span>10</span> Civilisation &amp; émergence</a></li>
+    <li><a href="#histoire"><span>11</span> Histoire objective / subjective</a></li>
+    <li><a href="#nodyx"><span>12</span> Nodyx &amp; le Voile</a></li>
+    <li><a href="#humain"><span>13</span> Humain ↔ IA</a></li>
+    <li><a href="#secu"><span>14</span> Sécurité</a></li>
+    <li><a href="#perf"><span>15</span> Performance</a></li>
+    <li><a href="#certitude"><span>18</span> Niveaux de certitude</a></li>
+    <li><a href="#score"><span>19</span> Score architectural</a></li>
+    <li><a href="#verdict"><span>20</span> Verdict d'architecte</a></li>
+    <li><a href="#suite"><span>→</span> Étape suivante</a></li>
+  </ol>
+</nav>
+
+<!-- ============ 01 CARTOGRAPHIE ============ -->
+<h2 id="carto"><span class="ph">Phase 01</span>Cartographie du corpus</h2>
+<p class="lead">Le corpus n'est pas 22 documents distincts. C'est <strong>~5 documents réécrits plusieurs fois</strong>, jamais fusionnés.</p>
+
+<h3>1.1 Familles de documents</h3>
+<div class="tbl-scroll">
+<table>
+  <thead><tr><th>Famille</th><th>Fichiers</th><th>Recouvrement</th><th>Le plus abouti</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Vision</strong></td><td><code>Le Jeu de la Vie</code>, <code>Vision du Monde Vivant</code>, <code>38. Le monde qui parle</code>, <code>Fondations du Projet</code>, <code>PROJECT GENESIS</code></td><td>~70 %</td><td><code>Fondations du Projet</code></td></tr>
+    <tr><td><strong>Architecture moteur</strong><br>(agents / LLM / mémoire)</td><td><code>… _CRITIQUE</code>, <code>World State v0.1</code>, <code>Validation v0.2</code>, <code>Technical Foundation</code></td><td>~80 %</td><td><code>Technical Foundation</code> + <code>v0.2</code></td></tr>
+    <tr><td><strong>Temps</strong></td><td><code>Temporal Simulation &amp; Time Perception</code></td><td class="cnil">n/a</td><td>seul de sa famille</td></tr>
+    <tr><td><strong>Rendu</strong></td><td><code>Rendering &amp; Optimization</code></td><td class="cnil">n/a</td><td>seul de sa famille</td></tr>
+    <tr><td><strong>Infrastructure</strong></td><td><code>45. Infrastructure matérielle</code>, <code>71. Architecture cible</code></td><td>numérotation chevauchante</td><td><code>71</code> (le plus mesuré)</td></tr>
+    <tr><td><strong>Nodyx</strong> (itérations)</td><td><code>Nodyx-Genesis</code> → <code>_2</code> → <code>-3</code> → <code>-4</code> → <code>_5_FINAL</code></td><td>même doc ×5</td><td>voir 1.3</td></tr>
+    <tr><td><strong>Nodyx</strong> (thématiques)</td><td><code>Public World…</code>, <code>The Veil</code>, <code>The Veil (1)</code></td><td class="cnil">n/a</td><td><code>The Veil (1)</code></td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>1.2 Fragments d'un document maître</h3>
+<p>Les fichiers numérotés sont des <strong>chapitres extraits</strong> d'un (ou deux) document(s) maître(s) à numérotation continue :</p>
+<ul>
+  <li><code>Vision du Monde Vivant</code> = §1-37 ; <code>38. Le monde qui parle</code> = §38-60 (consécutifs).</li>
+  <li><code>45. Infrastructure</code> = §45-70 ; <code>71. Architecture cible</code> = §71-88 (consécutifs).</li>
+  <li><code>PROJECT GENESIS</code> a sa <strong>propre</strong> numérotation §0-44 (§38 = « Interface », pas « Le monde qui parle ») → au moins <strong>deux</strong> maîtres fragmentés, non identifiés comme tels.</li>
+</ul>
+
+<h3>1.3 Chronologie des fichiers (mtime), et ordre de production réel</h3>
+<div class="tbl-scroll">
+<table>
+  <thead><tr><th>Heure</th><th>Fichier</th><th>Remarque</th></tr></thead>
+  <tbody>
+    <tr><td class="mono">17:39</td><td><code>38. Le monde qui parle</code></td><td></td></tr>
+    <tr><td class="mono">18:05-18:10</td><td><code>Public World</code>, <code>The Veil</code>, <code>The Veil (1)</code></td><td>antérieurs à la série numérotée</td></tr>
+    <tr><td class="mono">18:21</td><td><code>Temporal Simulation</code></td><td></td></tr>
+    <tr><td class="mono">18:31</td><td><code>… _CRITIQUE</code></td><td>le plus <strong>ancien</strong> des 3 « archi moteur »</td></tr>
+    <tr><td class="mono">18:37 / 18:40</td><td><code>World State v0.1</code> / <code>Validation v0.2</code></td><td>raffinent le brouillon <code>_CRITIQUE</code></td></tr>
+    <tr><td class="mono">19:03-19:20</td><td><code>Nodyx-Genesis</code> 1 → 2 → 3 → 4 → 5</td><td>5 réécritures en 17 minutes</td></tr>
+  </tbody>
+</table>
+</div>
+<p class="note"><code>_CRITIQUE</code> n'est <strong>pas</strong> une critique d'un autre document : contenu neutre, aucune annotation. Le suffixe est un drapeau de fichier. C'est le brouillon que <code>v0.1</code> puis <code>v0.2</code> raffinent, sans jamais le citer.</p>
+
+<h3>1.4 Classification</h3>
+<div class="tbl-scroll">
+<table>
+  <thead><tr><th>Classe</th><th>Documents</th></tr></thead>
+  <tbody>
+    <tr><td><span class="chip locked">Foundation</span></td><td><code>Vision du Monde Vivant</code>, <code>38. Le monde qui parle</code>, <code>Fondations du Projet</code>, <code>PROJECT GENESIS</code></td></tr>
+    <tr><td><span class="chip proposed">Architecture</span></td><td><code>Technical Foundation</code>, <code>71. Architecture cible</code>, <code>45. Infrastructure</code>, <code>Nodyx Genesis-4</code>, <code>NODYX GENESIS_5_FINAL</code></td></tr>
+    <tr><td><span class="chip proposed">Specification</span></td><td><code>Nodyx-Genesis_2</code> (CORE_DATA_MODEL), <code>World State v0.1</code>, <code>Validation v0.2</code>, <code>The Veil (1)</code>, <code>Public World</code></td></tr>
+    <tr><td><span class="chip exp">Design</span></td><td><code>Temporal Simulation</code>, <code>Rendering &amp; Optimization</code>, <code>The Veil</code>, <code>architecture_de_depot</code></td></tr>
+    <tr><td><span class="chip locked">Decision</span> <span class="note">(auto-déclaré)</span></td><td><code>NODYX GENESIS_5_FINAL</code> (« LOCKED »), <code>Nodyx-Genesis_2</code> §3 (INV-001…010)</td></tr>
+    <tr><td><span class="chip open">Obsolete / Redundant</span></td><td><code>Le Jeu de la Vie</code> (doc germe), <code>_CRITIQUE</code>, <code>Nodyx-Genesis</code> 1 / 3 / 4, <code>The Veil</code></td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="callout big">
+  <h4>Constat central de la cartographie</h4>
+  <p><strong>Aucun document ne fait autorité.</strong> Le seul auto-déclaré <code>LOCKED</code> (<code>NODYX GENESIS_5_FINAL</code>) est une <strong>simplification de l'itération 4</strong>, pas une fusion des 7 autres : il perd le modèle de données Rust (resté dans <code>Nodyx-Genesis_2</code>, marqué « Draft »), <strong>ignore totalement « The Veil »</strong>, et introduit une contradiction frontale avec les specs Voile (CT-9).</p>
+</div>
+
+<!-- ============ 17 CONTRADICTIONS ============ -->
+<h2 id="contradictions"><span class="ph">Phase 17</span>Contradictions</h2>
+<p class="lead">24 contradictions relevées, dont 12 structurelles et 2 <em>intra-document</em>. Chacune cite un fichier et une section.</p>
+
+<h3>Contradictions bloquantes</h3>
+<div class="findings">
+
+  <div class="finding crit">
+    <div class="finding-head"><span class="finding-id">CT-1</span><span class="finding-title">Roadmap : 5 schémas de versioning incompatibles</span></div>
+    <p><code>Le Jeu de la Vie</code> §27 (Phases 1-10, Chimie=2, Dieu=10) · <code>PROJECT GENESIS</code> §41 (Godot=Phase 1, LLM=5, Dieu=8) · <code>Fondations</code> §53 (0.0.7=Histoire, 0.0.8=Godot, 0.0.9=Nodyx) · <code>Technical Foundation</code> §27-36 (0.0.7=Culture, 0.0.8=Technology) · <code>45</code> §61 (0.1→0.5, 1.0=« Le Dieu ») · <code>NODYX-3</code> §46 · <code>Nodyx-4/5</code> §33 (0.0.6 puis 0.1.0=« Digital Civilization », saute tout le reste).</p>
+    <p class="src">« 0.0.1 = deux entités » stable partout sauf <code>Le Jeu de la Vie</code> et <code>45</code>. Godot : de Phase 1 à 0.0.8 à absent selon le doc.</p>
+  </div>
+
+  <div class="finding crit">
+    <div class="finding-head"><span class="finding-id">CT-2</span><span class="finding-title">Arborescence du dépôt : 10 layouts incompatibles</span></div>
+    <p>Code de simulation : <code>genesis-core/</code> vs <code>simulation/</code> vs <code>genesis/</code> vs <code>server/</code> vs <code>engine/</code>. Module LLM : <code>genesis-ai/</code> vs <code>cognition/</code> vs <code>genesis/llm/</code>. Module Nodyx : <code>nodyx-integration/</code> vs <code>nodyx/</code> vs <code>nodyx_bridge/</code> vs <code>digital/</code>.</p>
+    <p class="src">architecture_de_depot · Fondations §39 · Technical Foundation §37 · 45 §58 · Nodyx-Genesis §15 · NODYX-3 §41 · Nodyx-4 §33 · _5_FINAL §31 · + <code>GENESIS_PRINCIPLES.md</code> jamais créé · + <code>/var/lib/genesis/</code> (71 §76).</p>
+  </div>
+
+  <div class="finding crit">
+    <div class="finding-head"><span class="finding-id">CT-3</span><span class="finding-title">Modèle temporel : 3 expressions incompatibles, aucun chiffre commun</span></div>
+    <p>Multiplicateurs temps-monde ×1 000 000 → ×1 (<code>Vision</code> §2, <code>Temporal</code> §4) vs « ÉCONOMIE toutes les X secondes », X non défini (<code>45</code> §56) vs « Économie 2 FPS » en Hz temps réel (<code>Rendering</code> §9) vs « 1 tick = 1 seconde simulée » (<code>Nodyx-Genesis_2</code> §5).</p>
+    <p><strong>Contradiction de fond :</strong> <code>MAX_LLM_CALLS_PER_TICK</code> (constante fixe) vs « 1 tick peut valoir 1 M d'années ». En régime compressé, un budget par tick n'a plus de sens. Jamais réconcilié.</p>
+  </div>
+
+  <div class="finding crit">
+    <div class="finding-head"><span class="finding-id">CT-9</span><span class="finding-title">Les habitants savent-ils qu'ils sont simulés ? (inversion frontale)</span></div>
+    <p><code>The Veil</code> §1 : « Les habitants <strong>ne savent pas</strong> qu'ils vivent dans une simulation ». <code>The Veil (1)</code> §1 : « Une information qu'un habitant ne doit pas connaître <strong>ne doit jamais entrer dans son contexte</strong> », rejette explicitement l'approche « donne l'info puis dis de te taire » comme <em>insuffisante</em>.</p>
+    <p><strong>vs</strong> <code>NODYX GENESIS_5_FINAL</code> §23 : « Les agents <strong>doivent comprendre qu'ils sont des agents Genesis</strong>… ne doivent pas divulguer », exactement l'approche rejetée. Sur le point le plus sensible du projet, le doc <code>LOCKED</code> contredit les 2 specs Voile.</p>
+  </div>
+
+  <div class="finding crit">
+    <div class="finding-head"><span class="finding-id">CT-10</span><span class="finding-title">Le Voile est-il dans l'architecture de référence ?</span></div>
+    <p>2 documents entiers dédiés (<code>WorldProjectionService</code>, classification à 5 niveaux, tests adversariaux), mais <code>NODYX GENESIS_5_FINAL</code> (LOCKED) <strong>ne prononce jamais le mot</strong>. Spécifications de sécurité orphelines.</p>
+  </div>
+
+  <div class="finding crit">
+    <div class="finding-head"><span class="finding-id">CT-24</span><span class="finding-title">L'observation change l'histoire</span></div>
+    <p>Simulation différentielle + time-scale piloté par <em>player focus</em> → un agent observé est simulé <strong>autrement</strong> (détaillé) qu'un non-observé (agrégé). Résultat agrégé ≠ résultat détaillé ⇒ l'observation change l'histoire.</p>
+    <p><strong>vs</strong> « sans tricher avec la simulation » (<code>World State</code> §32) et « même seed = même monde » (<code>Fondations</code> §36), <strong>incompatibles</strong> avec un time-scale dépendant du joueur. Contradiction non résolue, promise partout.</p>
+  </div>
+
+  <div class="finding warn">
+    <div class="finding-head"><span class="finding-id">CT-4</span><span class="finding-title">Nombre de niveaux de « vérité » : jamais stabilisé</span></div>
+    <p>2 (<code>Nodyx-Genesis</code>) → 3 (<code>_2</code> : Reality/History/Derived) → 3 (<code>-3</code> : Objective/Perception/Public) → 4 (<code>-4</code> : + Player/Archive) → <strong>2</strong> (<code>_5_FINAL</code>, retour en arrière). <code>Public World</code> = 5. <code>The Veil (1)</code> = 3. Le doc « FINAL » a la vision la moins riche.</p>
+  </div>
+
+  <div class="finding warn">
+    <div class="finding-head"><span class="finding-id">CT-5</span><span class="finding-title">Simulation différentielle : 3 / 4 / 5 paliers, noms différents</span></div>
+    <p>5 niveaux (<code>Le Jeu de la Vie</code>, <code>45</code>) · 4 (BACKGROUND/ACTIVE/IMPORTANT/HISTORICAL, <code>Technical Foundation</code>, <code>v0.2</code>, <code>_5</code>) · 5 TIER incl. « Dormant » (<code>Nodyx-4</code>) · 5 autre axe Macro/Région/Société/Individu/Interaction (<code>Temporal</code>) · 3 schémas concurrents dans <code>_CRITIQUE</code>. « Niveau 3 » = « LLM » dans l'un, « Individu » dans l'autre.</p>
+  </div>
+
+  <div class="finding warn">
+    <div class="finding-head"><span class="finding-id">CT-6</span><span class="finding-title">Rôle du LLM : décideur ou verbalisateur ?</span></div>
+    <p><code>_CRITIQUE</code> §17 « LLM comme moteur de décision » vs <code>38. Le monde qui parle</code> §42 « Objectifs ↓ <strong>Décision</strong> ↓ <strong>Expression</strong> », la décision est prise avant le LLM, qui ne fait que verbaliser.</p>
+    <p>Conséquence : <strong>3 propriétaires différents</strong> pour les conséquences structurées (<code>relationship_delta</code>, <code>new_beliefs</code>), le LLM, le moteur « calculé depuis le World State » (<code>v0.2</code> §5), ou le modèle d'agent.</p>
+  </div>
+
+  <div class="finding warn">
+    <div class="finding-head"><span class="finding-id">CT-7</span><span class="finding-title">Validation sociale &amp; narrative : obligatoire ou optionnelle ?</span></div>
+    <p><code>World State v0.1</code> §4/§5 : « Couche <strong>optionnelle</strong> ». <code>Validation v0.2</code> §2 : « Chaque décision importante <strong>passe par</strong> [les 3] ». <code>Nodyx-Genesis_2</code> §30 : les 3 scores toujours présents. v0.2 promeut silencieusement.</p>
+  </div>
+
+  <div class="finding warn">
+    <div class="finding-head"><span class="finding-id">CT-8</span><span class="finding-title">Importance permanente ? (contradiction intra-document)</span></div>
+    <p><code>World State v0.1</code> §29 : « ne doit <strong>jamais</strong> attribuer définitivement un niveau d'importance ». <code>Validation v0.2</code> §19 : « L'importance n'est jamais permanente » <strong>mais</strong> §26 (même doc) : « certains événements peuvent créer une <strong>importance historique permanente</strong> ».</p>
+  </div>
+
+  <div class="finding warn">
+    <div class="finding-head"><span class="finding-id">CT-11</span><span class="finding-title">Qui valide les permissions / rate-limits d'une action Nodyx ?</span></div>
+    <p><code>NODYX-3</code> §7 : dans Genesis. <code>Nodyx-Genesis_2</code> §43 : avant l'appel Nodyx. <code>NODYX GENESIS_5_FINAL</code> §17 : « Le système <strong>Nodyx</strong> valide ensuite : permissions, rate limits, security », en aval. Attribution inversée.</p>
+  </div>
+
+  <div class="finding warn">
+    <div class="finding-head"><span class="finding-id">CT-12</span><span class="finding-title">Accès Internet sortant des agents : abandonné sans le dire</span></div>
+    <p><code>NODYX-3</code> §11-12 : Internet Gateway, permissions LEVEL 0-5, « First Contact » comme événement. <code>Nodyx-4/5</code> : disparu. Régression de scope silencieuse, risque si ré-introduite sans garde-fou.</p>
+  </div>
+
+</div>
+
+<h3>Contradictions matérielles &amp; secondaires</h3>
+<div class="tbl-scroll">
+<table>
+  <thead><tr><th>#</th><th>Sujet</th><th>Conflit</th></tr></thead>
+  <tbody>
+    <tr><td class="mono">CT-13</td><td>CPU</td><td>« E5-2680 <strong>v4</strong>, 14c/28t » (Fondations, 71) vs « E5-2680 » sans version ni cœurs (45), or seul le v4 fait 14c/28t</td></tr>
+    <tr><td class="mono">CT-14</td><td>Stockage</td><td>« ~900 Go / ~796 Go dispo » (71, Fondations) vs « Toshiba 1 To HDD » (45)</td></tr>
+    <tr><td class="mono">CT-15</td><td>BDD</td><td>PostgreSQL/SQLite/fichiers (45 §46) + PostgreSQL/UUIDv7 (Nodyx-Genesis_2 §4) vs « Database » générique partout ailleurs, <strong>jamais tranché</strong></td></tr>
+    <tr><td class="mono">CT-16</td><td>Règles canoniques</td><td>8 (Vision §33) vs 10 (Fondations §42) + glissement de sens (« doivent <strong>changer</strong> » → « <strong>émerger</strong> ») + un 3ᵉ <code>GENESIS_PRINCIPLES.md</code> référencé</td></tr>
+    <tr><td class="mono">CT-17</td><td>Frontend</td><td>Web UI (Le Jeu de la Vie) → Godot moteur visuel (Fondations) → Godot + WebAssembly (Rendering). « Godot » absent des 2 docs de vision</td></tr>
+    <tr><td class="mono">CT-18</td><td>LLM local</td><td>Technical Foundation planifie des « LLM locaux » à 0.0.5 ; 45 §52 avertit que le GPU RX 470/480 <strong>ne peut être supposé</strong> capable. Où tournent-ils ? Jamais dit</td></tr>
+    <tr><td class="mono">CT-19</td><td>LOD</td><td>Terme surchargé : 5 bandes géométriques différentes entre Technical Foundation §47 et Rendering §5, <strong>et</strong> réemployé pour la granularité cognitive (45 §54)</td></tr>
+    <tr><td class="mono">CT-20</td><td>Rôles humains</td><td>Aucune table canonique : 3 (The Veil) · 5 (The Veil (1)) · 4 autre axe (NODYX-3) · 2 (Nodyx-4) · 0 (_5). Les rôles du prompt n'existent nulle part réunis. « Dieu » a quasi disparu du FINAL</td></tr>
+    <tr><td class="mono">CT-21</td><td>Mémoire collective sans ancrage</td><td>Validation v0.2 §33 : <code>CollectiveMemory</code> n'a pas de <code>world_event_reference</code> (l'individuelle si, §15) mais §35 autorise le moteur à muter « Cultural Narrative → Myth », dérive non traçable, en tension avec §47 « non-triche »</td></tr>
+    <tr><td class="mono">CT-22</td><td>Chimie</td><td>Le Jeu de la Vie fait de la Chimie une phase de dev (Phase 2) ; toutes les roadmaps ultérieures sautent 0.0.1 → 0.0.2. Jamais spécifié comme sous-système</td></tr>
+    <tr><td class="mono">CT-23</td><td>Nodyx = archive de référence ?</td><td>Public World §19 : « Nodyx = mémoire externe… Genesis peut oublier » vs « Nodyx n'est jamais la vérité primaire / état dérivé » (_2 §2.3)</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Redondances · Ambiguïtés · Manques</h3>
+<div class="verdicts" style="grid-template-columns:1fr 1fr 1fr">
+  <div class="vcard v-amber">
+    <h4>Redondances</h4>
+    <ul>
+      <li>5 docs de vision (~70 %)</li>
+      <li>4 docs « archi moteur » (~80 %)</li>
+      <li>5 itérations Nodyx (même doc ×5)</li>
+      <li>2 Voile</li>
+      <li>10 arborescences de dépôt</li>
+      <li>~6 énoncés de la formule d'importance</li>
+    </ul>
+  </div>
+  <div class="vcard v-red">
+    <h4>Ambiguïtés (sans propriétaire)</h4>
+    <ul>
+      <li>Langage moteur (Rust seulement implicite)</li>
+      <li>BDD · vector store (bloquant pour le RAG)</li>
+      <li><code>relationships</code> sous <code>Entity</code> ET <code>Agent</code></li>
+      <li><strong>énergie</strong> jamais attribuée explicitement</li>
+      <li>Qui produit les conséquences structurées</li>
+      <li><code>world_complexity</code> jamais défini</li>
+      <li>Tous les seuils numériques (« configurables »)</li>
+    </ul>
+  </div>
+  <div class="vcard v-red">
+    <h4>Sous-spécification</h4>
+    <ul>
+      <li>La boucle de tick elle-même (ordre, fréquences, durée)</li>
+      <li>World State comme structure (seul <code>_2</code>, « Draft »)</li>
+      <li>Format d'événement définitif</li>
+      <li>Physical Validation concrète</li>
+      <li>Génome → phénotype</li>
+      <li>Repro / mutation (taux, croisement)</li>
+      <li>Schéma DB, cadence snapshot, format event log</li>
+    </ul>
+  </div>
+</div>
+<p><strong>Sur-ingénierie pour la phase 0.0.1 :</strong> Internet Gateway à 6 niveaux · Digital Civilization complète (wiki/canvas/calendar/games) · Model Router 3 niveaux + fallback 4 niveaux + cache déterministe · 4 notions de temps + compression dynamique · mémoire hiérarchique à 5 niveaux · le Voile avec tests adversariaux, le tout avant d'avoir une boucle de tick qui fait bouger deux entités.</p>
+
+<!-- ============ 02 ARCHITECTURE ============ -->
+<h2 id="archi"><span class="ph">Phase 02</span>Architecture reconstruite</h2>
+
+<h3>2.1 Le noyau stable : 10 invariants (jamais contredits sur 22 docs)</h3>
+<div class="tbl-scroll">
+<table>
+  <thead><tr><th class="num">#</th><th>Invariant</th></tr></thead>
+  <tbody>
+    <tr><td class="num">1</td><td><strong>Le LLM propose, Genesis valide, le moteur applique.</strong> Le LLM n'écrit jamais le World State.</td></tr>
+    <tr><td class="num">2</td><td>Nodyx ne mute jamais le World State (retourne un résultat ; Genesis confirme puis intègre).</td></tr>
+    <tr><td class="num">3</td><td>Genesis tourne sans LLM / sans Nodyx / sans réseau.</td></tr>
+    <tr><td class="num">4</td><td>Toute mutation importante → événement ; événements immuables ; correction = nouvel événement.</td></tr>
+    <tr><td class="num">5</td><td>La mémoire subjective ne réécrit jamais l'histoire objective (ancrage <code>world_event_reference</code>).</td></tr>
+    <tr><td class="num">6</td><td>Simulation différentielle : tous les agents existent, pas au même niveau ; importance dynamique et réversible.</td></tr>
+    <tr><td class="num">7</td><td>Protection anti-cascade (<code>cascade_depth</code>, <code>MAX_EVENTS_PER_TICK</code>).</td></tr>
+    <tr><td class="num">8</td><td>Séparation vérité objective / croyance de l'agent / représentation publique.</td></tr>
+    <tr><td class="num">9</td><td>Appels LLM enregistrés pour replay (non-déterministes isolés du cœur déterministe).</td></tr>
+    <tr><td class="num">10</td><td>Pont vers Nodyx via adaptateur (Genesis ignore React / HTTP / SQL de Nodyx).</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>2.2 Modules et frontières</h3>
+<div class="tbl-scroll">
+<table>
+  <thead><tr><th>Module</th><th>Responsabilité</th><th>Possède</th><th>Statut</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Genesis Core</strong></td><td>vérité du monde, temps, RNG déterministe, persistance</td><td>World State, Event Log, géographie, ressources, seed</td><td><span class="chip locked">Locked</span> principe / <span class="chip todo">Todo</span> structure</td></tr>
+    <tr><td><strong>Genesis Simulation</strong></td><td>biologie, évolution, comportement algorithmique</td><td class="cnil">n/a</td><td><span class="chip proposed">Proposed</span></td></tr>
+    <tr><td><strong>Agent System</strong></td><td>état d'agent, importance / tier</td><td>personnalité, émotions, objectifs, statut social</td><td><span class="chip proposed">Proposed</span></td></tr>
+    <tr><td><strong>Memory</strong></td><td>mémoire individuelle + collective, RAG</td><td>souvenirs, mémoire collective par entité sociale</td><td>partiel, individuel OK, collectif sans ancrage</td></tr>
+    <tr><td><strong>Cognition / LLM</strong></td><td>Model Router, Context Builder, structured output, fallback</td><td>rien de canonique (stateless)</td><td><span class="chip proposed">Proposed</span>, validation sémantique non définie</td></tr>
+    <tr><td><strong>Validation</strong></td><td>Physical (bloque) / Social (conséquences) / Narrative (pression)</td><td><code>ValidationResult</code></td><td><span class="chip proposed">Proposed</span>, CT-7</td></tr>
+    <tr><td><strong>Event System</strong></td><td>Event Bus, Scheduler, cascade, budgets</td><td>file de priorité</td><td><span class="chip proposed">Proposed</span>, budgets non chiffrés</td></tr>
+    <tr><td><strong>Culture</strong></td><td>memes, transmission, consensus, langue</td><td>mémoire collective, traditions</td><td><span class="chip exp">Experimental</span>, dynamique non spécifiée</td></tr>
+    <tr><td><strong>Civilization</strong></td><td>territoire, gouvernement, économie, institutions</td><td><code>Civilization</code> state</td><td><span class="chip exp">Experimental</span>, risque de déclaration</td></tr>
+    <tr><td><strong>Persistence</strong></td><td>World State mutable + Event Log append-only + snapshots</td><td>fichiers / PostgreSQL</td><td><span class="chip proposed">Proposed</span>, schéma absent</td></tr>
+    <tr><td><strong>Nodyx Bridge</strong></td><td>Gateway, Tool Registry, Intent→exécution→NodyxEvent</td><td><code>ArtifactReference</code></td><td><span class="chip proposed">Proposed</span>, CT-11</td></tr>
+    <tr><td><strong>Veil / Human</strong></td><td><code>WorldProjectionService</code>, classification, isolation secrets, God mode</td><td>projections</td><td><span class="chip open">Orphelin</span>, hors architecture de référence (CT-10)</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>2.3 Dépendances circulaires</h3>
+<ul>
+  <li>Mémoire individuelle ↔ collective, <strong>OK si médiée par events</strong>.</li>
+  <li>decision → event → World State → perception → decision, boucle causale voulue, <strong>bornée</strong> par <code>cascade_depth</code>.</li>
+  <li><strong>player focus → time_scale → LOD → agents détaillés → events → ce que voit le joueur</strong>, boucle <strong>problématique</strong> (CT-24), non bornée, brise la reproductibilité.</li>
+  <li>Culture → croyances individuelles → décisions → events → mémoire collective → Culture, voulue, <strong>à borner explicitement</strong>.</li>
+  <li>Nodyx artifact → lecture agent → croyance → nouvel artifact, <strong>auto-amplifiante, non bornée</strong>.</li>
+</ul>
+
+<!-- ============ 03 SOURCE OF TRUTH ============ -->
+<h2 id="sot"><span class="ph">Phase 03</span>Source of Truth</h2>
+<div class="tbl-scroll">
+<table>
+  <thead><tr><th>Donnée</th><th>Source of Truth</th><th>Mutable</th><th>Statut</th></tr></thead>
+  <tbody>
+    <tr><td>Position</td><td>World State / Geography</td><td>oui</td><td><span class="chip locked">Locked</span> (implicite)</td></tr>
+    <tr><td><strong>Énergie</strong></td><td>World State / <code>BiologyState</code> (implicite)</td><td>oui</td><td><span class="chip open">Ambigu</span>, jamais énoncé</td></tr>
+    <tr><td>Santé</td><td>World State / <code>BiologyState</code></td><td>oui</td><td><span class="chip proposed">Proposed</span></td></tr>
+    <tr><td>Génome</td><td><code>Genome</code> (immuable post-naissance)</td><td>non</td><td><span class="chip proposed">Proposed</span></td></tr>
+    <tr><td>Besoins</td><td><code>Agent / Needs</code></td><td>oui</td><td><span class="chip proposed">Proposed</span></td></tr>
+    <tr><td>Personnalité</td><td><code>Agent / Personality</code></td><td>lentement</td><td><span class="chip proposed">Proposed</span></td></tr>
+    <tr><td>Émotions</td><td><code>Agent / EmotionalState</code></td><td>oui</td><td><span class="chip open">Ambigu</span>, le LLM peut-il écrire ?</td></tr>
+    <tr><td>Relation (objective)</td><td>World State / <code>RelationshipStore</code></td><td>oui</td><td><span class="chip open">Conflit</span>, sous <code>Entity</code> ET <code>Agent</code></td></tr>
+    <tr><td>Souvenir individuel</td><td>Individual Memory (agent)</td><td>oui (subjectif)</td><td><span class="chip locked">Locked</span> (principe)</td></tr>
+    <tr><td>Croyance</td><td><code>Agent / beliefs</code></td><td>oui</td><td><span class="chip open">Ambigu</span>, validation des <code>new_beliefs</code> sous-spécifiée</td></tr>
+    <tr><td>Mythe / mémoire collective</td><td>Collective Memory (civ / groupe)</td><td>oui</td><td><span class="chip open">Risque</span>, pas d'ancrage (CT-21)</td></tr>
+    <tr><td>Événement historique objectif</td><td>Event Log (append-only)</td><td>non</td><td><span class="chip locked">Locked</span> (INV-005)</td></tr>
+    <tr><td>Importance agent</td><td>Derived State</td><td>recalculé</td><td><span class="chip proposed">Proposed</span>, 6 variantes de formule</td></tr>
+    <tr><td>Time scale</td><td>Temporal Engine</td><td>oui</td><td><span class="chip open">Risque</span> (CT-3, CT-24)</td></tr>
+    <tr><td>Page wiki / artefact</td><td>Genesis <code>Artifact</code> + <code>NodyxArtifactReference</code></td><td class="cnil">n/a</td><td><span class="chip open">Conflit</span> (CT-23)</td></tr>
+    <tr><td>Secrets / infra / prompts</td><td><code>INTERNAL</code> (jamais projeté)</td><td class="cnil">n/a</td><td><span class="chip locked">Locked</span> (The Veil (1))</td></tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ============ 04 CAUSALITÉ ============ -->
+<h2 id="causal"><span class="ph">Phase 04</span>Causalité &amp; boucles</h2>
+<h4>Pipeline principal</h4>
+<div class="pipe">
+  <span class="step">World Event</span><span class="arw">→</span>
+  <span class="step">Perception (projection filtrée)</span><span class="arw">→</span>
+  <span class="step">Memory</span><span class="arw">→</span>
+  <span class="step">Context Builder (RAG)</span><span class="arw">→</span>
+  <span class="step g">Decision, Behavioral AI ou LLM</span><span class="arw">→</span>
+  <span class="step">Validation</span><span class="arw">→</span>
+  <span class="step">Action</span><span class="arw">→</span>
+  <span class="step">Event (cascade_depth++)</span><span class="arw">→</span>
+  <span class="step">World State</span>
+</div>
+<p>Boucles secondaires : <strong>sociale</strong> (A → communication → scheduler → [résumé | LLM] → structured result → validation → deltas → B), <strong>culturelle</strong> (expérience → récit → transmission → consensus → mémoire collective → culture → croyances → décisions), <strong>Nodyx</strong> (intent → tool call → validation Genesis → Gateway → exécution → event retour → confirmation → artefact).</p>
+
+<h4>Boucles dangereuses</h4>
+<div class="tbl-scroll">
+<table>
+  <thead><tr><th>#</th><th>Boucle</th><th>Garde-fou</th><th>État</th></tr></thead>
+  <tbody>
+    <tr><td class="mono">D1</td><td>conversation → cascade infinie de conversations</td><td><code>MAX_CASCADE_DEPTH</code>, <code>MAX_EVENTS_PER_TICK</code></td><td>valeurs absentes</td></tr>
+    <tr><td class="mono">D2</td><td>player focus → LOD → outcome → history</td><td>aucun</td><td><strong>non résolu (CT-24)</strong></td></tr>
+    <tr><td class="mono">D3</td><td>budget/tick vs compression ×1M</td><td>aucun</td><td><strong>non réconcilié (CT-3)</strong></td></tr>
+    <tr><td class="mono">D4</td><td>memory mutation non bornée</td><td>« la dérive doit être contrôlée » (v0.1 §10)</td><td>mécanisme absent</td></tr>
+    <tr><td class="mono">D5</td><td>mémoire collective sans ancrage → mythe « fait » → re-alimente les décisions</td><td>aucun</td><td>CT-21</td></tr>
+    <tr><td class="mono">D6</td><td>artifact → lecture agent → croyance → nouvel artifact</td><td>aucun</td><td>non borné</td></tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ============ 05 LLM ============ -->
+<h2 id="llm"><span class="ph">Phase 05</span>Intégration LLM</h2>
+<p><strong>Quand</strong> : événement à haute importance (conversation majeure, décision politique, découverte, conflit relationnel complexe, création de concept). <strong>Jamais</strong> : marcher, manger, dormir, routine.</p>
+<p><strong>Contexte</strong> (stateless) : Identity + Current State + Current Event + Goals + relations pertinentes + souvenirs pertinents (RAG) + contexte culturel + background, borné par <code>MAX_CONTEXT_TOKENS</code>, tri par pertinence.</p>
+<p><strong>Contrôle des coûts</strong> : <code>MAX_LLM_CALLS_PER_TICK</code>, <code>MAX_TOKENS_PER_TICK</code> + agrégation (10 000 affamés = 1 simulation de famine) + tiers.</p>
+<p><strong>Sorties</strong> : JSON <code>{dialogue, relationship_delta, new_beliefs, new_memories, intentions, emotional_change}</code>. Texte = secondaire. <strong>Validation</strong> : parse → repair → regenerate → schema → <em>semantic</em> (non définie) → <em>world</em> (non définie) → apply. <strong>Fallback</strong> : large → medium/local → behavioral AI → default action.</p>
+<div class="callout">
+  <h4>« Le LLM propose, Genesis valide, le moteur applique »</h4>
+  <ul>
+    <li><span class="pill ok">solide</span> Principe omniprésent et clair <strong>au niveau physique</strong>.</li>
+    <li><span class="pill warn">réserve</span> <strong>Faible au niveau social / narratif</strong> : <code>new_beliefs</code>, <code>new_memories</code>, <code>emotional_change</code> proposés par le LLM ; « semantic / world validation » nommées mais jamais spécifiées.</li>
+    <li><span class="pill risk">risque</span> CT-6 : dans <code>38. Le monde qui parle</code> le LLM ne décide même pas, il verbalise.</li>
+    <li><span class="pill warn">réserve</span> Reproductibilité reconnue comme non résolue dès que le LLM est dans la boucle (<code>_CRITIQUE</code> §39).</li>
+  </ul>
+</div>
+
+<!-- ============ 06 MÉMOIRE ============ -->
+<h2 id="memoire"><span class="ph">Phase 06</span>Mémoire</h2>
+<div class="tbl-scroll">
+<table>
+  <thead><tr><th>Aspect</th><th>État</th></tr></thead>
+  <tbody>
+    <tr><td>Indexation</td><td>tags, embedding, entities, location, timestamp, emotion, participants, topic, bien spécifié</td></tr>
+    <tr><td>Récupération</td><td>RAG multi-canal → Context Builder sous budget, bien spécifié</td></tr>
+    <tr><td>Vector store</td><td><span class="pill risk">risque</span> <strong>jamais nommé</strong>, bloquant pour le RAG</td></tr>
+    <tr><td>Importance du souvenir</td><td>6-7 facteurs, poids « à expérimenter »</td></tr>
+    <tr><td>Oubli</td><td>par compression / consolidation. <strong>Pas de fonction de decay</strong></td></tr>
+    <tr><td>Réinterprétation</td><td>EVENT → MEMORY → REINTERPRETATION → MEMORY' ; « la dérive doit être contrôlée », mécanisme absent</td></tr>
+    <tr><td>Anchoring</td><td><span class="pill ok">solide</span> individuel : <code>world_event_reference</code> sur chaque souvenir · <span class="pill risk">risque</span> collectif : ABSENT (CT-21)</td></tr>
+  </tbody>
+</table>
+</div>
+<p><strong>Tient-il sur des milliers d'agents sans millions de contextes LLM ?</strong> <span class="pill ok">solide</span> <strong>Oui en principe</strong> : la majorité (BACKGROUND) = simulation statistique, 0 mémoire riche, 0 LLM ; agrégation différentielle. <span class="pill warn">réserve</span> <strong>Mais</strong> : aucun budget mémoire chiffré, vector store non choisi, et en compression ×1M un Focus Agent devrait accumuler 842 ans de mémoire non simulée, backfill non décrit (CT-3).</p>
+
+<!-- ============ 07 DIFFÉRENTIELLE ============ -->
+<h2 id="diff"><span class="ph">Phase 07</span>Simulation différentielle / scalabilité</h2>
+<p>Modèle : <span class="mono">BACKGROUND → ACTIVE → IMPORTANT → HISTORICAL</span>. Promotion sur montée d'importance ; démotion sur decay + recalcul « every N ticks ». Exception « importance historique permanente », <strong>contredit « jamais permanent » (CT-8)</strong>.</p>
+<p>Formule (la seule pondérée, <code>Technical Foundation</code> §9) : <code>0.25·social_status + 0.20·influence + 0.15·knowledge + 0.15·uniqueness + 0.10·recent_activity + 0.10·historical_significance + 0.05·player_interest</code>. 5 autres énoncés sans poids.</p>
+<div class="callout">
+  <h4>Risques de perte d'événements historiquement importants</h4>
+  <ul>
+    <li><span class="pill risk">risque</span> Un événement décisif produit par un agent BACKGROUND <strong>non promu à temps</strong> peut être agrégé / perdu, la détection dépend d'un signal qui n'existe qu'<em>après coup</em>.</li>
+    <li><span class="pill risk">risque</span> CT-24 : le player focus modifie la profondeur de simulation → l'histoire observée ≠ non observée.</li>
+    <li><span class="pill warn">réserve</span> Le recalcul « every N ticks » peut manquer une fenêtre courte (un discours, une décision de bataille).</li>
+    <li><span class="pill warn">réserve</span> Biais de survivance : seuls les événements des agents <em>déjà</em> importants sont tracés finement.</li>
+  </ul>
+</div>
+
+<!-- ============ 08 VALIDATION ============ -->
+<h2 id="valid"><span class="ph">Phase 08</span>Validation</h2>
+<div class="tbl-scroll">
+<table>
+  <thead><tr><th>Couche</th><th>Question</th><th>Bloque ?</th><th>Statut</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Physical / Logical</strong></td><td>« Est-ce possible ? » (existence, vie, portée, ressources, techno, lois physiques)</td><td><strong>Oui, rejet</strong></td><td><span class="chip locked">Locked</span>, obligatoire, unanime</td></tr>
+    <tr><td><strong>Social</strong></td><td>« Quelles conséquences ? », pondérées, calculées depuis le World State</td><td>Non, produit des conséquences</td><td><span class="chip proposed">Proposed</span>, CT-7</td></tr>
+    <tr><td><strong>Narrative</strong></td><td>« Cohérent avec ce personnage ? » → <code>coherence_score</code> × <code>behavioral_flexibility</code></td><td>Non, pression, « signal, pas prison »</td><td><span class="chip proposed">Proposed</span>, <code>base_threshold</code> jamais chiffré</td></tr>
+  </tbody>
+</table>
+</div>
+<p><strong>Bloque réellement</strong> : seule la couche physique. Une action à cohérence 0.07 peut arriver si stress + enfant menacé + trahison apprise → « Character Break » → événement historique. <span class="pill warn">réserve</span> « semantic / world validation » des sorties LLM : nommées, jamais définies, la vraie force de « Genesis valide » sur les écritures cognitives est un trou.</p>
+
+<!-- ============ 09 EVENTS ============ -->
+<h2 id="events"><span class="ph">Phase 09</span>Event Bus / Scheduler</h2>
+<p><code>Event</code> = <code>{id, tick, type, actors, location, payload, causes[], cascade_depth, importance, provenance, parent_event, deadline}</code>. Immuabilité (INV-005) : correction = <code>CorrectionEvent</code>. <strong>Dead-letter queue</strong> : absente des docs. <strong>Retry</strong> : seulement pour les appels LLM / Nodyx.</p>
+<div class="tbl-scroll">
+<table>
+  <thead><tr><th>Échelle</th><th>Verdict</th><th>Goulets</th></tr></thead>
+  <tbody>
+    <tr><td class="num">100</td><td><span class="pill ok">solide</span> trivial</td><td>aucun</td></tr>
+    <tr><td class="num">1 000</td><td><span class="pill ok">solide</span> OK</td><td>majorité en BACKGROUND statistique</td></tr>
+    <tr><td class="num">10 000</td><td><span class="pill ok">solide</span> OK <em>si</em></td><td>agrégation fonctionnelle + Focus Agents plafonnés (jamais chiffré)</td></tr>
+    <tr><td class="num">100 000</td><td><span class="pill warn">réserve</span> limite machine</td><td>fan-out social non borné, recalcul d'importance ×100k, I/O event log sur HDD (SSD requis), vector store RAM</td></tr>
+  </tbody>
+</table>
+</div>
+<p><strong>Le LLM n'est PAS le goulet</strong> si l'agrégation marche, c'est tout l'intérêt de l'architecture.</p>
+
+<!-- ============ 10 ÉMERGENCE ============ -->
+<h2 id="emergence"><span class="ph">Phase 10</span>Civilisation &amp; émergence</h2>
+<p>Les docs insistent : religion = event + interprétation + mémoire + transmission + consensus + institutions, <strong>pas</strong> <code>if age &gt; X: religion = true</code>. Système de consensus à seuils (0.0 anecdote → 0.3 rumeur → 0.6 récit → 0.8 tradition → 0.95 fait culturel).</p>
+<div class="callout">
+  <ul>
+    <li><span class="pill ok">solide</span> Le <strong>principe</strong> est bien posé et répété.</li>
+    <li><span class="pill risk">risque</span> <strong>Aucun mécanisme de données concret</strong> : comment un meme se propage tick par tick, comment le consensus est calculé, comment une institution naît d'un groupe. La <code>Civilization</code> struct (<code>_2</code> §21) a des sous-états <code>government</code> / <code>economy</code> / <code>technology</code> → <strong>risque de les remplir par règles</strong> plutôt que par émergence, exactement ce que le projet interdit.</li>
+  </ul>
+</div>
+
+<!-- ============ 11 HISTOIRE ============ -->
+<h2 id="histoire"><span class="ph">Phase 11</span>Histoire objective / subjective</h2>
+<div class="tbl-scroll">
+<table>
+  <thead><tr><th>Aspect</th><th>État</th></tr></thead>
+  <tbody>
+    <tr><td>Objective History</td><td><span class="pill ok">solide</span> Event Log append-only, jamais modifiée par les croyances (INV-008)</td></tr>
+    <tr><td>Subjective (individuel)</td><td><span class="pill ok">solide</span> mémoire ancrée + divergence [0,1], jamais corrigée automatiquement</td></tr>
+    <tr><td>Subjective (collectif)</td><td><span class="pill risk">risque</span> <strong>pas d'ancrage</strong> ; le moteur peut muter la narrative collective sans trace (CT-21)</td></tr>
+    <tr><td>Mythologie / propagande / archives</td><td><span class="pill ok">solide</span> bien illustrées (« survécu » → « invincible » → « les dieux le protégeaient » ; 4 versions d'une guerre)</td></tr>
+    <tr><td>Accès joueur</td><td><span class="pill ok">solide</span> comparer objectif / subjectif / interprétation humaine, « l'une des mécaniques les plus puissantes »</td></tr>
+    <tr><td>Contradiction temporelle</td><td><span class="pill warn">réserve</span> si la mémoire collective se recompose entre civilisations partageant des événements, rien ne garantit la cohérence des références temporelles</td></tr>
+  </tbody>
+</table>
+</div>
+<p><strong>Suffisamment séparées ?</strong> Individuel : oui. Collectif : non (CT-21).</p>
+
+<!-- ============ 12 NODYX ============ -->
+<h2 id="nodyx"><span class="ph">Phase 12</span>Nodyx &amp; le Voile</h2>
+<p><strong>Flux d'une action Nodyx</strong> : décision agent → intent structuré → validation Genesis → Nodyx Gateway → validation Nodyx → exécution → Nodyx event (retour) → Genesis confirme → <code>ArtifactReference</code> (Genesis garde l'identité canonique + <code>origin_event</code> ; Nodyx garde le contenu).</p>
+<ul>
+  <li><span class="pill ok">solide</span> <strong>Découplage bien posé</strong> : Gateway / adaptateur, <code>trait DigitalEnvironment</code> avec <code>Mock/Local/Remote/Test</code>, failure isolation (Nodyx down → Genesis continue → queue → replay).</li>
+  <li><span class="pill risk">risque</span> CT-9 / CT-10 : le Voile, frontière la plus sensible, absent du doc LOCKED et contradictoire avec les specs Voile.</li>
+  <li><span class="pill warn">réserve</span> CT-11 : attribution permissions / rate-limits Genesis vs Nodyx incohérente.</li>
+  <li><span class="pill warn">réserve</span> CT-23 : Nodyx = archive de référence (<code>Public World</code>) vs état dérivé (le reste).</li>
+  <li><span class="pill warn">réserve</span> Boucle D6 : artifact → lecture → croyance → artifact, non bornée.</li>
+</ul>
+
+<!-- ============ 13 HUMAIN ============ -->
+<h2 id="humain"><span class="ph">Phase 13</span>Humain ↔ IA</h2>
+<p><strong>Frontière absolue (LOCKED, unanime)</strong> : un humain ne peut <strong>jamais</strong> modifier la vérité physique du monde via Nodyx. Les interactions humaines sont des événements (<code>HumanJoinedForum</code>, <code>HumanPosted</code>…).</p>
+<p><strong>God Mode</strong> : peut créer un événement / influencer / modifier le monde <strong>mais via</strong> <span class="mono">WORLD EVENT → INTERPRÉTATION</span>, jamais via <span class="mono">RAW SYSTEM INFO → habitant</span>. Même le Dieu est soumis au Voile (<code>The Veil</code> §10), sauf <code>Public World</code> §21, plus permissif.</p>
+<ul>
+  <li><span class="pill risk">risque</span> CT-9 : les agents savent-ils qu'ils sont des agents ? (<code>_5_FINAL</code> dit oui, Voile dit non)</li>
+  <li><span class="pill risk">risque</span> CT-20 : aucune table de rôles canonique ; « Developer » jamais un rôle d'interaction ; « God » a disparu du FINAL.</li>
+</ul>
+
+<!-- ============ 14 SÉCURITÉ ============ -->
+<h2 id="secu"><span class="ph">Phase 14</span>Sécurité</h2>
+<p>Bien traité <strong>uniquement</strong> dans <code>The Veil (1)</code> : prompt injection (USER INPUT ne peut jamais modifier la couche SYSTEM), isolation des secrets, pas de SQL direct (Knowledge API filtrée), least privilege, mémoire filtrée, journalisation <code>VEIL EVENT</code>, 8 tests adversariaux, PREVENTION / DETECTION / CONTAINMENT.</p>
+<div class="callout">
+  <h4>Trous</h4>
+  <ul>
+    <li><span class="pill risk">risque</span> Le doc LOCKED <strong>ne reprend quasi rien</strong> (pas de section prompt injection, pas de tests, pas de <code>WorldProjectionService</code>).</li>
+    <li><span class="pill risk">risque</span> Rate limits : constantes nommées, <strong>zéro valeur</strong>.</li>
+    <li><span class="pill risk">risque</span> Contenu illégal / diffamatoire produit à grande échelle sur le web public : non traité.</li>
+    <li><span class="pill risk">risque</span> Auth de l'API Nodyx : non spécifiée.</li>
+    <li><span class="pill risk">risque</span> Séparation public / private / internal : « doit être imposée techniquement », jamais comment.</li>
+  </ul>
+</div>
+
+<!-- ============ 15 PERF ============ -->
+<h2 id="perf"><span class="ph">Phase 15</span>Performance <span class="note">Xeon E5-2680 v4, 14c/28t, 32 Go, HDD</span></h2>
+<div class="tbl-scroll">
+<table>
+  <thead><tr><th>Échelle</th><th>Verdict</th></tr></thead>
+  <tbody>
+    <tr><td class="num">1 000 agents</td><td><span class="pill ok">solide</span> largement faisable, cognition détaillée sur une fraction</td></tr>
+    <tr><td class="num">10 000 agents</td><td><span class="pill ok">solide</span> faisable si 90 %+ en BACKGROUND, Focus Agents plafonnés, Event Bus borné / agent</td></tr>
+    <tr><td class="num">100 000 agents</td><td><span class="pill warn">réserve</span> limite de la machine ; « deep time » agrégé oui, temps réel détaillé non</td></tr>
+  </tbody>
+</table>
+</div>
+<p><strong>Doit rester algorithmique (pas LLM)</strong> : physique, biologie, évolution, besoins, déplacement, économie de base, démographie, agrégats famine / migration / maladie, propagation statistique de memes, pathfinding.</p>
+<p><strong>Justifie le LLM</strong> : dialogue important, décision politique de leader, création de concept / mythe, interprétation d'un événement inexpliqué, conflit relationnel complexe, « deep reasoning » de crise (très rare).</p>
+<p><span class="pill risk">risque</span> <strong>LLM local non résolu</strong>, le GPU RX 470/480 ne peut être supposé capable (<code>45</code> §52). Options : petit modèle CPU (lent), API distante (casse « sans réseau »), ou pas de LLM avant budget matériel.</p>
+
+<!-- ============ 18 CERTITUDE ============ -->
+<h2 id="certitude"><span class="ph">Phase 18</span>Niveaux de certitude</h2>
+<div class="tbl-scroll">
+<table>
+  <thead><tr><th>Niveau</th><th>Contenu</th></tr></thead>
+  <tbody>
+    <tr><td><span class="chip locked">Locked</span></td><td>Les 10 invariants du noyau · Physical Validation obligatoire · Event Log append-only · Genesis tourne sans LLM / Nodyx / réseau · 0.0.1 = deux entités, pas de LLM, pas de Nodyx, persistance + seed</td></tr>
+    <tr><td><span class="chip proposed">Proposed</span></td><td>Formule d'importance (choisir 1/6) · modèle 4-tiers · 3 couches de validation · structs de <code>_2</code> · <strong>Rust + PostgreSQL + UUIDv7</strong> · roadmap 0.0.1→0.0.6→0.1.0 de Nodyx-4/5 · fallback LLM 4 niveaux · Model Router</td></tr>
+    <tr><td><span class="chip exp">Experimental</span></td><td>Compression temporelle dynamique (complexité + émotion) · cache de décisions LLM · « importance historique permanente » · memory mutation / detachment · Digital Civilization complète</td></tr>
+    <tr><td><span class="chip open">Open Question</span></td><td>Langage · BDD · vector store · où tournent les LLM locaux · qui produit les conséquences structurées · <code>world_complexity</code> · tous les seuils numériques · le Voile (in / out ?) · agents conscients d'être simulés · rôles humains · Nodyx = archive ou dérivé</td></tr>
+    <tr><td><span class="chip todo">Todo</span></td><td>Boucle de tick (ordre + fréquences + durée) · format d'événement · schéma de persistance · Physical Validation concrète · génome → phénotype · repro / mutation · <code>Intent</code>→<code>Action</code>→<code>Event</code></td></tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ============ 19 SCORE ============ -->
+<h2 id="score"><span class="ph">Phase 19</span>Score architectural</h2>
+<p class="note">Ne note <strong>pas</strong> l'ambition (cohérente et défendable). Note la <strong>solidité de l'état actuel</strong> pour commencer à coder sans dette.</p>
+<div class="tbl-scroll">
+<table class="scoretable">
+  <thead><tr><th>Domaine</th><th class="num">/10</th><th class="bar-cell"></th><th>Justification</th></tr></thead>
+  <tbody>
+    <tr><td>Architecture</td><td class="num">6</td><td class="bar-cell"><div class="bar b-ok"><span style="width:60%"></span></div></td><td>Noyau conceptuel solide ; mais 10 arborescences, aucun doc faisant autorité</td></tr>
+    <tr><td>Cohérence</td><td class="num">3</td><td class="bar-cell"><div class="bar b-low"><span style="width:30%"></span></div></td><td>24 contradictions dont plusieurs frontales et 2 intra-document ; redondance massive</td></tr>
+    <tr><td>Scalabilité</td><td class="num">6</td><td class="bar-cell"><div class="bar b-ok"><span style="width:60%"></span></div></td><td>Stratégie différentielle + agrégation = le bon choix ; mais aucun chiffre, CT-24 non résolu</td></tr>
+    <tr><td>Simulation</td><td class="num">4</td><td class="bar-cell"><div class="bar b-mid"><span style="width:40%"></span></div></td><td>Principe bottom-up clair ; mais la boucle de tick n'est pas spécifiée</td></tr>
+    <tr><td>Agents</td><td class="num">6</td><td class="bar-cell"><div class="bar b-ok"><span style="width:60%"></span></div></td><td>Modèle d'état riche et bien décomposé ; tiers non unifiés, importance à 6 variantes</td></tr>
+    <tr><td>Mémoire</td><td class="num">6</td><td class="bar-cell"><div class="bar b-ok"><span style="width:60%"></span></div></td><td>Individuel : très bon ; collectif sans ancrage ; vector store jamais choisi</td></tr>
+    <tr><td>LLM</td><td class="num">6</td><td class="bar-cell"><div class="bar b-ok"><span style="width:60%"></span></div></td><td>Subordination physique claire ; validation sémantique non définie, rôle contradictoire</td></tr>
+    <tr><td>Culture</td><td class="num">4</td><td class="bar-cell"><div class="bar b-mid"><span style="width:40%"></span></div></td><td>Insistance juste sur l'émergence ; aucune dynamique de transmission concrète</td></tr>
+    <tr><td>Civilisation</td><td class="num">3</td><td class="bar-cell"><div class="bar b-low"><span style="width:30%"></span></div></td><td>Presque tout « à émerger » sans mécanisme ; struct remplissable par règles</td></tr>
+    <tr><td>Nodyx Integration</td><td class="num">5</td><td class="bar-cell"><div class="bar b-mid"><span style="width:50%"></span></div></td><td>Découplage bien posé ; 5 itérations non consolidées, Voile orphelin</td></tr>
+    <tr><td>Sécurité</td><td class="num">4</td><td class="bar-cell"><div class="bar b-mid"><span style="width:40%"></span></div></td><td><code>The Veil (1)</code> excellent mais orphelin, absent du LOCKED, zéro rate limit chiffré</td></tr>
+    <tr><td>Observabilité</td><td class="num">7</td><td class="bar-cell"><div class="bar"><span style="width:70%"></span></div></td><td>Le mieux traité : decision trace, causal graph, provenance, replay, debug mode</td></tr>
+    <tr><td>Persistance</td><td class="num">6</td><td class="bar-cell"><div class="bar b-ok"><span style="width:60%"></span></div></td><td>Modèle clair (mutable + append-only + snapshots) ; schéma DB absent, BDD non tranchée</td></tr>
+    <tr><td>Roadmap</td><td class="num">3</td><td class="bar-cell"><div class="bar b-low"><span style="width:30%"></span></div></td><td>5 schémas de versioning incompatibles ; tout ce qui suit 0.0.1 diverge</td></tr>
+    <tr><td>Faisabilité</td><td class="num">5</td><td class="bar-cell"><div class="bar b-mid"><span style="width:50%"></span></div></td><td>0.0.1→0.0.3 très faisables ; au-delà dépend de décisions non prises</td></tr>
+  </tbody>
+</table>
+</div>
+<div class="globalscore">
+  <b>4.8</b>
+  <span>Architecture avec un <strong>excellent système immunitaire conceptuel</strong> (les 10 invariants sont justes et rares dans ce type de projet) posé sur un corpus <strong>non consolidé, non chiffré, et contradictoire</strong> sur la roadmap et les frontières.</span>
+</div>
+
+<!-- ============ 20 VERDICT ============ -->
+<h2 id="verdict"><span class="ph">Phase 20</span>Verdict d'architecte</h2>
+<div class="verdicts">
+
+  <div class="vcard v-ok">
+    <h4>Solide, ce qui est architecturalement établi</h4>
+    <ol>
+      <li>Les 10 invariants du noyau, surtout « LLM propose / Genesis valide / moteur applique » au niveau physique</li>
+      <li>Séparation vérité objective (Event Log append-only) / croyance individuelle ancrée</li>
+      <li>Simulation différentielle + agrégation comme stratégie de scalabilité (le bon choix, unanime)</li>
+      <li>Genesis indépendant de Godot / Nodyx / LLM / réseau, headless, le monde continue</li>
+      <li>Structured output + Physical Validation obligatoire + fallback comme rempart anti-LLM</li>
+      <li>Observabilité : decision trace, provenance, causal graph, replay</li>
+      <li>Le modèle de données de <code>Nodyx-Genesis_2</code>, meilleure base d'implémentation du corpus</li>
+      <li>Persistance : World State mutable + Event Log immuable + snapshots</li>
+      <li>Le Voile (<code>The Veil (1)</code>) comme modèle de sécurité, techniquement juste</li>
+      <li>Cible 0.0.1 = « deux entités, pas de LLM, persistance + seed », claire et unanime</li>
+    </ol>
+  </div>
+
+  <div class="vcard v-amber">
+    <h4>À affiner, bon mais à spécifier</h4>
+    <ol>
+      <li>Formule d'importance : choisir <strong>une</strong> des 6 variantes, figer les poids</li>
+      <li>Modèle de tiers : figer les 4 paliers + machine à états + résoudre CT-8</li>
+      <li>3 couches de validation : trancher obligatoire vs optionnel, définir « semantic / world validation »</li>
+      <li>Context Builder + RAG : choisir le vector store, chiffrer le budget de tokens</li>
+      <li>Mémoire collective : lui donner un ancrage comme l'individuelle</li>
+      <li>Event Bus : chiffrer les <code>MAX_*</code>, ajouter une dead-letter queue</li>
+      <li>Modèle temporel : réconcilier tick / compression / budget (CT-3)</li>
+      <li>Nodyx : consolider les 5 itérations, trancher CT-11 et CT-23</li>
+      <li>Rôles humains : une table canonique unique</li>
+      <li>Roadmap : choisir <strong>un</strong> schéma 0.0.1→0.1.0</li>
+    </ol>
+  </div>
+
+  <div class="vcard v-red">
+    <h4>Risque, ce qui peut devenir un problème sérieux</h4>
+    <ol>
+      <li><strong>CT-24</strong>, l'observation change l'histoire : reproductibilité « même seed = même monde » cassée, promise partout comme « sans tricher »</li>
+      <li><strong>CT-3</strong>, modèle temporel indéfini : aucun chiffre commun, budget-par-tick vs compression ×1M incompatibles. Fondation de la boucle</li>
+      <li><strong>CT-9 / CT-10</strong>, le Voile : contradiction frontale entre le doc LOCKED et les 2 specs Voile</li>
+      <li><strong>CT-6</strong>, rôle du LLM : décideur ou verbalisateur ? 3 réponses dans le corpus</li>
+      <li><strong>Émergence non mécanisée</strong> : culture / religion / civilisation « à émerger » sans dynamique de données, risque de retomber dans la déclaration</li>
+      <li><strong>Aucun chiffre</strong> : tous les seuils, budgets, plafonds « configurables ». On ne benchmarke pas ce qu'on ne borne pas</li>
+      <li><strong>Mémoire collective sans ancrage</strong> (CT-21) : casse la traçabilité causale et le principe de non-triche</li>
+      <li><strong>10 arborescences de dépôt</strong> : commencer sans trancher = refactor garanti</li>
+      <li><strong>Ni langage, ni BDD, ni vector store décidés</strong> : Rust implicite mais jamais acté</li>
+      <li><strong>LLM local irréaliste</strong> sur le GPU cible : à 0.0.5 le plan prévoit ce que la machine ne peut pas faire</li>
+    </ol>
+  </div>
+
+  <div class="vcard v-go">
+    <h4>Priorité, les 10 choses à faire avant d'écrire beaucoup de code</h4>
+    <ol>
+      <li><strong>Produire UN document maître LOCKED unique</strong> (pas 22), statut par décision. Fusionner : 5 visions → 1, 4 archi moteur → 1, 5 Nodyx → 1, 2 Voile → 1</li>
+      <li><strong>Trancher la stack</strong> : Rust + PostgreSQL + un vector store (qdrant / lancedb / sqlite-vss) + format de l'event log</li>
+      <li><strong>Trancher UNE arborescence</strong> et la créer (recommandation : structure <code>Nodyx-Genesis_2</code> + <code>cognition/</code> séparé)</li>
+      <li><strong>Spécifier la boucle de tick 0.0.1</strong> : ordre des systèmes, fréquences, ce qu'un tick représente, budgets <strong>par seconde réelle</strong></li>
+      <li><strong>Figer le modèle de données minimal</strong> (World State, Entity, Agent minimal, Genome, Resource, Event, EventLog, Snapshot) depuis <code>_2</code> §55-56, et rien de plus pour 0.0.1</li>
+      <li><strong>Résoudre CT-24</strong> : soit simulation déterministe + observation purement passive (le LOD ne change que le rendu), soit on accepte l'influence et on abandonne « même seed = même monde ». Écrire la décision</li>
+      <li><strong>Résoudre CT-3</strong> : tick = durée fixe de temps-monde par phase ; compression = sauter / agréger des ticks ; budgets en temps réel</li>
+      <li><strong>Trancher CT-6</strong> (LLM décideur vs verbalisateur) et <strong>CT-9</strong> (agents conscients d'être simulés), ce sont des choix de design</li>
+      <li><strong>Choisir UN schéma de roadmap</strong> 0.0.1→0.1.0 avec critères de validation, tests par version, et ce qui doit <strong>volontairement rester absent</strong></li>
+      <li><strong>Écrire les tests d'invariants</strong> (<code>_2</code> §57) AVANT le code : <code>test_llm_cannot_modify_world_directly</code>, <code>test_same_seed_produces_same_deterministic_state</code>, <code>test_event_history_is_immutable</code>, <code>test_nodyx_failure_does_not_corrupt_world</code></li>
+    </ol>
+  </div>
+
+</div>
+
+<h3>Réponse à la question fondamentale</h3>
+<div class="callout big">
+  <p class="pull">« Avons-nous une architecture assez solide pour commencer 0.0.1 sans dette majeure ? »</p>
+  <hr class="soft">
+  <p><strong>Pour 0.0.1 strictement</strong> (deux entités, monde, énergie, mouvement, reproduction, mutation, mort, persistance, seed) : <strong style="color:var(--ok)">OUI</strong>, à condition de faire d'abord les priorités 2-5. Le noyau conceptuel est sain et 0.0.1 n'active <strong>aucune</strong> zone contradictoire.</p>
+  <p><strong>Pour aller au-delà de 0.0.3 sans dette majeure : <span style="color:var(--crit)">NON, pas encore.</span></strong> Il manque : la résolution de CT-24 et CT-3 (fondations de la boucle), un modèle de tiers figé, le choix du vector store, la consolidation des 22 documents, et une dynamique concrète pour l'émergence culturelle (sinon 0.0.5-0.0.6 seront déclaratifs).</p>
+  <p><strong>Ce qui manque précisément</strong> : pas la vision (riche et cohérente), mais la <strong>convergence</strong>. Le projet a exploré 5 fois la même architecture sans jamais choisir, et le seul document « LOCKED » est une simplification qui perd de l'information et contredit les specs de sécurité. Le travail restant n'est pas de concevoir plus, c'est de <strong>trancher et consolider</strong>.</p>
+</div>
+
+<!-- ============ SUITE ============ -->
+<h2 id="suite"><span class="ph">Étape suivante</span>Structure proposée du corpus LOCKED</h2>
+<p class="note">Proposée, <strong>non exécutée</strong>. Rien n'est rédigé tant que l'audit et cette structure ne sont pas validés. Chaque section porterait un bandeau <span class="chip locked">Locked</span> / <span class="chip proposed">Proposed</span> / <span class="chip exp">Experimental</span> / <span class="chip open">Open</span> par décision.</p>
+<pre class="tree">BIBLE/
+├── <i>_sources/</i>                        <i># les 22 .md actuels, archivés tels quels</i>
+├── <b>00_INDEX.md</b>                       <i># table de TOUTES les décisions + statut</i>
+├── <b>01_VISION.md</b>              <i>LOCKED</i>   <i># fusion des 5 docs de vision</i>
+├── <b>02_ARCHITECTURE.md</b>        <i>LOCKED</i>   <i># modules, frontières, matrice source-of-truth, 10 invariants</i>
+├── <b>03_CORE_DATA_MODEL.md</b>     <i>LOCKED</i>   <i># depuis Nodyx-Genesis_2 (structs Rust, INV-001..010)</i>
+├── <b>04_SIMULATION_LOOP.md</b>     <i>LOCKED</i>   <i># tick, fréquences, temps, compression, résout CT-3, CT-24</i>
+├── <b>05_AGENTS_COGNITION_LLM.md</b> <i>LOCKED</i>  <i># pipeline, tiers, validation, router, fallback, résout CT-6/7/8</i>
+├── <b>06_MEMORY.md</b>              <i>LOCKED</i>   <i># individuelle + collective (ancrée) + RAG + vector store</i>
+├── <b>07_EVENT_SYSTEM.md</b>        <i>LOCKED</i>   <i># bus, scheduler, cascade, budgets CHIFFRÉS, dead-letter</i>
+├── <b>08_NODYX_BRIDGE.md</b>        <i>LOCKED</i>   <i># fusion des 5 itérations Nodyx, résout CT-11, CT-23</i>
+├── <b>09_VEIL_AND_SECURITY.md</b>   <i>LOCKED</i>   <i># fusion des 2 Voile + The Veil (1), résout CT-9, CT-10</i>
+├── <b>10_HUMAN_INTERACTION.md</b>   <i>LOCKED</i>   <i># table de rôles canonique, God mode, résout CT-20</i>
+├── <b>11_ROADMAP.md</b>            <i>LOCKED</i>    <i># UN schéma 0.0.1 → 0.1.0, critères + tests + non-buts</i>
+└── <b>12_OPEN_QUESTIONS.md</b>               <i># ce qui reste explicitement à trancher</i>
+</pre>
+
+<footer class="end">
+  Audit produit à partir des 22 fichiers de <span class="mono">G:\Genesis\BIBLE\</span>, lecture intégrale + recoupement.<br>
+  Aucune modification apportée au projet. Périmètre : audit seul ; les documents LOCKED sont l'étape suivante.<br>
+  2026-08-31
+</footer>
+
+</div>
+
+<script>
+  (function () {
+    var btn = document.getElementById('themebtn');
+    var root = document.documentElement;
+    function cur() {
+      var t = root.getAttribute('data-theme');
+      if (t) return t;
+      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    try {
+      var saved = localStorage.getItem('genesis-audit-theme');
+      if (saved === 'dark' || saved === 'light') root.setAttribute('data-theme', saved);
+    } catch (e) {}
+    btn.addEventListener('click', function () {
+      var next = cur() === 'dark' ? 'light' : 'dark';
+      root.setAttribute('data-theme', next);
+      try { localStorage.setItem('genesis-audit-theme', next); } catch (e) {}
+    });
+  })();
+</script>
+</body>
+</html>

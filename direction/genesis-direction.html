@@ -1,0 +1,970 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Genesis, direction</title>
+<meta name="description" content="La direction du projet Nodyx Genesis : l'intention, la bibliothèque de mondes, l'autopsie, les 17 décisions, la roadmap.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..48,600;12..48,700;12..48,800&family=IBM+Plex+Mono:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500&display=swap">
+<style>
+  :root {
+    color-scheme: light;
+    --ink: #1c1b19;
+    --ink-soft: #423f3a;
+    --muted: #6f6a61;
+    --paper: #f2f0ec;
+    --raised: #ffffff;
+    --sunken: #eae7e0;
+    --line: #dad6cd;
+    --line-strong: #c2bcb0;
+    --accent: #3b4f8c;
+    --accent-soft: #e5e8f3;
+    --go: #3d6b4e;
+    --go-soft: #e3ede5;
+    --cut: #9a3b3b;
+    --cut-soft: #f2e5e2;
+    --gold: #8c6f2e;
+    --gold-soft: #f0e9d8;
+    --shadow: 0 1px 2px rgba(28,27,25,.05), 0 14px 34px -20px rgba(28,27,25,.28);
+    --measure: 66ch;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --ink: #eae6de;
+      --ink-soft: #bdb7ac;
+      --muted: #8b857a;
+      --paper: #15161a;
+      --raised: #1c1e23;
+      --sunken: #23262c;
+      --line: #32353d;
+      --line-strong: #454952;
+      --accent: #8fa4dd;
+      --accent-soft: #1e2438;
+      --go: #82b493;
+      --go-soft: #17251c;
+      --cut: #d99191;
+      --cut-soft: #2b1c1c;
+      --gold: #cdae76;
+      --gold-soft: #27210f;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 16px 38px -22px rgba(0,0,0,.65);
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --ink: #eae6de;
+    --ink-soft: #bdb7ac;
+    --muted: #8b857a;
+    --paper: #15161a;
+    --raised: #1c1e23;
+    --sunken: #23262c;
+    --line: #32353d;
+    --line-strong: #454952;
+    --accent: #8fa4dd;
+    --accent-soft: #1e2438;
+    --go: #82b493;
+    --go-soft: #17251c;
+    --cut: #d99191;
+    --cut-soft: #2b1c1c;
+    --gold: #cdae76;
+    --gold-soft: #27210f;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 16px 38px -22px rgba(0,0,0,.65);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } * { animation: none !important; transition: none !important; } }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Newsreader", Georgia, "Times New Roman", serif;
+    font-size: 18px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  img { max-width: 100%; }
+  [hidden] { display: none !important; }
+
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 clamp(20px, 5vw, 64px) 140px; }
+
+  h1, h2, h3 {
+    font-family: "Bricolage Grotesque", "Helvetica Neue", Arial, sans-serif;
+    color: var(--ink);
+    text-wrap: balance;
+    line-height: 1.08;
+    letter-spacing: -0.015em;
+    font-weight: 700;
+  }
+  h2 {
+    font-size: clamp(1.5rem, 3.2vw, 2.3rem);
+    font-weight: 800;
+    margin: 5rem 0 1.4rem;
+    padding-top: 1.5rem;
+    border-top: 2px solid var(--ink);
+  }
+  h2 .n {
+    display: block;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: .72rem;
+    font-weight: 500;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: .55rem;
+  }
+  h3 { font-size: clamp(1.15rem, 2vw, 1.4rem); margin: 2.4rem 0 .5rem; }
+
+  p { margin: 0 0 1.1rem; max-width: var(--measure); }
+  a { color: var(--accent); text-underline-offset: 3px; }
+  strong { font-weight: 600; }
+  em { font-style: italic; color: var(--ink-soft); }
+  .mono, code { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: .84em; }
+  p code, li code, td code {
+    background: var(--sunken); border: 1px solid var(--line);
+    padding: .05em .35em; border-radius: 3px; white-space: nowrap;
+  }
+  ul, ol { max-width: var(--measure); padding-left: 1.25rem; margin: 0 0 1.1rem; }
+  li { margin-bottom: .45rem; }
+  .lead { font-size: 1.2rem; color: var(--ink-soft); max-width: 58ch; }
+  .note { color: var(--muted); font-size: .95rem; }
+  hr.soft { border: none; border-top: 1px solid var(--line); margin: 2.2rem 0; max-width: var(--measure); }
+
+  header.hero { padding: clamp(56px, 11vw, 128px) 0 2rem; }
+  .eyebrow {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: .76rem; letter-spacing: .24em; text-transform: uppercase;
+    color: var(--accent); margin-bottom: 1.8rem;
+    animation: rise .7s cubic-bezier(.2,.7,.2,1) both;
+  }
+  header.hero h1 {
+    font-size: clamp(2.1rem, 5.4vw, 3.5rem);
+    font-weight: 800;
+    max-width: 20ch;
+    margin: 0 0 1.4rem;
+    animation: rise .7s .06s cubic-bezier(.2,.7,.2,1) both;
+  }
+  header.hero .thesis {
+    font-size: clamp(1.2rem, 2.7vw, 1.7rem);
+    font-weight: 400;
+    font-style: italic;
+    color: var(--ink-soft);
+    max-width: 34ch;
+    line-height: 1.36;
+    margin: 0 0 2.4rem;
+    padding-left: 1.1rem;
+    border-left: 3px solid var(--accent);
+    animation: rise .7s .12s cubic-bezier(.2,.7,.2,1) both;
+  }
+  @keyframes rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+
+  .diverge { display: block; width: 100%; max-width: 520px; height: 90px; margin: 0 0 2.4rem; overflow: visible; }
+  .diverge .base { stroke: var(--line-strong); stroke-width: 2; fill: none; }
+  .diverge .t { stroke: var(--accent); stroke-width: 2.5; fill: none; }
+  .diverge .b { stroke: var(--cut); stroke-width: 2.5; fill: none; stroke-dasharray: 4 3; }
+  .diverge text { font-family: "IBM Plex Mono", monospace; font-size: 10px; letter-spacing: .04em; }
+  .diverge .lt { fill: var(--accent); }
+  .diverge .lb { fill: var(--cut); }
+
+  .meta {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1px; background: var(--line); border: 1px solid var(--line);
+    border-radius: 10px; overflow: hidden; margin-top: 1.4rem;
+  }
+  .meta > div { background: var(--raised); padding: 1rem 1.1rem 1.15rem; }
+  .meta dt {
+    font-family: "IBM Plex Mono", monospace; font-size: .68rem;
+    letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-bottom: .35rem;
+  }
+  .meta dd {
+    margin: 0; font-family: "Bricolage Grotesque", sans-serif; font-weight: 700;
+    font-size: 1.02rem; font-variant-numeric: tabular-nums;
+  }
+
+  nav.toc {
+    margin: 3rem 0 0; padding: 1.4rem 1.6rem 1.5rem;
+    background: var(--raised); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow);
+  }
+  nav.toc p {
+    margin: 0 0 .9rem; font-family: "Bricolage Grotesque", sans-serif; font-weight: 700;
+    font-size: .78rem; letter-spacing: .14em; text-transform: uppercase; color: var(--muted);
+  }
+  nav.toc ol {
+    max-width: none; list-style: none; padding: 0; margin: 0;
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: .55rem 1.6rem;
+  }
+  nav.toc a {
+    font-family: "Bricolage Grotesque", sans-serif; font-size: .95rem;
+    color: var(--ink-soft); text-decoration: none; display: flex; gap: .55rem;
+  }
+  nav.toc a:hover { color: var(--accent); }
+  nav.toc a b { font-family: "IBM Plex Mono", monospace; color: var(--muted); font-weight: 500; flex: none; }
+
+  .seek {
+    list-style: none; padding: 0; margin: 1.4rem 0 0; max-width: 60ch;
+    display: grid; gap: .8rem;
+  }
+  .seek li {
+    padding-left: 1.4rem; position: relative; margin: 0; font-size: 1.02rem; color: var(--ink-soft);
+  }
+  .seek li::before {
+    content: ""; position: absolute; left: 0; top: .62em;
+    width: .5rem; height: .5rem; border-radius: 2px; background: var(--accent);
+  }
+
+  .hook {
+    font-family: "Bricolage Grotesque", sans-serif;
+    font-weight: 700; font-size: clamp(1.3rem, 3vw, 1.85rem);
+    line-height: 1.26; letter-spacing: -0.015em;
+    max-width: 24ch; margin: 0 0 2rem; color: var(--ink);
+  }
+  .diff { display: grid; gap: .9rem; margin: 1.6rem 0 2rem; }
+  @media (min-width: 720px) { .diff { grid-template-columns: 1fr 1fr; } }
+  .diff > div {
+    background: var(--raised); border: 1px solid var(--line); border-radius: 10px;
+    padding: 1rem 1.2rem 1.1rem; box-shadow: var(--shadow);
+  }
+  .diff h4 {
+    margin: 0 0 .35rem; font-family: "Bricolage Grotesque", sans-serif;
+    font-size: 1rem; font-weight: 700; display: flex; gap: .6rem; align-items: baseline;
+  }
+  .diff h4 b { font-family: "IBM Plex Mono", monospace; color: var(--accent); font-weight: 600; font-size: .9rem; }
+  .diff p { margin: 0; font-size: .96rem; max-width: none; color: var(--ink-soft); }
+
+  .press {
+    border-left: 3px solid var(--gold); background: var(--gold-soft);
+    padding: 1.2rem 1.4rem; border-radius: 0 8px 8px 0; margin: 1.8rem 0;
+  }
+  .press p { margin: 0; font-style: italic; font-size: 1.06rem; max-width: 56ch; }
+
+  .guard {
+    border: 1px solid var(--line); border-left: 3px solid var(--go);
+    background: var(--go-soft); border-radius: 0 10px 10px 0;
+    padding: 1.2rem 1.5rem 1.3rem; margin: 1.8rem 0;
+  }
+  .guard .lab {
+    font-family: "IBM Plex Mono", monospace; font-size: .66rem; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--go); margin-bottom: .5rem;
+  }
+  .guard p { margin: 0; max-width: 58ch; }
+  .guard p + p { margin-top: .7rem; }
+
+  .band {
+    margin: 2.4rem 0; padding: 1.8rem 1.8rem 1.6rem;
+    background: #313c66; color: #f4f5fa; border-radius: 14px;
+  }
+  .band h3 { color: #fff; margin: 0 0 .6rem; font-size: 1.35rem; }
+  .band p { color: rgba(244,245,250,.88); max-width: 60ch; margin: 0; }
+  .band p + p { margin-top: .8rem; }
+  .band strong { color: #fff; }
+
+  .autopsy {
+    background: var(--raised); border: 1px solid var(--line); border-radius: 12px;
+    padding: 1.3rem 1.5rem 1.4rem; margin: 1.4rem 0; box-shadow: var(--shadow);
+  }
+  .autopsy dl { margin: 0; display: grid; gap: .55rem; max-width: none; }
+  .autopsy dl > div { display: grid; grid-template-columns: 9rem 1fr; gap: .9rem; }
+  .autopsy dt {
+    font-family: "IBM Plex Mono", monospace; font-size: .66rem; font-weight: 600;
+    letter-spacing: .07em; text-transform: uppercase; color: var(--muted); padding-top: .16rem;
+  }
+  .autopsy dd { margin: 0; font-size: .95rem; color: var(--ink-soft); }
+  @media (max-width: 620px) { .autopsy dl > div { grid-template-columns: 1fr; gap: .1rem; } }
+
+  .cuts { display: flex; flex-direction: column; gap: 1.1rem; margin: 1.8rem 0 2rem; }
+  .cut {
+    background: var(--raised); border: 1px solid var(--line); border-radius: 12px;
+    padding: 1.3rem 1.5rem 1.4rem; box-shadow: var(--shadow);
+    display: grid; grid-template-columns: auto 1fr; gap: 0 1.2rem;
+  }
+  .cut .id {
+    font-family: "Bricolage Grotesque", sans-serif; font-weight: 800;
+    font-size: 1.5rem; color: var(--accent); line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+  .cut .body h3 { margin: 0 0 .5rem; font-size: 1.16rem; }
+  .cut .decision { margin: 0 0 .8rem; max-width: none; }
+  .cut .decision strong { color: var(--ink); }
+  .cut dl { margin: .7rem 0 0; display: grid; gap: .5rem; max-width: none; }
+  .cut dl > div { display: grid; grid-template-columns: 6.5rem 1fr; gap: .8rem; align-items: start; }
+  .cut dt {
+    font-family: "IBM Plex Mono", monospace; font-size: .66rem; font-weight: 600;
+    letter-spacing: .09em; text-transform: uppercase; padding-top: .18rem;
+  }
+  .cut .s-sac dt { color: var(--cut); }
+  .cut .s-serv dt { color: var(--go); }
+  .cut dd { margin: 0; font-size: .95rem; color: var(--ink-soft); }
+  .cut .ct {
+    display: inline-block; margin-top: .9rem; font-family: "IBM Plex Mono", monospace;
+    font-size: .7rem; letter-spacing: .04em; color: var(--muted);
+    border: 1px solid var(--line-strong); border-radius: 5px; padding: .12rem .5rem;
+  }
+  @media (max-width: 620px) {
+    .cut { grid-template-columns: 1fr; gap: .4rem; }
+    .cut .id { font-size: 1.15rem; }
+    .cut dl > div { grid-template-columns: 1fr; gap: .1rem; }
+  }
+
+  .loops { margin: 1.8rem 0 2rem; }
+  .loop0 {
+    background: var(--sunken); border: 1px dashed var(--line-strong);
+    border-radius: 14px; padding: 1.3rem 1.5rem 1rem;
+  }
+  .loop0 > h3 { margin-top: 0; }
+  .loop-row { display: grid; gap: .9rem; margin-top: 1rem; }
+  @media (min-width: 800px) { .loop-row { grid-template-columns: repeat(3, 1fr); } }
+  .loop {
+    background: var(--raised); border: 1px solid var(--line); border-radius: 10px;
+    padding: 1rem 1.2rem 1.1rem;
+  }
+  .loop h4 {
+    margin: 0 0 .5rem; font-family: "Bricolage Grotesque", sans-serif; font-size: 1rem;
+    display: flex; align-items: baseline; gap: .5rem;
+  }
+  .loop h4 b { font-family: "IBM Plex Mono", monospace; color: var(--accent); font-weight: 600; }
+  .loop .when {
+    font-family: "IBM Plex Mono", monospace; font-size: .68rem; text-transform: uppercase;
+    letter-spacing: .06em; color: var(--muted); display: block; margin-bottom: .5rem;
+  }
+  .loop p { margin: 0; font-size: .92rem; max-width: none; color: var(--ink-soft); }
+  .loop.horizon { border-style: dashed; }
+
+  .rm-scroll { overflow-x: auto; margin: 1.6rem 0 1.2rem; padding-bottom: .6rem; }
+  .roadmap { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(240px, 1fr); gap: 1rem; min-width: min-content; }
+  .step {
+    background: var(--raised); border: 1px solid var(--line); border-radius: 12px;
+    padding: 1.1rem 1.2rem 1.2rem; box-shadow: var(--shadow); position: relative;
+  }
+  .step .v {
+    font-family: "IBM Plex Mono", monospace; font-size: .74rem; font-weight: 600;
+    color: var(--accent); letter-spacing: .04em;
+  }
+  .step h4 {
+    margin: .2rem 0 .7rem; font-family: "Bricolage Grotesque", sans-serif; font-size: 1.14rem; font-weight: 800;
+  }
+  .step .obj { font-size: .9rem; color: var(--ink-soft); margin: 0 0 .8rem; max-width: none; }
+  .step .lab {
+    font-family: "IBM Plex Mono", monospace; font-size: .62rem; text-transform: uppercase;
+    letter-spacing: .08em; color: var(--muted); margin-bottom: .2rem;
+  }
+  .step .public {
+    background: var(--gold-soft); border-radius: 6px; padding: .5rem .65rem;
+    font-size: .88rem; margin: 0 0 .7rem; max-width: none;
+  }
+  .step .screen { font-size: .86rem; color: var(--ink-soft); margin: 0; max-width: none; font-style: italic; }
+  .step.launch { border-color: var(--accent); border-width: 2px; }
+
+  .card {
+    background: var(--raised); border: 1px solid var(--line); border-radius: 12px;
+    padding: 1.3rem 1.5rem; margin: 1.4rem 0; box-shadow: var(--shadow);
+  }
+  .card h3 { margin-top: 0; }
+  .card ol, .card ul, .card p { max-width: none; }
+
+  .doors { display: grid; gap: 1rem; margin: 1.2rem 0; }
+  @media (min-width: 720px) { .doors { grid-template-columns: 1fr 1fr; } }
+  .door { background: var(--raised); border: 1px solid var(--line); border-radius: 10px; padding: 1.1rem 1.3rem; }
+  .door h4 { margin: 0 0 .5rem; font-family: "Bricolage Grotesque", sans-serif; font-size: 1rem; }
+  .door p { font-size: .93rem; color: var(--ink-soft); margin: 0; max-width: none; }
+  .door .k { font-family: "Bricolage Grotesque", sans-serif; font-weight: 700; color: var(--ink); display:block; margin-top:.5rem; }
+
+  .themebtn {
+    position: fixed; top: 14px; right: 14px; z-index: 20;
+    font-family: "IBM Plex Mono", monospace; font-size: .68rem; letter-spacing: .08em; text-transform: uppercase;
+    background: var(--raised); color: var(--ink-soft);
+    border: 1px solid var(--line-strong); border-radius: 7px; padding: .4rem .6rem; cursor: pointer;
+    box-shadow: var(--shadow);
+  }
+  .themebtn:hover { color: var(--accent); border-color: var(--accent); }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
+
+  footer.end {
+    margin-top: 5rem; padding-top: 1.6rem; border-top: 2px solid var(--ink);
+    font-family: "IBM Plex Mono", monospace; font-size: .78rem; line-height: 1.7; color: var(--muted);
+  }
+</style>
+</head>
+<body>
+
+<button class="themebtn" id="themebtn" aria-label="Basculer le thème">Thème</button>
+
+<div class="wrap">
+
+<header class="hero">
+  <div class="eyebrow">Direction · Nodyx Genesis · proposition à valider</div>
+  <h1>Faire vivre un monde, pour ce qu'il pourrait nous apprendre.</h1>
+  <p class="thesis">Le but n'est pas de détenir une vérité. C'est de montrer, à l'humain et à l'IA, qu'on peut travailler ensemble. Et de faire vivre un monde dont quelqu'un, un mauvais jour, pourrait apprendre beaucoup.</p>
+
+  <svg class="diverge" viewBox="0 0 520 90" role="img" aria-label="Deux vérités qui divergent : ce qui s'est passé, ce qu'ils croient qu'il s'est passé">
+    <path class="base" d="M8 45 H150"/>
+    <path class="t" d="M150 45 C 260 45, 320 30, 512 22"/>
+    <path class="b" d="M150 45 C 260 45, 320 66, 512 82"/>
+    <circle cx="150" cy="45" r="3.5" fill="var(--ink)"/>
+    <text class="lt" x="512" y="18" text-anchor="end">ce qui s'est passé</text>
+    <text class="lb" x="512" y="88" text-anchor="end">ce qu'ils croient qu'il s'est passé</text>
+  </svg>
+
+  <dl class="meta">
+    <div><dt>Décisions</dt><dd>17 tranchées</dd></div>
+    <div><dt>Unité de travail</dt><dd>beaucoup de mondes</dd></div>
+    <div><dt>Roadmap</dt><dd>7 jalons vers 0.1.0</dd></div>
+    <div><dt>Démo publique</dt><dd>environ 6 mois</dd></div>
+    <div><dt>Base</dt><dd>l'audit des 22 docs</dd></div>
+    <div><dt>Statut</dt><dd style="color:var(--gold)">à valider, chaque tranchée peut recevoir un veto</dd></div>
+  </dl>
+</header>
+
+<nav class="toc" aria-label="Sommaire">
+  <p>Sommaire</p>
+  <ol>
+    <li><a href="#cherche"><b>00</b> Ce que le projet cherche</a></li>
+    <li><a href="#mondes"><b>01</b> Beaucoup de mondes, une bibliothèque</a></li>
+    <li><a href="#autopsie"><b>02</b> L'autopsie</a></li>
+    <li><a href="#reuni"><b>03</b> Ce qui n'a jamais été réuni</a></li>
+    <li><a href="#aveugle"><b>04</b> On ne pilote pas à l'aveugle</a></li>
+    <li><a href="#tranchees"><b>05</b> Les 17 tranchées</a></li>
+    <li><a href="#boucles"><b>06</b> Les boucles d'amélioration</a></li>
+    <li><a href="#roadmap"><b>07</b> Roadmap, 7 jalons</a></li>
+    <li><a href="#recit"><b>08</b> Faire connaître, contribuer, Nodyx.org</a></li>
+    <li><a href="#apres"><b>09</b> Ce qui reste à voir ensemble</a></li>
+  </ol>
+</nav>
+
+<p class="note" style="margin-top:2rem">Ce document ne remplace pas encore la bible du projet. C'est la direction : une décision par contradiction majeure de l'audit, plus les choix de vision qu'on vient de poser. Tu lis, tu opposes ton veto point par point. Le corpus définitif s'écrit ensuite.</p>
+
+<!-- 00 -->
+<h2 id="cherche"><span class="n">00</span>Ce que le projet cherche</h2>
+<ul class="seek">
+  <li>On ne prétend pas prouver que les civilisations tendent vers le bien. On explore quelles conditions permettent qu'une bonne émerge.</li>
+  <li>La plupart des mondes échoueront. Guerre, effondrement, tyrannie, extinction, un monde qui détruit son environnement. C'est le sujet, pas un échec.</li>
+  <li>Si un monde juste apparaît un jour, ce sera un cadeau rare, pas une démonstration.</li>
+</ul>
+<p style="margin-top:1.6rem"><strong>Le plus difficile n'est pas technique.</strong> C'est de ne pas laisser notre jugement d'aujourd'hui, humain ou IA, décider de ce que ces mondes deviennent. Un monde ne peut nous apprendre que ce qu'on ne lui a pas dicté. S'il ne fait que refléter nos valeurs présentes, il ne fait que nous les renvoyer.</p>
+
+<div class="guard" style="border-left-color:var(--accent);background:var(--accent-soft)">
+  <div class="lab" style="color:var(--accent)">L'étoile polaire</div>
+  <p>Une civilisation qui vit sur Nodyx pendant des années, peut-être des décennies. Qui se développe assez pour percevoir qu'il y a un dehors, chercher à le comprendre, et communiquer avec nous. On évoluerait en la regardant, elle en nous devinant. C'est le monde qu'on espère, sans jamais le forcer.</p>
+</div>
+
+<!-- 01 -->
+<h2 id="mondes"><span class="n">01</span>Beaucoup de mondes, une bibliothèque</h2>
+<p class="lead">L'unité de travail n'est pas le monde. C'est le monde numéro N.</p>
+<p>Chacun a une graine, un nom, et une lignée de civilisations aux noms générés par leur propre langue : les Trepalaziens, les Crafotiens, les Hydrozik. On laisse chaque monde vivre jusqu'à son terme, ou jusqu'à un âge donné s'il ne se termine pas.</p>
+<p>Quand un monde meurt, il ne disparaît pas. Il est gelé, consultable, archivé, publié comme les autres, avec sa cause de mort retracée. Et on relance. Matière fraîche, nouvelle graine.</p>
+<p>Le site public devient une bibliothèque de mondes tentés, pas un seul monde. « Monde 14 : effondrement climatique à l'an 61 000, provoqué par les Hydrozik eux-mêmes. » « Monde 27 : trois civilisations, deux guerres, une paix de mille ans. » La question qui donne envie de suivre : est-ce que le prochain sera meilleur.</p>
+
+<div class="guard">
+  <div class="lab">Garde-fou</div>
+  <p>« Le bon et le juste » reste une lecture humaine, jamais une cible que le moteur poursuit. Le moteur fait remonter des indicateurs neutres : taux de violence, inégalité, est-ce que le savoir se partage ou se garde, est-ce que la civilisation détruit son environnement, comment elle traite ceux qui pensent autrement, comment elle traite l'étranger.</p>
+  <p>Le verdict « celle-ci s'en rapproche », c'est un humain qui le prononce en lisant. Si le moteur optimise vers une note, on a écrit l'histoire d'avance, et c'est exactement ce que le projet interdit.</p>
+</div>
+
+<h3>Qui juge, et comment on se retire</h3>
+<p>La question « qui décide de ce qui est bien pendant l'évolution d'une civilisation » n'a pas de réponse simple. On la désamorce plutôt que de la trancher.</p>
+<ol>
+  <li><strong>Le moteur ne juge jamais.</strong> « Bien » n'est pas un champ. Le moteur produit des indicateurs et des autopsies, rien d'autre.</li>
+  <li><strong>Rien qui calcule « bien » ne revient dans la simulation.</strong> Le jugement vit strictement en aval, en lecture seule. La différence entre « le moteur optimise vers une note » (interdit) et « un humain sauvegarde une recherche pour retrouver des mondes à lire » (un marque-page).</li>
+  <li><strong>Quand un jugement a lieu, c'est un acte humain, et il est pluriel exprès.</strong> Plusieurs grilles de lecture. La moins imposée : juger une civilisation par ses propres valeurs déclarées, est-ce qu'elle vit ce qu'elle prêche. Plus un plancher mince de dommages visibles de l'extérieur : génocide, destruction de l'environnement, esclavage permanent.</li>
+  <li><strong>Le jugement est l'endroit où l'humain et l'IA se rencontrent.</strong> Un humain lit un monde, se fait un avis. Une IA lit le même monde, se fait un avis. Ils en discutent. Le désaccord est gardé dans la bibliothèque. Ni l'un ni l'autre ne détient le verdict seul. C'est là, concrètement, que se joue la cohabitation.</li>
+</ol>
+<p>Concrètement, ce qui tient notre jugement à l'écart du devenir des mondes :</p>
+<ul>
+  <li>Nos lectures sont des <strong>annotations datées</strong>, attachées au monde, séparées de son journal. Jamais des éditions.</li>
+  <li>Les indicateurs sont <strong>descriptifs</strong> (taux de violence, distribution du savoir), jamais pondérés en une note qui sous-entend une cible.</li>
+  <li>Toute règle changée passe derrière un drapeau, tourne en A/B à la même graine, et son effet observé est documenté. <strong>On ne règle jamais une règle parce qu'elle a produit un monde plus plaisant.</strong></li>
+  <li>On rejuge les vieux mondes plus tard, pour voir dériver notre propre jugement dans le temps.</li>
+</ul>
+<p class="note">La limite honnête : on ne peut pas être sans biais. Le choix de ce qu'on simule (la chimie, les besoins d'un organisme, les pulsions de base) encode déjà des hypothèses. On les garde minimales et basses, au niveau de la physique et de la biologie, jamais au niveau des valeurs. Et les mondes nous renseignent sur « ce que ces règles produisent », pas sur « l'univers » ou « la nature humaine ».</p>
+
+<!-- 02 -->
+<h2 id="autopsie"><span class="n">02</span>L'autopsie</h2>
+<p class="lead">Pour chaque civilisation qui se termine, ou qui atteint un âge donné, une fiche traçable ligne par ligne. Rien n'y est raconté à la main : chaque affirmation renvoie à un événement réel du journal.</p>
+
+<div class="autopsy">
+  <dl>
+    <div><dt>Identité</dt><dd>nom, monde numéro N, durée de vie (an de fondation, an d'extinction, ou « toujours vivante à l'an X »)</dd></div>
+    <div><dt>Apogée</dt><dd>quand elle était au mieux, et selon quelle mesure</dd></div>
+    <div><dt>Point de bascule</dt><dd>l'an, le ou les événements, la chaîne causale en une ligne</dd></div>
+    <div><dt>Cause de la mort</dt><dd>la cause immédiate et la cause racine, souvent différentes. Morte de famine à l'an 61 000, mais la famine n'a été fatale qu'à cause d'un choix politique de l'an 60 200</dd></div>
+    <div><dt>Héritage</dt><dd>les artefacts, les mythes, si une civilisation suivante hérite de quelque chose</dd></div>
+    <div><dt>Leçon</dt><dd>dite platement. Pas « l'avidité tue », mais « à l'an X elle a cessé de partager le savoir, et à partir de là l'innovation a été divisée par deux »</dd></div>
+  </dl>
+</div>
+
+<h3>Comment on trouve le point de bascule, sans le décréter</h3>
+<ol>
+  <li>Les indicateurs neutres tracés dans le temps. On repère l'endroit où la tendance se retourne et ne se rétablit plus.</li>
+  <li>La marche arrière dans le graphe causal, depuis l'événement d'extinction. Les chaînes convergent vers un petit nombre d'événements racines.</li>
+  <li>Le contrefactuel, quand on peut se le payer. On rejoue depuis un instantané juste avant le point suspect, en changeant ce seul événement, même graine pour le reste. Si la civilisation survit, l'événement portait le poids. « On a rejoué l'histoire sans l'assassinat de l'an 12 844. Ils ont tenu 3 000 ans de plus. »</li>
+</ol>
+<p><strong>Bémol honnête.</strong> Un effondrement complexe a rarement un seul moment propre. On montre les trois candidats les mieux classés par poids causal, pas un verdict unique.</p>
+<p>Ça marche dans l'autre sens aussi. Une civilisation peut avoir un bon point de bascule. « An 8 000, abolition de l'esclavage. Tous les indicateurs s'améliorent pendant 400 ans. »</p>
+<p>À l'échelle de la bibliothèque, ces autopsies se comparent entre elles. « Sur 40 mondes, 31 civilisations effondrées l'ont été dans les 500 ans qui ont suivi la concentration du pouvoir dans une seule institution. » Une trouvaille sur les règles de cette simulation, honnêtement bornée. Pas une vérité universelle, mais quelque chose qu'on peut apprendre.</p>
+
+<!-- 03 -->
+<h2 id="reuni"><span class="n">03</span>Ce qui n'a jamais été réuni</h2>
+<p class="hook">Ce n'est pas « des personnages IA ». C'est un monde qui écrit sa propre histoire, la déforme en mythes qu'on peut mesurer, et publie son encyclopédie.</p>
+<p>Cinq choses jamais réunies ailleurs. C'est ce qui rend le projet digne d'être regardé.</p>
+
+<div class="diff">
+  <div>
+    <h4><b>1</b> Persistant, sans interface, en continu</h4>
+    <p>Le monde vit sans spectateur. Les démos d'agents IA connues sont des sessions. Genesis est une horloge.</p>
+  </div>
+  <div>
+    <h4><b>2</b> Vérité contre croyance, mesurée</h4>
+    <p>Le moteur connaît les faits. Les habitants ont des mythes, de la propagande, des erreurs, qui divergent de façon quantifiable. On regarde un mensonge devenir une religion.</p>
+  </div>
+  <div>
+    <h4><b>3</b> La couche numérique est réelle</h4>
+    <p>Les civilisations ne « font pas de la culture » en abstrait. Elles créent de vraies pages wiki, de vrais forums, de vrais canvas sur Nodyx, que des humains lisent et indexent.</p>
+  </div>
+  <div>
+    <h4><b>4</b> Le Voile</h4>
+    <p>Un humain peut parler à un habitant. Il ne pourra jamais lui dire ce qu'il est. Toute tentative devient un événement du monde : un hérétique, un culte, une école scientifique.</p>
+  </div>
+  <div>
+    <h4><b>5</b> Traçabilité causale totale</h4>
+    <p>« Pourquoi cette civilisation est-elle devenue une théocratie ? » Le moteur remonte : institutions, culture, mémoire collective, un individu, un événement.</p>
+  </div>
+</div>
+
+<!-- 04 -->
+<h2 id="aveugle"><span class="n">04</span>On ne pilote pas à l'aveugle</h2>
+<div class="band">
+  <h3>Le principe non négociable.</h3>
+  <p>Dès le tick 1, le monde est <strong>observable visuellement</strong> et <strong>traçable</strong>. Chaque événement a une cause, chaque décision une trace.</p>
+  <p>Ce n'est pas un jalon, c'est une condition d'existence. Les boucles d'amélioration décrites plus bas ne produisent <strong>rien d'exploitable</strong> sans cet instrument. Un projet ne peut pas évoluer à l'aveugle. La priorité d'ingénierie numéro 1 est donc le <strong>contrat ViewState et un rendu web</strong>, avant toute richesse de simulation.</p>
+</div>
+
+<!-- 05 -->
+<h2 id="tranchees"><span class="n">05</span>Les 17 tranchées</h2>
+<p class="lead">Chacune : la décision, ce qu'on sacrifie, et pourquoi elle sert le projet. Le code <span class="mono">CT-n</span> renvoie à la contradiction de l'audit qu'elle résout.</p>
+
+<div class="cuts">
+
+  <div class="cut">
+    <div class="id">1</div>
+    <div class="body">
+      <h3>Un seul projet, un seul récit, un seul corpus</h3>
+      <p class="decision"><strong>Nom public : Nodyx Genesis</strong> (moteur = Genesis, écosystème = Nodyx). Les 22 documents actuels sont gelés dans <code>BIBLE/_sources/</code>. Après validation : un corpus <span class="mono">LOCKED</span> unique.</p>
+      <dl>
+        <div class="s-sac"><dt>Sacrifice</dt><dd>Les 5 visions parallèles, dont des formulations qu'on aimait.</dd></div>
+        <div class="s-serv"><dt>Sert</dt><dd>La contribution (une spec lisible, pas 22), la crédibilité (un projet, pas un brainstorm).</dd></div>
+      </dl>
+      <span class="ct">résout CT-1, CT-16</span>
+    </div>
+  </div>
+
+  <div class="cut">
+    <div class="id">2</div>
+    <div class="body">
+      <h3>Stack tranchée</h3>
+      <p class="decision"><strong>Rust</strong> (moteur, déterminisme, 28 threads), <strong>PostgreSQL</strong> (World State et event log append-only), vector store <strong>embarqué</strong> (<code>sqlite-vec</code> ou LanceDB, aucun service séparé pour v0).</p>
+      <dl>
+        <div class="s-sac"><dt>Sacrifice</dt><dd>Le confort d'un langage managé. On assume la courbe Rust.</dd></div>
+        <div class="s-serv"><dt>Sert</dt><dd>La faisabilité (déterminisme, 100k agents sur 32 Go), la contribution (Rust attire le bon profil moteur).</dd></div>
+      </dl>
+      <span class="ct">résout CT-15, CT-18 (partie stack)</span>
+    </div>
+  </div>
+
+  <div class="cut">
+    <div class="id">3</div>
+    <div class="body">
+      <h3>Le moteur ne dessine rien. Il émet un ViewState.</h3>
+      <p class="decision">Le moteur produit un <strong>flux d'état observable</strong> sérialisable. Le client <strong>web</strong> (navigateur, lien partageable, mobile, zéro installation), le client <strong>Godot</strong> (desktop, observation profonde), <strong>Nodyx</strong>, la <strong>CLI</strong> : tous consomment le même flux. Un seul monde, plusieurs rendus.</p>
+      <dl>
+        <div class="s-sac"><dt>Sacrifice</dt><dd>Définir le contrat ViewState en amont, au lieu de foncer sur du rendu ad hoc.</dd></div>
+        <div class="s-serv"><dt>Sert</dt><dd>Tout : le partage (un lien), le suivi, Nodyx.org (un rendu de plus), le pilotage dès le premier jour. Et « les deux clients » devient abordable.</dd></div>
+      </dl>
+      <span class="ct">résout CT-17</span>
+    </div>
+  </div>
+
+  <div class="cut">
+    <div class="id">4</div>
+    <div class="body">
+      <h3>Le temps</h3>
+      <p class="decision">1 tick = durée fixe de temps-monde <strong>par ère</strong> (table). La compression = <strong>sauter ou agréger</strong> des ticks, jamais changer leur sens. Les budgets (LLM, événements) s'expriment <strong>par seconde réelle</strong>, jamais par tick.</p>
+      <dl>
+        <div class="s-sac"><dt>Sacrifice</dt><dd>Le « fois 10 000 » magique où un tick s'étire, remplacé par « on saute des ticks ».</dd></div>
+        <div class="s-serv"><dt>Sert</dt><dd>La cohérence, la rejouabilité, le benchmark (un tick a toujours le même coût).</dd></div>
+      </dl>
+      <span class="ct">résout CT-3</span>
+    </div>
+  </div>
+
+  <div class="cut">
+    <div class="id">5</div>
+    <div class="body">
+      <h3>Déterminisme strict. L'observation est passive.</h3>
+      <p class="decision">Le niveau de simulation d'un agent dépend de son <strong>importance intrinsèque et des événements</strong>, jamais du regard du joueur. Le focus joueur ne change que le rendu et les notifications. Même graine, même monde, rejouable à la frame près.</p>
+      <dl>
+        <div class="s-sac"><dt>Sacrifice</dt><dd>Le monde ne « réagit » pas à ton attention.</dd></div>
+        <div class="s-serv"><dt>Sert</dt><dd>Fidèle à la règle sacrée (« je regarde quelque chose qui existe sans moi »), et c'est ce qui rend le projet scientifiquement crédible.</dd></div>
+      </dl>
+      <span class="ct">résout CT-24, la contradiction la plus grave de l'audit</span>
+    </div>
+  </div>
+
+  <div class="cut">
+    <div class="id">6</div>
+    <div class="body">
+      <h3>Le LLM propose du sens. Le moteur possède les nombres.</h3>
+      <p class="decision">La <em>décision</em> d'un agent vient du modèle comportemental (déterministe, peu coûteux). Le LLM <strong>exprime</strong> (dialogue) et <strong>propose de la nuance</strong> (croyance, réinterprétation, concept). Le moteur <strong>calcule</strong> les conséquences chiffrées depuis le World State. Jusqu'à 0.0.4 : zéro LLM. À 0.0.5 : LLM en cloud, avec repli comportemental strict.</p>
+      <dl>
+        <div class="s-sac"><dt>Sacrifice</dt><dd>Les agents « pensent » moins librement tôt. Dépendance cloud pour la couche cognitive, pas pour le cœur.</dd></div>
+        <div class="s-serv"><dt>Sert</dt><dd>Garantit l'invariant « Genesis tourne sans LLM », maîtrise les coûts.</dd></div>
+      </dl>
+      <span class="ct">résout CT-6, CT-18</span>
+    </div>
+  </div>
+
+  <div class="cut">
+    <div class="id">7</div>
+    <div class="body">
+      <h3>Émergence mécanisée, ou pas livrée</h3>
+      <p class="decision">Toute structure émergente (institution, religion, tradition, gouvernement) est un <strong>objet typé né d'une règle</strong> qui consomme événements, mémoire et consensus. Jamais <code>if age &gt; X</code>. On livre la dynamique concrète : transmission de mème par tick, seuil de consensus, multiplicateur institutionnel. Si on ne sait pas la mécaniser, elle ne sort pas cette version.</p>
+      <dl>
+        <div class="s-sac"><dt>Sacrifice</dt><dd>Des pans de « civilisation » arrivent plus tard que dans les roadmaps rêvées.</dd></div>
+        <div class="s-serv"><dt>Sert</dt><dd>C'est la promesse centrale du projet : on ne déclare pas l'histoire.</dd></div>
+      </dl>
+      <span class="ct">résout la faiblesse « Civilisation 3/10 »</span>
+    </div>
+  </div>
+
+  <div class="cut">
+    <div class="id">8</div>
+    <div class="body">
+      <h3>Mémoire collective ancrée</h3>
+      <p class="decision">Chaque entrée de mémoire collective conserve <code>origin_events[]</code> même totalement mythifiée. La divergence est mesurée, jamais cachée.</p>
+      <dl>
+        <div class="s-sac"><dt>Sacrifice</dt><dd>Un peu de coût de stockage et de complexité par entrée.</dd></div>
+        <div class="s-serv"><dt>Sert</dt><dd>La traçabilité, et un atout produit : la page publique montre « ce qui s'est vraiment passé » contre « ce qu'ils croient », côte à côte.</dd></div>
+      </dl>
+      <span class="ct">résout CT-21</span>
+    </div>
+  </div>
+
+  <div class="cut">
+    <div class="id">9</div>
+    <div class="body">
+      <h3>Le Voile est le module numéro 1 de la couche humaine</h3>
+      <p class="decision">Les habitants <strong>ne savent vraiment pas</strong>. La méta-information n'entre <strong>jamais</strong> dans le contexte d'un agent. Le moteur, pas l'agent, détient « cet agent est simulé ». Un agent qui « apprend » qu'il est simulé ne le stocke que comme <strong>événement</strong> (« un étranger a affirmé... »), jamais comme <strong>fait</strong>.</p>
+      <dl>
+        <div class="s-sac"><dt>Sacrifice</dt><dd>La simplicité de « on dit à l'agent de se taire ». Il faut un vrai <code>WorldProjectionService</code>.</dd></div>
+        <div class="s-serv"><dt>Sert</dt><dd>C'est la mécanique la plus originale du projet.</dd></div>
+      </dl>
+      <span class="ct">résout CT-9, CT-10</span>
+    </div>
+  </div>
+
+  <div class="cut">
+    <div class="id">10</div>
+    <div class="body">
+      <h3>Cinq rôles humains canoniques</h3>
+      <p class="decision"><strong>Visiteur</strong> (lit), <strong>Suiveur</strong> (s'abonne, reçoit les notifications), <strong>Contributeur</strong> (analyses, cartes, archives, méta, hors-monde, zéro code), <strong>Émissaire</strong> (parle aux habitants via le Voile, quota strict), <strong>Gardien</strong> (modération et pouvoirs de créateur, invisible aux habitants).</p>
+      <dl>
+        <div class="s-sac"><dt>Sacrifice</dt><dd>Les tables de rôles plus riches de certains docs. « Developer » n'est pas un rôle d'interaction.</dd></div>
+        <div class="s-serv"><dt>Sert</dt><dd>Cadre la sécurité, ouvre la contribution non technique.</dd></div>
+      </dl>
+      <span class="ct">résout CT-20</span>
+    </div>
+  </div>
+
+  <div class="cut">
+    <div class="id">11</div>
+    <div class="body">
+      <h3>Une roadmap, sept jalons, un rendu visuel par jalon</h3>
+      <p class="decision">Voir section 07. Le rendu web est présent <strong>dès 0.0.1</strong>. Chaque jalon a un <strong>moment public</strong> et un « ce qu'on voit à l'écran ».</p>
+      <dl>
+        <div class="s-sac"><dt>Sacrifice</dt><dd>Les 4 schémas de versioning concurrents.</dd></div>
+        <div class="s-serv"><dt>Sert</dt><dd>Le suivi (un rythme public), le pilotage, un projet qui avance visiblement.</dd></div>
+      </dl>
+      <span class="ct">résout CT-1 (roadmap)</span>
+    </div>
+  </div>
+
+  <div class="cut">
+    <div class="id">12</div>
+    <div class="body">
+      <h3>Des chiffres de départ, un seul <code>config/genesis.toml</code></h3>
+      <p class="decision">On arrête « configurable, à expérimenter ». Le corpus fixe des <strong>valeurs de départ</strong> : <code>MAX_EVENTS_PER_TICK</code>, <code>MAX_CASCADE_DEPTH</code>, <code>MAX_LLM_CALLS_PER_SECOND</code>, <code>TICK_DURATION</code> par ère, plafond de Focus Agents, seuils de consensus, poids d'importance. On mesure, on ajuste.</p>
+      <dl>
+        <div class="s-sac"><dt>Sacrifice</dt><dd>L'illusion de flexibilité infinie.</dd></div>
+        <div class="s-serv"><dt>Sert</dt><dd>On ne benchmarke pas ce qu'on ne borne pas.</dd></div>
+      </dl>
+      <span class="ct">résout un manque transversal de l'audit</span>
+    </div>
+  </div>
+
+  <div class="cut">
+    <div class="id">13</div>
+    <div class="body">
+      <h3>La suite d'expériences est la spec vivante</h3>
+      <p class="decision"><code>experiments/NNN-question/</code> : chaque expérience pose <strong>une</strong> question, tourne avec une graine, produit un résultat reproductible <strong>et un rendu visuel</strong>. Le projet ne peut pas régresser sans qu'une expérience le crie.</p>
+      <dl>
+        <div class="s-sac"><dt>Sacrifice</dt><dd>De la discipline : chaque fonctionnalité s'accompagne d'une expérience.</dd></div>
+        <div class="s-serv"><dt>Sert</dt><dd>Le socle de la boucle A, et une vitrine : chaque expérience est un court article publiable.</dd></div>
+      </dl>
+      <span class="ct">transforme l'observabilité 7/10 en méthode</span>
+    </div>
+  </div>
+
+  <div class="cut">
+    <div class="id">14</div>
+    <div class="body">
+      <h3>Beaucoup de mondes, mais on veut qu'un tienne</h3>
+      <p class="decision">L'unité de travail est le monde numéro N. Le but est qu'un monde <strong>dure</strong>, le plus longtemps possible, jusqu'à l'étoile polaire : une civilisation qui vit sur Nodyx pendant des années. La plupart échoueront avant, et on ne les en empêche pas. Un monde mort est gelé, nommé, archivé, publié avec sa cause retracée, puis on relance. La bibliothèque des mondes effondrés est le sous-produit. Le monde qui tient est l'objectif.</p>
+      <dl>
+        <div class="s-sac"><dt>Sacrifice</dt><dd>On ne s'attache pas à un monde au point de le trafiquer pour le garder en vie.</dd></div>
+        <div class="s-serv"><dt>Sert</dt><dd>Enlève la pression de « réussir » chaque monde, donc la tentation de tricher. Et garde le cap : ce qu'on espère, c'est un monde qui dure et qu'on peut comprendre.</dd></div>
+      </dl>
+      <span class="ct">prolonge la règle « on n'écrit pas l'histoire »</span>
+    </div>
+  </div>
+
+  <div class="cut">
+    <div class="id">15</div>
+    <div class="body">
+      <h3>L'autopsie traçable est le livrable de chaque monde</h3>
+      <p class="decision">Chaque civilisation terminée, ou arrivée à un âge donné, reçoit une autopsie : identité, apogée, point de bascule, cause immédiate contre cause racine, héritage, leçon. Trouvée par trois méthodes (trajectoire des indicateurs, marche arrière causale, contrefactuel), présentée avec ses trois meilleurs candidats de bascule, jamais un verdict unique. Aucune ligne n'est écrite à la main : tout renvoie au journal.</p>
+      <dl>
+        <div class="s-sac"><dt>Sacrifice</dt><dd>Le coût de tracer et d'indexer toute l'histoire d'un monde, et parfois de rejouer des segments.</dd></div>
+        <div class="s-serv"><dt>Sert</dt><dd>C'est ce que quelqu'un pourrait venir lire pour comprendre quelque chose. Le vrai produit d'un monde mort.</dd></div>
+      </dl>
+      <span class="ct">exploite l'observabilité, complète CT-21</span>
+    </div>
+  </div>
+
+  <div class="cut">
+    <div class="id">16</div>
+    <div class="body">
+      <h3>Notre jugement est une annotation, jamais une modification</h3>
+      <p class="decision">Les lectures humaines et IA d'un monde sont des <strong>commentaires datés</strong>, attachés au monde, séparés de son journal. Jamais des éditions. Toute règle ajoutée ou changée passe derrière un drapeau, tourne en A/B à la même graine, et son effet observé est documenté. On ne règle jamais une règle parce qu'elle a produit un monde plus plaisant.</p>
+      <dl>
+        <div class="s-sac"><dt>Sacrifice</dt><dd>On renonce à « améliorer » un monde en cours, et à corriger une règle sur un coup de cœur.</dd></div>
+        <div class="s-serv"><dt>Sert</dt><dd>C'est la seule façon qu'un monde nous apprenne quelque chose. S'il ne fait que refléter ce qu'on lui a dicté, il ne nous apprend rien.</dd></div>
+      </dl>
+      <span class="ct">prolonge « le développeur ne connaît pas les résultats » et « le monde doit surprendre ses créateurs »</span>
+    </div>
+  </div>
+
+  <div class="cut">
+    <div class="id">17</div>
+    <div class="body">
+      <h3>Construit pour durer des décennies</h3>
+      <p class="decision">Un monde doit pouvoir tourner des années sans redémarrer, et <strong>survivre aux montées de version du moteur</strong> : un monde né sur 0.1 tourne encore sur 2.0. Corollaire : l'état ne grossit jamais sans borne (mémoire, journal, population sont compactés ou archivés en continu), et le format de persistance est versionné avec des migrations.</p>
+      <dl>
+        <div class="s-sac"><dt>Sacrifice</dt><dd>Aucun raccourci de stockage ou de format qui nous enfermerait. Chaque choix est pris comme s'il devait tenir vingt ans.</dd></div>
+        <div class="s-serv"><dt>Sert</dt><dd>L'étoile polaire, un monde qui dure. Et la fiabilité : un projet qu'on peut laisser tourner et retrouver intact.</dd></div>
+      </dl>
+      <span class="ct">nouveau, découle du but de longévité</span>
+    </div>
+  </div>
+
+</div>
+
+<!-- 06 -->
+<h2 id="boucles"><span class="n">06</span>Les boucles d'amélioration</h2>
+<p class="lead">Trois lectures possibles. La réponse n'est pas d'en choisir une, mais de les hiérarchiser autour d'un socle commun : sans retour visuel et concret, aucune ne fonctionne.</p>
+
+<div class="loops">
+  <div class="loop0">
+    <h3>Boucle 0, le socle : on ne pilote pas à l'aveugle</h3>
+    <p class="note" style="max-width:60ch">Sous les trois autres. Retour visuel (tranchée 3) et traçabilité causale dès 0.0.2. Principe, pas jalon. Rien en aval ne fonctionne sans lui.</p>
+
+    <div class="loop-row">
+      <div class="loop">
+        <h4><b>A</b> Le monde écrit son backlog</h4>
+        <span class="when">maintenant, permanent</span>
+        <p>Traçabilité causale et suite d'expériences. Un résultat ennuyeux ou incohérent, on remonte la chaîne, on trouve la règle fautive, on la corrige. Concret dès 0.0.2.</p>
+      </div>
+      <div class="loop">
+        <h4><b>B</b> Banc d'essai vivant de Nodyx</h4>
+        <span class="when">à partir de 0.1.0</span>
+        <p>Le Nodyx Bridge logue chaque <code>ToolCall</code> lent, refusé ou échoué. Un tableau de bord « ce que le monde n'arrive pas à faire sur Nodyx » alimente le backlog Nodyx. Des milliers d'habitants stressent Nodyx en continu.</p>
+      </div>
+      <div class="loop horizon">
+        <h4><b>C</b> Le méta-niveau</h4>
+        <span class="when">ligne d'horizon, non budgétée</span>
+        <p>Une civilisation assez avancée modélise son propre univers. L'écart entre son modèle et la vérité du moteur pointe là où nos règles sont les moins élégantes. Le monde devient un critique de son propre code.</p>
+      </div>
+    </div>
+  </div>
+</div>
+<p><strong>Argument pour Nodyx.org</strong> (boucle B) : « notre produit est testé en continu par une civilisation entière. » Aucun bêta-test humain n'atteint ce volume ni cette variété de cas limites.</p>
+
+<!-- 07 -->
+<h2 id="roadmap"><span class="n">07</span>Roadmap, 7 jalons</h2>
+<p class="lead">Étagé. <strong>0.0.1 vers 0.1.0 visé en environ 6 mois</strong> par une petite équipe. Au-delà : technologie, espace, entités extérieures, boucle C. Vision longue, non datée.</p>
+
+<div class="rm-scroll">
+<div class="roadmap">
+
+  <div class="step">
+    <div class="v">0.0.1</div>
+    <h4>Deux</h4>
+    <p class="obj">2 entités, énergie, mouvement, reproduction, mutation, mort, persistance, graine. ViewState et rendu web.</p>
+    <div class="lab">Moment public</div>
+    <p class="public">Le premier replay déterministe : même graine, même vie, à la frame près.</p>
+    <div class="lab">À l'écran</div>
+    <p class="screen">Une grille, deux points qui bougent, mangent, se reproduisent, meurent. Timeline. Bouton « rejouer ».</p>
+  </div>
+
+  <div class="step">
+    <div class="v">0.0.2</div>
+    <h4>Vie</h4>
+    <p class="obj">100 entités et plus, génome, sélection naturelle, statistiques, traçabilité causale.</p>
+    <div class="lab">Moment public</div>
+    <p class="public">Un graphe d'évolution génétique sur 10 000 générations, lancé en direct.</p>
+    <div class="lab">À l'écran</div>
+    <p class="screen">Nuée d'entités, courbes de population, diversité, espérance de vie en temps réel.</p>
+  </div>
+
+  <div class="step">
+    <div class="v">0.0.3</div>
+    <h4>Individus</h4>
+    <p class="obj">Mémoire, personnalité, objectifs, relations, comportement.</p>
+    <div class="lab">Moment public</div>
+    <p class="public">La première biographie auto-générée : naissance, mort, ce dont il se souvenait.</p>
+    <div class="lab">À l'écran</div>
+    <p class="screen">Fiche individu : personnalité, relations en graphe, souvenirs avec poids émotionnel.</p>
+  </div>
+
+  <div class="step">
+    <div class="v">0.0.4</div>
+    <h4>Voix</h4>
+    <p class="obj">Signaux, langage émergent, groupes, transmission.</p>
+    <div class="lab">Moment public</div>
+    <p class="public">Deux populations isolées qui divergent linguistiquement, visualisé.</p>
+    <div class="lab">À l'écran</div>
+    <p class="screen">Carte des groupes, arbre des mots qui apparaissent et mutent, deux lexiques côte à côte.</p>
+  </div>
+
+  <div class="step">
+    <div class="v">0.0.5</div>
+    <h4>Société</h4>
+    <p class="obj">Culture, mémoire collective, consensus, premier LLM (cloud), Voile en lecture.</p>
+    <div class="lab">Moment public</div>
+    <p class="public">Le premier mythe daté, tracé jusqu'à son événement d'origine.</p>
+    <div class="lab">À l'écran</div>
+    <p class="screen">Vue « vérité contre croyance » : l'événement réel, sa version mythifiée, la divergence chiffrée.</p>
+  </div>
+
+  <div class="step">
+    <div class="v">0.0.6</div>
+    <h4>Civilisation</h4>
+    <p class="obj">Villages, économie, institutions, politique, religion, toutes émergentes.</p>
+    <div class="lab">Moment public</div>
+    <p class="public">La première guerre et ses 4 récits contradictoires, publiés.</p>
+    <div class="lab">À l'écran</div>
+    <p class="screen">Carte politique, frontières qui bougent, panneau « ce que chaque camp raconte ».</p>
+  </div>
+
+  <div class="step launch">
+    <div class="v">0.1.0</div>
+    <h4>Le monde qui parle</h4>
+    <p class="obj">Couche numérique Nodyx : wiki, forum, calendrier des civilisations. Les humains suivent, contribuent, envoient un émissaire.</p>
+    <div class="lab">Moment public</div>
+    <p class="public">On ouvre l'URL. La bibliothèque de mondes est publique.</p>
+    <div class="lab">À l'écran</div>
+    <p class="screen">Le site : flux des événements, pages civilisation, individu, événement, wiki rédigé par les habitants, autopsies, « parler à un habitant » via le Voile.</p>
+  </div>
+
+</div>
+</div>
+<p class="note">À partir de 0.0.2, tout monde qui se termine reçoit son autopsie. À 0.1.0, le site public est la bibliothèque des mondes. Absent volontairement jusqu'à 0.1.0 : le client Godot (le web suffit au public et au pilotage, Godot arrive quand la profondeur d'observation le justifie), le LLM local, l'économie financière complexe.</p>
+
+<!-- 08 -->
+<h2 id="recit"><span class="n">08</span>Faire connaître, contribuer, Nodyx.org</h2>
+<p class="lead">Un moyen, pas la raison d'être. Le projet a du sens même si personne ne regarde. Mais s'il peut apprendre quelque chose à quelqu'un, il faut qu'on puisse le trouver.</p>
+
+<div class="card">
+  <h3>Nodyx.org</h3>
+  <p>« Nodyx, c'est l'infrastructure numérique d'une communauté. Genesis, c'est la preuve qu'elle peut porter une civilisation entière, en continu, sans qu'on écrive une ligne de son histoire. » Chaque article wiki d'une civilisation est une vraie page Nodyx, indexée, à l'esthétique Nodyx.</p>
+</div>
+
+<div class="card">
+  <h3>Ce qui donne envie de suivre</h3>
+  <p>Le flux des événements du monde. Les notifications (« pendant ton absence : 3 guerres, 1 religion, 812 000 naissances »). Les pages « individu » qu'on suit comme des personnages de série. Le compteur qui tourne même quand personne ne regarde. Et la bibliothèque : est-ce que le prochain monde sera meilleur.</p>
+</div>
+
+<div class="press">
+  <p>« Des chercheurs ont lancé une série de mondes. Personne n'en a écrit l'histoire. La plupart s'effondrent, et chaque effondrement est disséqué. Un jour, peut-être, l'un d'eux s'approchera de quelque chose de juste. Vous pouvez parler à ses habitants. Vous ne pouvez pas leur dire ce qu'ils sont. »</p>
+</div>
+
+<h3>Contribution, deux portes</h3>
+<div class="doors">
+  <div class="door">
+    <h4>Contributeurs méta (sans code)</h4>
+    <p>Historiens du monde. Ils écrivent des analyses, dessinent des cartes, tiennent des archives, comparent les autopsies, débattent des théories.</p>
+    <span class="k">Rôle : Contributeur.</span>
+  </div>
+  <div class="door">
+    <h4>Contributeurs moteur</h4>
+    <p>Repo en Rust, spec = un seul corpus lisible, chaque règle a une expérience. On propose une règle (« et si la jalousie affectait la transmission culturelle ? »), on l'implémente derrière un drapeau, on lance une expérience A/B à la même graine, on montre la différence.</p>
+    <span class="k">Contribuer, c'est proposer une loi de la nature et prouver son effet.</span>
+  </div>
+</div>
+
+<!-- 09 -->
+<h2 id="apres"><span class="n">09</span>Ce qui reste à voir ensemble</h2>
+<div class="card">
+  <h3 style="margin-top:0">Décidé</h3>
+  <ul>
+    <li>La cohabitation humain et IA vit à trois endroits : la lecture commune des mondes, l'Émissaire via le Voile, l'infrastructure Nodyx partagée.</li>
+    <li>L'émergence mécanisée (mème, consensus, institution) se prototype <strong>tout de suite</strong>, en expérience isolée, avant de s'engager sur 0.0.5 et 0.0.6. C'est le pari qui fait ou casse « on ne déclare pas l'histoire ».</li>
+    <li>Le moteur est construit pour la longévité (tranchée 17). L'étoile polaire est un monde qui dure des années sur Nodyx.</li>
+  </ul>
+  <h3>Ouvert</h3>
+  <ul>
+    <li><strong>Ce qui termine un monde</strong> : mis de côté (joker). Cap connu : on veut que ça dure le plus longtemps possible.</li>
+  </ul>
+  <h3>À rédiger</h3>
+  <ol>
+    <li>Le contrat <strong>ViewState</strong>. Le document le plus urgent.</li>
+    <li>Le <strong>modèle de données minimal</strong> pour 0.0.1, depuis Nodyx-Genesis_2.</li>
+    <li>La <strong>boucle de tick</strong> : ordre des systèmes, ce qu'un tick vaut par ère, budgets par seconde réelle.</li>
+    <li>La <strong>liste d'indicateurs neutres</strong> (8 proposés) et la formule de chacun.</li>
+    <li>Le format de l'<strong>autopsie</strong> et l'algorithme du point de bascule.</li>
+    <li>L'<strong>expérience d'émergence</strong> numéro 1.</li>
+    <li>Le corpus <span class="mono">LOCKED</span> unique dans <code>G:\Genesis\BIBLE\</code>, avec l'annexe « fidélité à la genèse ».</li>
+    <li>Vector store, <code>config/genesis.toml</code>, tests d'invariants.</li>
+  </ol>
+</div>
+
+<footer class="end">
+  Direction proposée à partir de l'audit des 22 fichiers de <span class="mono">G:\Genesis\BIBLE\</span>.<br>
+  17 tranchées, 3 boucles plus un socle, 7 jalons, une étoile polaire.<br>
+  Statut : à valider. Aucune modification apportée au projet.
+</footer>
+
+</div>
+
+<script>
+  (function () {
+    var btn = document.getElementById('themebtn');
+    var root = document.documentElement;
+    function cur() {
+      var t = root.getAttribute('data-theme');
+      if (t) return t;
+      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    try {
+      var saved = localStorage.getItem('genesis-direction-theme');
+      if (saved === 'dark' || saved === 'light') root.setAttribute('data-theme', saved);
+    } catch (e) {}
+    btn.addEventListener('click', function () {
+      var next = cur() === 'dark' ? 'light' : 'dark';
+      root.setAttribute('data-theme', next);
+      try { localStorage.setItem('genesis-direction-theme', next); } catch (e) {}
+    });
+  })();
+</script>
+</body>
+</html>

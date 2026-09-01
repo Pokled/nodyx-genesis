@@ -1,0 +1,11 @@
+[package]
+name = "genesis-view"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Nodyx Genesis, contrat ViewState : projection du World State en un flux observable. Depend de genesis-core, jamais l'inverse."
+
+[dependencies]
+serde.workspace = true
+genesis-core = { path = "../genesis-core" }

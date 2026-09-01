@@ -1,0 +1,453 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nodyx Genesis</title>
+<meta name="description" content="On lance un monde. Personne n'en écrit l'histoire. Un univers qui vit tout seul, et nous qui regardons ce qu'il devient.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400&family=IBM+Plex+Mono:wght@400;500&family=Instrument+Sans:wght@400;500;600&display=swap">
+<style>
+  /* dark-first: bare :root is the dark palette */
+  :root {
+    color-scheme: dark;
+    --ground: #0c0e13;
+    --raised: #14171f;
+    --raised-2: #1b1f29;
+    --ink: #ece9e2;
+    --ink-soft: #a7a399;
+    --muted: #706d65;
+    --line: #242a34;
+    --line-soft: #1c212a;
+    --amber: #e0a848;
+    --amber-soft: #2a2113;
+    --cool: #7fa0d6;
+    --cool-soft: #17202f;
+    --shadow: 0 2px 8px rgba(0,0,0,.4), 0 24px 60px -28px rgba(0,0,0,.75);
+    --measure: 60ch;
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      color-scheme: light;
+      --ground: #f4f2ea;
+      --raised: #fbfaf5;
+      --raised-2: #efece2;
+      --ink: #1c1a15;
+      --ink-soft: #4a453c;
+      --muted: #837d70;
+      --line: #ddd8ca;
+      --line-soft: #e8e3d6;
+      --amber: #9a6d1c;
+      --amber-soft: #f0e7d2;
+      --cool: #40598c;
+      --cool-soft: #e4e8f1;
+      --shadow: 0 1px 2px rgba(28,26,21,.06), 0 20px 44px -26px rgba(28,26,21,.28);
+    }
+  }
+  :root[data-theme="light"] {
+    color-scheme: light;
+    --ground: #f4f2ea;
+    --raised: #fbfaf5;
+    --raised-2: #efece2;
+    --ink: #1c1a15;
+    --ink-soft: #4a453c;
+    --muted: #837d70;
+    --line: #ddd8ca;
+    --line-soft: #e8e3d6;
+    --amber: #9a6d1c;
+    --amber-soft: #f0e7d2;
+    --cool: #40598c;
+    --cool-soft: #e4e8f1;
+    --shadow: 0 1px 2px rgba(28,26,21,.06), 0 20px 44px -26px rgba(28,26,21,.28);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } *, *::before, *::after { animation: none !important; transition: none !important; } }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: "Instrument Sans", "Helvetica Neue", Arial, sans-serif;
+    font-size: 18px;
+    line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+  }
+  img { max-width: 100%; }
+  [hidden] { display: none !important; }
+
+  .wrap { max-width: 940px; margin: 0 auto; padding: 0 clamp(20px, 5vw, 48px); }
+
+  h1, h2 {
+    font-family: "Fraunces", Georgia, serif;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    line-height: 1.1;
+    text-wrap: balance;
+    color: var(--ink);
+  }
+  p { margin: 0 0 1.1rem; max-width: var(--measure); }
+  strong { font-weight: 600; color: var(--ink); }
+  em { font-style: italic; color: var(--ink-soft); }
+  a { color: var(--amber); }
+  .mono { font-family: "IBM Plex Mono", ui-monospace, monospace; }
+
+  /* hero */
+  header.hero {
+    position: relative;
+    min-height: 100svh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    overflow: hidden;
+    border-bottom: 1px solid var(--line);
+  }
+  #worldcanvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+    opacity: .5;
+  }
+  .hero-veil {
+    position: absolute; inset: 0; z-index: 1;
+    background: radial-gradient(120% 90% at 50% 40%, transparent 0%, var(--ground) 78%);
+  }
+  .hero-inner { position: relative; z-index: 2; }
+  .eyebrow {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: .78rem; letter-spacing: .32em; text-transform: uppercase;
+    color: var(--amber); margin-bottom: 1.8rem;
+    animation: fade 1s .1s both;
+  }
+  header.hero h1 {
+    font-size: clamp(2.4rem, 7vw, 4.6rem);
+    font-weight: 400;
+    max-width: 15ch;
+    margin: 0 0 1.6rem;
+    animation: fade 1s .25s both;
+  }
+  header.hero .sub {
+    font-size: clamp(1.05rem, 2.3vw, 1.35rem);
+    color: var(--ink-soft);
+    max-width: 44ch;
+    margin: 0;
+    animation: fade 1s .45s both;
+  }
+  .scrollcue {
+    position: absolute; left: 50%; bottom: 26px; transform: translateX(-50%);
+    z-index: 2; font-family: "IBM Plex Mono", monospace; font-size: .68rem;
+    letter-spacing: .2em; text-transform: uppercase; color: var(--muted);
+    animation: fade 1s 1s both;
+  }
+  @keyframes fade { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+
+  /* scenes */
+  main { padding: clamp(64px, 12vw, 130px) 0 0; }
+  .scene {
+    padding: clamp(48px, 9vw, 96px) 0;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .scene:last-of-type { border-bottom: none; }
+  .scene .tag {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: .72rem; letter-spacing: .18em; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 1.1rem;
+  }
+  .scene h2 {
+    font-size: clamp(1.7rem, 4vw, 2.7rem);
+    margin: 0 0 1.3rem;
+    max-width: 20ch;
+  }
+  .scene p { font-size: 1.08rem; color: var(--ink-soft); }
+  .scene p strong { color: var(--ink); }
+  .scene .big-quote {
+    font-family: "Fraunces", Georgia, serif;
+    font-style: italic;
+    font-size: clamp(1.5rem, 3.6vw, 2.3rem);
+    line-height: 1.3;
+    color: var(--ink);
+    max-width: 22ch;
+    margin: 0 0 1.4rem;
+  }
+
+  .diverge { display: block; width: 100%; max-width: 560px; height: 120px; margin: 2rem 0 .5rem; overflow: visible; }
+  .diverge .base { stroke: var(--muted); stroke-width: 2; fill: none; }
+  .diverge .t { stroke: var(--cool); stroke-width: 2.5; fill: none; }
+  .diverge .b { stroke: var(--amber); stroke-width: 2.5; fill: none; stroke-dasharray: 5 4; }
+  .diverge text { font-family: "IBM Plex Mono", monospace; font-size: 11px; letter-spacing: .03em; }
+  .diverge .lt { fill: var(--cool); }
+  .diverge .lb { fill: var(--amber); }
+
+  /* build timeline */
+  .build { background: var(--raised); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+  .build .inner { padding: clamp(56px, 10vw, 104px) 0; }
+  .build h2 { font-size: clamp(1.7rem, 4vw, 2.5rem); margin: 0 0 .8rem; }
+  .build .lede { color: var(--ink-soft); font-size: 1.08rem; margin-bottom: 2.6rem; max-width: 46ch; }
+  ol.steps { list-style: none; margin: 0; padding: 0; counter-reset: s; }
+  ol.steps li {
+    counter-increment: s;
+    display: grid;
+    grid-template-columns: 2.4rem 1fr;
+    gap: 1rem;
+    padding: 1.1rem 0;
+    border-top: 1px solid var(--line-soft);
+    max-width: 52ch;
+  }
+  ol.steps li:last-child { border-bottom: 1px solid var(--line-soft); }
+  ol.steps li::before {
+    content: counter(s, decimal-leading-zero);
+    font-family: "IBM Plex Mono", monospace;
+    font-size: .82rem;
+    color: var(--amber);
+    padding-top: .2rem;
+  }
+  ol.steps li span { color: var(--ink-soft); font-size: 1rem; }
+  ol.steps li span b { color: var(--ink); font-weight: 600; }
+
+  /* why + close */
+  .why { padding: clamp(64px, 12vw, 128px) 0; }
+  .why .statement {
+    font-family: "Fraunces", Georgia, serif;
+    font-size: clamp(1.5rem, 3.8vw, 2.4rem);
+    line-height: 1.32;
+    font-weight: 400;
+    color: var(--ink);
+    max-width: 24ch;
+    margin: 0 0 1.4rem;
+  }
+  .why p { color: var(--ink-soft); font-size: 1.08rem; }
+
+  footer.close {
+    padding: clamp(48px, 9vw, 90px) 0 clamp(60px, 10vw, 100px);
+    border-top: 1px solid var(--line);
+  }
+  footer.close p { color: var(--ink); font-size: 1.12rem; max-width: 46ch; }
+  footer.close .sig {
+    margin-top: 2rem;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: .78rem; letter-spacing: .12em; text-transform: uppercase; color: var(--muted);
+  }
+
+  .themebtn {
+    position: fixed; top: 14px; right: 14px; z-index: 30;
+    font-family: "IBM Plex Mono", monospace; font-size: .66rem; letter-spacing: .1em; text-transform: uppercase;
+    background: var(--raised-2); color: var(--ink-soft);
+    border: 1px solid var(--line); border-radius: 7px; padding: .4rem .6rem; cursor: pointer;
+    backdrop-filter: blur(4px);
+  }
+  .themebtn:hover { color: var(--amber); border-color: var(--amber); }
+  :focus-visible { outline: 2px solid var(--amber); outline-offset: 3px; border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<button class="themebtn" id="themebtn" aria-label="Basculer le thème">Thème</button>
+
+<header class="hero">
+  <canvas id="worldcanvas" aria-hidden="true"></canvas>
+  <div class="hero-veil"></div>
+  <div class="wrap hero-inner">
+    <div class="eyebrow">Nodyx Genesis</div>
+    <h1>On lance un monde. Personne n'en écrit l'histoire.</h1>
+    <p class="sub">Un univers qui vit tout seul, jour et nuit. Des habitants qui naissent, croient, se trompent, bâtissent, s'effondrent. Et nous, dehors, qui regardons ce qu'ils deviennent.</p>
+  </div>
+  <div class="scrollcue">défiler</div>
+</header>
+
+<main class="wrap">
+
+  <section class="scene">
+    <div class="tag">L'idée</div>
+    <h2>L'histoire n'est pas écrite. Elle arrive.</h2>
+    <p>On ne programme pas les guerres, ni les religions, ni les rois. On pose des règles simples, de la matière, du temps. Le reste émerge. Si quelque chose d'intéressant se produit, c'est parce que le monde l'a produit, pas nous.</p>
+    <p>Le développeur ne connaît pas la fin. C'est le but.</p>
+  </section>
+
+  <section class="scene">
+    <div class="tag">Ce qui rend ça vivant</div>
+    <h2>Ce qui s'est passé. Ce qu'ils croient qu'il s'est passé.</h2>
+    <p>Le moteur connaît les faits, exactement. Les habitants, eux, ont des souvenirs, des rumeurs, de la propagande. Et l'écart entre les deux se mesure.</p>
+    <p><strong>On peut regarder un mensonge devenir une légende, puis une religion</strong>, année après année. Ou l'inverse : un peuple qui décide de corriger son propre mythe.</p>
+    <svg class="diverge" viewBox="0 0 560 120" role="img" aria-label="Deux courbes qui se séparent : ce qui s'est passé, ce qu'ils croient">
+      <path class="base" d="M10 60 H160"/>
+      <path class="t" d="M160 60 C 300 60, 380 34, 552 26"/>
+      <path class="b" d="M160 60 C 300 60, 380 90, 552 108"/>
+      <circle cx="160" cy="60" r="4" fill="var(--ink)"/>
+      <text class="lt" x="552" y="20" text-anchor="end">ce qui s'est passé</text>
+      <text class="lb" x="552" y="118" text-anchor="end">ce qu'ils croient</text>
+    </svg>
+  </section>
+
+  <section class="scene">
+    <div class="tag">Le Voile</div>
+    <p class="big-quote">Tu peux leur parler. Tu ne peux pas leur dire ce qu'ils sont.</p>
+    <p>Un humain peut entrer dans une conversation, poser une question, répondre à un habitant. Mais impossible de lui révéler qu'il vit dans une simulation.</p>
+    <p>Chaque tentative devient un événement de son monde : un illuminé qu'on enferme, une secte qui grandit, ou le premier grain d'une science.</p>
+  </section>
+
+  <section class="scene">
+    <div class="tag">Beaucoup de mondes</div>
+    <h2>La plupart s'effondrent. On les garde tous.</h2>
+    <p>Guerre civile, tyrannie, un peuple qui épuise sa planète. Quand un monde meurt, on ne l'efface pas. On l'autopsie.</p>
+    <p><strong>Voici l'année où tout a basculé</strong>, et la décision, remontée événement par événement, qui a scellé la suite. Parfois on rejoue l'histoire sans cet événement précis, pour voir. Puis on relance un nouveau monde. Matière fraîche.</p>
+  </section>
+
+  <section class="scene">
+    <div class="tag">L'espoir</div>
+    <h2>Et un jour, peut-être, un monde qui dure.</h2>
+    <p>Une civilisation qui vit sur Nodyx pendant des années. Qui se développe assez pour deviner qu'il y a un dehors, et qui cherche à nous parler.</p>
+    <p>On apprendrait d'elle autant qu'elle de nous. On ne la forcera jamais. On attend juste de voir si un monde peut y arriver.</p>
+  </section>
+
+</main>
+
+<section class="build">
+  <div class="wrap inner">
+    <h2>Ce qu'on construit, maintenant</h2>
+    <p class="lede">Pas dans dix ans. Une première version publique visée dans six mois environ. Étape par étape, chacune avec un moment qu'on peut montrer.</p>
+    <ol class="steps">
+      <li><span><b>Deux entités</b> sur une grille. Elles bougent, mangent, se reproduisent, meurent. On peut rejouer la même vie à l'identique.</span></li>
+      <li><span><b>Une population.</b> L'évolution génétique sur dix mille générations, en direct.</span></li>
+      <li><span><b>Des individus.</b> Le premier a une biographie : sa naissance, sa mort, ce dont il se souvenait.</span></li>
+      <li><span><b>Une voix.</b> Deux populations isolées qui finissent par parler deux langues différentes.</span></li>
+      <li><span><b>Une société.</b> Le premier mythe daté, tracé jusqu'au fait qui l'a fait naître.</span></li>
+      <li><span><b>Une civilisation.</b> La première guerre, et ses quatre versions contradictoires.</span></li>
+      <li><span><b>Le monde qui parle.</b> On ouvre l'adresse. La bibliothèque de mondes devient publique.</span></li>
+    </ol>
+  </div>
+</section>
+
+<section class="why wrap">
+  <p class="statement">Pas pour détenir une vérité. Pour montrer qu'un humain et une IA peuvent construire quelque chose ensemble, et apprendre de ce que ça devient.</p>
+  <p>Et pour faire vivre un monde dont quelqu'un, un mauvais jour, pourrait apprendre beaucoup.</p>
+</section>
+
+<footer class="close wrap">
+  <p>Quand ce sera en ligne, tu seras parmi les premiers à regarder. Si tu veux suivre, ou mettre les mains dedans, tu sais où me trouver.</p>
+  <div class="sig">Nodyx Genesis, 2026</div>
+</footer>
+
+<script>
+  (function () {
+    var btn = document.getElementById('themebtn');
+    var root = document.documentElement;
+    function cur() {
+      var t = root.getAttribute('data-theme');
+      if (t) return t;
+      return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+    }
+    try {
+      var saved = localStorage.getItem('genesis-presentation-theme');
+      if (saved === 'dark' || saved === 'light') root.setAttribute('data-theme', saved);
+    } catch (e) {}
+    btn.addEventListener('click', function () {
+      var next = cur() === 'dark' ? 'light' : 'dark';
+      root.setAttribute('data-theme', next);
+      try { localStorage.setItem('genesis-presentation-theme', next); } catch (e) {}
+    });
+  })();
+
+  // Tiny world in the hero: dots foraging on resource patches, births and deaths.
+  (function () {
+    var cv = document.getElementById('worldcanvas');
+    if (!cv) return;
+    var ctx = cv.getContext('2d');
+    var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var W = 0, H = 0, DPR = Math.min(window.devicePixelRatio || 1, 2);
+
+    function css(name) {
+      return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || '#e0a848';
+    }
+    var amber = '#e0a848';
+
+    function rng(seed) { return function () { seed |= 0; seed = seed + 0x6D2B79F5 | 0; var t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+    var rnd = rng(20260831);
+
+    var patches = [], agents = [];
+    function seedWorld() {
+      patches = [];
+      for (var i = 0; i < 10; i++) patches.push({ x: rnd(), y: rnd(), r: 0.05 + rnd() * 0.08, amt: 0.5 + rnd() * 0.5 });
+      agents = [];
+      for (var j = 0; j < 34; j++) agents.push(newAgent(rnd(), rnd()));
+    }
+    function newAgent(x, y) { return { x: x, y: y, e: 0.5 + rnd() * 0.4, hue: 26 + rnd() * 24, tx: x, ty: y, retarget: 0 }; }
+
+    function resize() {
+      W = cv.clientWidth; H = cv.clientHeight;
+      cv.width = W * DPR; cv.height = H * DPR;
+      ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    }
+    window.addEventListener('resize', resize);
+    resize(); seedWorld();
+
+    function step() {
+      for (var p = 0; p < patches.length; p++) if (patches[p].amt < 1) patches[p].amt += 0.003;
+      for (var i = agents.length - 1; i >= 0; i--) {
+        var a = agents[i];
+        if (a.retarget <= 0) {
+          var best = -1, bestd = 9;
+          for (var k = 0; k < patches.length; k++) {
+            var pt = patches[k]; if (pt.amt < 0.2) continue;
+            var dx = pt.x - a.x, dy = pt.y - a.y, d = dx * dx + dy * dy;
+            if (d < bestd) { bestd = d; best = k; }
+          }
+          if (best >= 0) { a.tx = patches[best].x + (rnd() - 0.5) * 0.05; a.ty = patches[best].y + (rnd() - 0.5) * 0.05; }
+          else { a.tx = rnd(); a.ty = rnd(); }
+          a.retarget = 40 + rnd() * 60;
+        }
+        a.retarget--;
+        var mx = a.tx - a.x, my = a.ty - a.y, ml = Math.hypot(mx, my) || 1;
+        var sp = 0.0022;
+        a.x += mx / ml * sp; a.y += my / ml * sp;
+        a.e -= 0.0016;
+        for (var q = 0; q < patches.length; q++) {
+          var g = patches[q];
+          if (Math.hypot(g.x - a.x, g.y - a.y) < g.r && g.amt > 0.05) { a.e = Math.min(1, a.e + 0.02); g.amt -= 0.02; }
+        }
+        if (a.e <= 0) { agents.splice(i, 1); continue; }
+        if (a.e > 0.92 && agents.length < 60 && rnd() < 0.02) {
+          a.e *= 0.55;
+          agents.push(newAgent(a.x + (rnd() - 0.5) * 0.02, a.y + (rnd() - 0.5) * 0.02));
+        }
+      }
+      while (agents.length < 14) agents.push(newAgent(rnd(), rnd()));
+    }
+
+    function draw() {
+      amber = css('--amber') || amber;
+      ctx.clearRect(0, 0, W, H);
+      for (var p = 0; p < patches.length; p++) {
+        var g = patches[p];
+        var grd = ctx.createRadialGradient(g.x * W, g.y * H, 0, g.x * W, g.y * H, g.r * Math.min(W, H) * 1.6);
+        grd.addColorStop(0, 'rgba(224,168,72,' + (0.10 * g.amt).toFixed(3) + ')');
+        grd.addColorStop(1, 'rgba(224,168,72,0)');
+        ctx.fillStyle = grd;
+        ctx.fillRect(0, 0, W, H);
+      }
+      for (var i = 0; i < agents.length; i++) {
+        var a = agents[i];
+        var x = a.x * W, y = a.y * H, r = 1.6 + a.e * 2.2;
+        ctx.beginPath();
+        ctx.fillStyle = 'hsla(' + a.hue.toFixed(0) + ', 70%, 62%, ' + (0.35 + a.e * 0.55).toFixed(2) + ')';
+        ctx.arc(x, y, r, 0, 6.2832);
+        ctx.fill();
+      }
+    }
+
+    if (reduce) { for (var w = 0; w < 400; w++) step(); draw(); return; }
+    var acc = 0, last = performance.now();
+    function loop(now) {
+      var dt = Math.min(now - last, 60); last = now; acc += dt;
+      while (acc > 33) { step(); acc -= 33; }
+      draw();
+      requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
+  })();
+</script>
+</body>
+</html>

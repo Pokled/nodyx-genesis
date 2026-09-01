@@ -1,0 +1,27 @@
+# Rust
+/target
+Cargo.lock.orig
+
+# Mondes simules (sorties du CLI : gros, regenerables avec la graine)
+/worlds
+
+# Godot (cache local, ne pas versionner)
+genesis/.godot/
+
+# Python (prototypes d'experiences)
+__pycache__/
+*.pyc
+
+# Config Claude Code locale a la machine (permissions de session)
+.claude/settings.local.json
+
+# Documents de reference a droits reserves : garder en local, hors du depot public.
+# PDF d'articles academiques, page web sauvegardee (avec ses scripts tiers), infographies.
+Transcription/*.pdf
+Transcription/*.webp
+Transcription/Les origines de la vie*.html
+Transcription/Les origines de la vie*_files/
+
+# Divers
+*.tmp
+.DS_Store

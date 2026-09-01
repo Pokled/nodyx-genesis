@@ -1,0 +1,17 @@
+[package]
+name = "genesis-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Nodyx Genesis, ligne de commande : lancer un monde, le rejouer, generer la vue web."
+
+[[bin]]
+name = "genesis"
+path = "src/main.rs"
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+genesis-core = { path = "../genesis-core" }
+genesis-view = { path = "../genesis-view" }
