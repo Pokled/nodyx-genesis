@@ -8,6 +8,7 @@ use genesis_core::SimConfig;
 use genesis_view::SeriesRow;
 
 const TEMPLATE: &str = include_str!("series_template.html");
+const COMMON_JS: &str = include_str!("reader_common.js");
 
 pub fn render(meta: &WorldMeta, cfg: &SimConfig, series: &[SeriesRow]) -> String {
     let series_json = serde_json::to_string(series)
@@ -25,6 +26,7 @@ pub fn render(meta: &WorldMeta, cfg: &SimConfig, series: &[SeriesRow]) -> String
     .replace("</", "<\\/");
 
     TEMPLATE
+        .replace("__COMMON_JS__", COMMON_JS)
         .replace("__SEED__", &meta.seed.to_string())
         .replace("__ENGINE__", &meta.engine_version)
         .replace("__TICKS__", &meta.ticks_played.to_string())

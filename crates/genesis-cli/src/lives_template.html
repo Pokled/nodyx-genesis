@@ -6,35 +6,58 @@
   :root { color-scheme:light;
     --ground:#f3f2ee; --raised:#fff; --ink:#1b1a17; --ink-soft:#4a463e; --muted:#7d7869;
     --line:#ddd8cc; --grid:#ebe8df;
-    --peril:#9a3b3b; --bounty:#3b6f4e; --path:#3b6f9a; --wake:#8a7fc0; }
+    --peril:#9a3b3b; --bounty:#3b6f4e; --path:#3b6f9a; --wake:#8a7fc0;
+    --faim:#c8863c; --alive:#3b6f4e; --lapse:#7d7869; }
   @media (prefers-color-scheme:dark) { :root { color-scheme:dark;
     --ground:#14150f; --raised:#1c1d16; --ink:#e9e6da; --ink-soft:#b7b2a2; --muted:#867f6d;
     --line:#2c2d22; --grid:#22231b;
-    --peril:#d98a8a; --bounty:#8fbfa0; --path:#8ab0d0; --wake:#b0a6de; } }
+    --peril:#d98a8a; --bounty:#8fbfa0; --path:#8ab0d0; --wake:#b0a6de;
+    --faim:#dda86a; --alive:#8fbfa0; --lapse:#9a9280; } }
   * { box-sizing:border-box; }
-  body { margin:0; background:var(--ground); color:var(--ink); font:16px/1.6 Georgia, "Times New Roman", serif; }
-  .wrap { max-width:900px; margin:0 auto; padding:44px 24px 96px; }
-  h1 { font-size:1.6rem; margin:0 0 .3rem; }
-  h2 { font-size:1.15rem; margin:2.6rem 0 .1rem; }
-  .sub { color:var(--muted); font-family:ui-monospace, monospace; font-size:.74rem;
+  body { margin:0; background:var(--ground); color:var(--ink); font:16px/1.62 Georgia, "Times New Roman", serif; }
+  .wrap { max-width:1060px; margin:0 auto; padding:44px 26px 110px; }
+  h1 { font-size:1.7rem; margin:0 0 .3rem; }
+  h2 { font-size:1.25rem; margin:2.8rem 0 .15rem; }
+  .sub { color:var(--muted); font-family:ui-monospace, monospace; font-size:.78rem;
     letter-spacing:.09em; text-transform:uppercase; margin-bottom:1.6rem; }
-  p { max-width:66ch; color:var(--ink-soft); }
-  .chip { font-family:ui-monospace, monospace; font-size:.7rem; color:var(--muted);
-    text-transform:uppercase; letter-spacing:.06em; margin:.1rem 0 .7rem; }
-  .life { border-top:1px solid var(--line); padding-top:.6rem; margin-top:1.4rem; }
-  .panels { display:grid; grid-template-columns:repeat(auto-fit, minmax(210px, 1fr)); gap:.8rem; margin:.7rem 0 0; }
+  p { max-width:70ch; color:var(--ink-soft); }
+  .chip { font-family:ui-monospace, monospace; font-size:.76rem; color:var(--muted);
+    letter-spacing:.03em; margin:.15rem 0 .8rem; display:flex; flex-wrap:wrap; gap:.4rem .9rem; align-items:center; }
+  .pill { font-size:.68rem; text-transform:uppercase; letter-spacing:.06em; padding:.12rem .5rem;
+    border-radius:999px; border:1px solid currentColor; }
+  .pill.mort { color:var(--peril); } .pill.vivant { color:var(--alive); } .pill.sommeil { color:var(--lapse); }
+  .life { border-top:1px solid var(--line); padding-top:.9rem; margin-top:1.8rem; scroll-margin-top:1rem; }
+  .panels { display:grid; grid-template-columns:repeat(auto-fit, minmax(320px, 1fr)); gap:.9rem; margin:.9rem 0 0; }
   figure { margin:0; background:var(--raised); border:1px solid var(--line);
-    border-radius:8px; padding:.7rem .8rem .8rem; }
-  figure .t { font-family:ui-monospace, monospace; font-size:.64rem; text-transform:uppercase;
-    letter-spacing:.06em; color:var(--muted); margin-bottom:.35rem; }
+    border-radius:10px; padding:.8rem .9rem .9rem; }
+  figure .t { font-family:ui-monospace, monospace; font-size:.74rem; text-transform:uppercase;
+    letter-spacing:.06em; color:var(--muted); margin-bottom:.4rem; }
   .chart { width:100%; height:auto; display:block; }
-  table { border-collapse:collapse; width:100%; font-family:ui-monospace, monospace; font-size:.74rem;
-    background:var(--raised); border:1px solid var(--line); border-radius:8px; overflow:hidden; margin:1rem 0 0; }
-  th,td { text-align:right; padding:.42rem .6rem; border-bottom:1px solid var(--line); }
+  .legend { background:var(--raised); border:1px solid var(--line); border-radius:10px;
+    padding:.8rem 1rem; margin:.4rem 0 0; display:flex; flex-wrap:wrap; gap:.5rem 1.4rem;
+    font-family:ui-monospace, monospace; font-size:.76rem; color:var(--ink-soft); }
+  .lg-item { display:inline-flex; align-items:center; gap:.4rem; }
+  .lg-h { width:100%; text-transform:uppercase; letter-spacing:.06em; font-size:.66rem;
+    color:var(--muted); margin-top:.2rem; }
+  .lg-h:first-child { margin-top:0; }
+  .bar { display:flex; height:16px; border-radius:5px; overflow:hidden; margin:.5rem 0 0; border:1px solid var(--line); }
+  .bar > span { display:block; }
+  table { border-collapse:collapse; width:100%; font-family:ui-monospace, monospace; font-size:.82rem;
+    background:var(--raised); border:1px solid var(--line); border-radius:10px; overflow:hidden; margin:.8rem 0 0; }
+  th,td { text-align:right; padding:.5rem .75rem; border-bottom:1px solid var(--line); }
   th:first-child, td:first-child { text-align:left; }
-  th { background:var(--ground); text-transform:uppercase; font-size:.58rem; letter-spacing:.05em; color:var(--muted); }
+  th { background:var(--ground); text-transform:uppercase; font-size:.66rem; letter-spacing:.05em;
+    color:var(--muted); position:relative; user-select:none; }
+  th.sort-asc::after { content:''; border:4px solid transparent; border-bottom-color:currentColor;
+    position:absolute; margin-left:5px; margin-top:4px; }
+  th.sort-desc::after { content:''; border:4px solid transparent; border-top-color:currentColor;
+    position:absolute; margin-left:5px; margin-top:8px; }
+  tbody tr { cursor:pointer; }
+  tbody tr:hover { background:var(--ground); }
   tr:last-child td { border-bottom:none; }
-  .foot { color:var(--muted); font-size:.86rem; margin-top:2.4rem; border-top:1px solid var(--line); padding-top:1rem; }
+  td.mort { color:var(--peril); } td.vivant { color:var(--alive); } td.sommeil { color:var(--lapse); }
+  .hint { font-family:ui-monospace, monospace; font-size:.7rem; color:var(--muted); margin:.5rem 0 0; }
+  .foot { color:var(--muted); font-size:.86rem; margin-top:2.6rem; border-top:1px solid var(--line); padding-top:1rem; }
 </style></head><body><div class="wrap">
 
 <h1>Monde w__SEED__, vies d'agents</h1>
@@ -48,12 +71,14 @@ la peur et la solitude, montent et descendent selon ce qu'il vit et ponderent se
 affame il fonce manger, effraye il fuit ses lieux de danger, isole il derive vers les siens.
 Voici quelques vies, et ce qu'on peut en lire sans jamais rien leur demander.</p>
 
+<div class="legend" id="legend"></div>
 <div id="overview"></div>
 <div id="lives"></div>
 
 <h2>Toutes les vies</h2>
+<p class="hint">Clic sur une colonne pour trier. Clic sur une ligne pour aller au chapitre (si l'individu en a un).</p>
 <table id="all"><thead><tr>
-  <th>individu</th><th>lignee</th><th>gen</th><th>eveil</th><th>duree agent</th><th>issue</th><th>souvenirs</th>
+  <th>individu</th><th>lignee</th><th>gen</th><th>eveil (an)</th><th>duree agent</th><th>souvenirs</th><th>issue</th>
 </tr></thead><tbody></tbody></table>
 
 <div class="foot" id="foot"></div>
@@ -61,14 +86,12 @@ Voici quelques vies, et ce qu'on peut en lire sans jamais rien leur demander.</p
 <script id="bio-meta" type="application/json">__META__</script>
 <script id="bio-lives" type="application/json">__LIVES__</script>
 <script>
-"use strict";
+__COMMON_JS__
 const META = JSON.parse(document.getElementById('bio-meta').textContent);
 const L = JSON.parse(document.getElementById('bio-lives').textContent);
-const NS = 'http://www.w3.org/2000/svg';
 const GW = META.grid[0], GH = META.grid[1];
 const TSEC = META.tick_seconds || 3600;
 
-function css(v) { return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
 function yearOf(tick) { return Math.floor((tick * TSEC) / 3600 / 24 / 365); }
 function num(n) { return n.toLocaleString('fr'); }
 function span(l) { return (l.ended_tick == null ? META.ticks_played : l.ended_tick) - l.awoke_tick; }
@@ -107,9 +130,12 @@ function memPlaces(life) {
   return list;
 }
 
+const CHART_W = 460, TL_H = 210;   // largeur commune, hauteur des frises
+const KIND_LABEL = ['peril', 'aubaine', 'mort vue'];
+
 // -- Carte memoire : la grille du monde, le chemin de l'agent, tous ses lieux de memoire. --
 function drawMap(life) {
-  const W = 300, H = Math.round(300 * GH / GW);
+  const W = CHART_W, H = Math.round(W * GH / GW);
   const X = px => (px / GW) * W, Y = py => (py / GH) * H;
   const gc = css('--grid'), lc = css('--line');
   let s = `<rect x="0" y="0" width="${W}" height="${H}" fill="${css('--ground')}" stroke="${lc}"/>`;
@@ -121,84 +147,83 @@ function drawMap(life) {
   if (b.length > 1) {
     let d = '';
     for (let i = 0; i < b.length; i++) d += (i ? 'L' : 'M') + X(b[i].pos[0]).toFixed(1) + ',' + Y(b[i].pos[1]).toFixed(1) + ' ';
-    s += `<path d="${d}" fill="none" stroke="${css('--path')}" stroke-width="1.4" stroke-opacity="0.8"/>`;
+    s += `<path d="${d}" fill="none" stroke="${css('--path')}" stroke-width="2" stroke-opacity="0.85"/>`;
     const last = b[b.length - 1];
-    s += `<circle cx="${X(last.pos[0]).toFixed(1)}" cy="${Y(last.pos[1]).toFixed(1)}" r="2.6" fill="${css('--path')}"/>`;
+    s += `<circle cx="${X(last.pos[0]).toFixed(1)}" cy="${Y(last.pos[1]).toFixed(1)}" r="3.6" fill="${css('--path')}"/>`;
   }
-  s += `<circle cx="${X(life.awoke_place[0]).toFixed(1)}" cy="${Y(life.awoke_place[1]).toFixed(1)}" r="3.4" fill="none" stroke="${css('--wake')}" stroke-width="1.6"/>`;
+  s += `<circle cx="${X(life.awoke_place[0]).toFixed(1)}" cy="${Y(life.awoke_place[1]).toFixed(1)}" r="4.6" fill="none" stroke="${css('--wake')}" stroke-width="2.2"/>`;
   memPlaces(life).forEach(m => {
-    const x = X(m.x), y = Y(m.y), r = 2 + m.maxs * 5, c = css('--peril');
+    const x = X(m.x), y = Y(m.y), r = 3 + m.maxs * 6.5, c = css('--peril');
+    const tip = `<title>${KIND_LABEL[m.k]}, vers le tick ${num(m.first)}, force ${m.maxs.toFixed(2)}${m.evseq != null ? ', evenement ' + m.evseq : ''}</title>`;
     if (m.k === 2) {
-      // mort vue : un losange rouge (ancre sur un evenement).
-      s += `<path d="M ${x.toFixed(1)},${(y-r).toFixed(1)} L ${(x+r).toFixed(1)},${y.toFixed(1)} L ${x.toFixed(1)},${(y+r).toFixed(1)} L ${(x-r).toFixed(1)},${y.toFixed(1)} Z" fill="${c}" fill-opacity="0.5" stroke="${c}" stroke-width="1.2"/>`;
+      s += `<path d="M ${x.toFixed(1)},${(y-r).toFixed(1)} L ${(x+r).toFixed(1)},${y.toFixed(1)} L ${x.toFixed(1)},${(y+r).toFixed(1)} L ${(x-r).toFixed(1)},${y.toFixed(1)} Z" fill="${c}" fill-opacity="0.5" stroke="${c}" stroke-width="1.6">${tip}</path>`;
     } else if (m.k === 0) {
-      s += `<line x1="${(x-r).toFixed(1)}" y1="${(y-r).toFixed(1)}" x2="${(x+r).toFixed(1)}" y2="${(y+r).toFixed(1)}" stroke="${c}" stroke-width="1.7"/>`;
-      s += `<line x1="${(x-r).toFixed(1)}" y1="${(y+r).toFixed(1)}" x2="${(x+r).toFixed(1)}" y2="${(y-r).toFixed(1)}" stroke="${c}" stroke-width="1.7"/>`;
+      s += `<g stroke="${c}" stroke-width="2.3">${tip}<line x1="${(x-r).toFixed(1)}" y1="${(y-r).toFixed(1)}" x2="${(x+r).toFixed(1)}" y2="${(y+r).toFixed(1)}"/><line x1="${(x-r).toFixed(1)}" y1="${(y+r).toFixed(1)}" x2="${(x+r).toFixed(1)}" y2="${(y-r).toFixed(1)}"/></g>`;
     } else {
-      s += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r.toFixed(1)}" fill="${css('--bounty')}" fill-opacity="0.7"/>`;
+      s += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r.toFixed(1)}" fill="${css('--bounty')}" fill-opacity="0.75">${tip}</circle>`;
     }
   });
   return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="carte memoire">${s}</svg>`;
 }
 
+function axisY(m, iw, ih) {
+  let s = '';
+  for (let i = 0; i <= 2; i++) {
+    const y = m.t + ih * i / 2;
+    s += `<line x1="${m.l}" y1="${y.toFixed(1)}" x2="${m.l + iw}" y2="${y.toFixed(1)}" stroke="${css('--grid')}"/>`;
+    s += `<text x="${m.l - 6}" y="${(y + 4).toFixed(1)}" text-anchor="end" font-size="12" font-family="ui-monospace,monospace" fill="${css('--muted')}">${100 - i * 50}</text>`;
+  }
+  return s;
+}
+
 // -- Frise : l'energie de l'agent, et la force de ses souvenirs les plus marquants. --
 function drawEnergy(life) {
-  const W = 300, H = 120, m = { l: 26, r: 8, t: 8, b: 16 };
+  const W = CHART_W, H = TL_H, m = { l: 34, r: 10, t: 12, b: 24 };
   const iw = W - m.l - m.r, ih = H - m.t - m.b;
   const b = life.beats || [];
   const t0 = life.awoke_tick, t1 = (life.ended_tick == null ? META.ticks_played : life.ended_tick);
   const X = t => m.l + (t1 === t0 ? 0 : (t - t0) / (t1 - t0)) * iw;
   const Y = e => m.t + ih - (e / 100) * ih;
-  const gc = css('--grid'), mc = css('--muted');
-  let s = '';
-  for (let i = 0; i <= 2; i++) {
-    const y = m.t + ih * i / 2;
-    s += `<line x1="${m.l}" y1="${y.toFixed(1)}" x2="${W - m.r}" y2="${y.toFixed(1)}" stroke="${gc}"/>`;
-    s += `<text x="${m.l - 4}" y="${(y + 3).toFixed(1)}" text-anchor="end" font-size="8" font-family="ui-monospace,monospace" fill="${mc}">${100 - i * 50}</text>`;
-  }
+  let s = axisY(m, iw, ih);
   (life.events || []).forEach(ev => {
     if (ev[1] !== 'division' || ev[0] < t0 || ev[0] > t1) return;
-    s += `<circle cx="${X(ev[0]).toFixed(1)}" cy="${(m.t + ih).toFixed(1)}" r="1.8" fill="${css('--path')}"/>`;
+    s += `<circle cx="${X(ev[0]).toFixed(1)}" cy="${(m.t + ih).toFixed(1)}" r="2.6" fill="${css('--path')}"><title>division, tick ${num(ev[0])}</title></circle>`;
   });
-  // force des 3 souvenirs les plus marquants, dans le temps
   memPlaces(life).slice(0, 3).forEach(p => {
     if (p.series.length < 2) return;
     let d = '';
     p.series.forEach((pt, i) => { d += (i ? 'L' : 'M') + X(pt.tick).toFixed(1) + ',' + Y(pt.s * 100).toFixed(1) + ' '; });
-    s += `<path d="${d}" fill="none" stroke="${aversive(p.k) ? css('--peril') : css('--bounty')}" stroke-width="1" stroke-opacity="0.7"${p.k === 2 ? ' stroke-dasharray="3,2"' : ''}/>`;
+    s += `<path d="${d}" fill="none" stroke="${aversive(p.k) ? css('--peril') : css('--bounty')}" stroke-width="1.4" stroke-opacity="0.7"${p.k === 2 ? ' stroke-dasharray="4,3"' : ''}/>`;
   });
   if (b.length > 1) {
     let d = '';
     for (let i = 0; i < b.length; i++) d += (i ? 'L' : 'M') + X(b[i].tick).toFixed(1) + ',' + Y(b[i].energy).toFixed(1) + ' ';
-    s += `<path d="${d}" fill="none" stroke="${css('--ink-soft')}" stroke-width="1.5"/>`;
+    s += `<path d="${d}" fill="none" stroke="${css('--ink-soft')}" stroke-width="2.2"/>`;
     let lo = b[0];
     for (const bb of b) if (bb.energy < lo.energy) lo = bb;
-    s += `<circle cx="${X(lo.tick).toFixed(1)}" cy="${Y(lo.energy).toFixed(1)}" r="2.4" fill="${css('--peril')}"/>`;
+    s += `<circle cx="${X(lo.tick).toFixed(1)}" cy="${Y(lo.energy).toFixed(1)}" r="3.4" fill="${css('--peril')}"><title>plus bas : ${lo.energy} % au tick ${num(lo.tick)}</title></circle>`;
   }
+  s += `<text x="${m.l}" y="${H - 6}" font-size="11" font-family="ui-monospace,monospace" fill="${css('--muted')}">trait sombre = energie ; traits colores = force des souvenirs</text>`;
   return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="energie et force des souvenirs">${s}</svg>`;
 }
 
 // -- Besoins : les trois jauges dans le temps. --
 function drawNeeds(life) {
-  const W = 300, H = 120, m = { l: 22, r: 8, t: 8, b: 16 };
+  const W = CHART_W, H = TL_H, m = { l: 34, r: 10, t: 12, b: 24 };
   const iw = W - m.l - m.r, ih = H - m.t - m.b;
   const b = (life.beats || []).filter(x => x.n);
   const t0 = life.awoke_tick, t1 = (life.ended_tick == null ? META.ticks_played : life.ended_tick);
   const X = t => m.l + (t1 === t0 ? 0 : (t - t0) / (t1 - t0)) * iw;
   const Y = v => m.t + ih - (v / 100) * ih;
-  let s = '';
-  for (let i = 0; i <= 2; i++) {
-    const y = m.t + ih * i / 2;
-    s += `<line x1="${m.l}" y1="${y.toFixed(1)}" x2="${W - m.r}" y2="${y.toFixed(1)}" stroke="${css('--grid')}"/>`;
-  }
-  const cols = ['#c8863c', css('--peril'), css('--path')];
+  let s = axisY(m, iw, ih);
+  const cols = [css('--faim'), css('--peril'), css('--path')];
   [0, 1, 2].forEach(gi => {
     if (b.length < 2) return;
     let d = '';
     b.forEach((bt, i) => { d += (i ? 'L' : 'M') + X(bt.tick).toFixed(1) + ',' + Y(bt.n[gi]).toFixed(1) + ' '; });
-    s += `<path d="${d}" fill="none" stroke="${cols[gi]}" stroke-width="1.3"/>`;
+    s += `<path d="${d}" fill="none" stroke="${cols[gi]}" stroke-width="2"/>`;
   });
-  s += `<text x="${m.l}" y="${H - 4}" font-size="8" font-family="ui-monospace,monospace" fill="${css('--muted')}">faim / peur / solitude, 0 a 100</text>`;
+  s += `<text x="${m.l}" y="${H - 6}" font-size="11" font-family="ui-monospace,monospace" fill="${css('--muted')}">faim (orange) / peur (rouge) / solitude (bleu)</text>`;
   return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="besoins dans le temps">${s}</svg>`;
 }
 
@@ -282,43 +307,77 @@ function prose(life) {
   return parts.join(' ');
 }
 
+// -- Legende --
+renderLegend(document.getElementById('legend'), [
+  { kind: 'cross', color: css('--peril'), label: 'peril (famine frolee, souvenir subjectif)' },
+  { kind: 'diamond', color: css('--peril'), label: 'mort vue (souvenir ancre, numero d\'evenement)' },
+  { kind: 'dot', color: css('--bounty'), label: 'aubaine (repas rare)' },
+  { kind: 'ring', color: css('--wake'), label: 'lieu d\'eveil' },
+  { kind: 'line', color: css('--path'), label: 'chemin de l\'agent' },
+  { kind: 'line', color: css('--faim'), label: 'jauge de faim' },
+  { kind: 'line', color: css('--peril'), label: 'jauge de peur' },
+  { kind: 'line', color: css('--path'), label: 'jauge de solitude' },
+]);
+
 // -- Vue d'ensemble --
 (function () {
   const feat = L.slice(0, META.feature).filter(l => (l.beats || []).length > 0);
-  const outcomes = META.outcomes || { mort: 0, sommeil: 0, vivant: 0 };
-  const longest = META.longest_span || 0;
+  const featIds = new Set(feat.map(l => l.id));
+  const o = META.outcomes || { mort: 0, sommeil: 0, vivant: 0 };
+  const tot = Math.max(o.mort + o.sommeil + o.vivant, 1);
+  const pc = n => (n / tot * 100).toFixed(1) + '%';
   document.getElementById('overview').innerHTML =
     `<p>${num(META.awoke_total)} individus se sont eveilles sur toute la duree du monde. ` +
-    `${outcomes.mort} sont morts de faim, ${outcomes.sommeil} ont fini par oublier, ${outcomes.vivant} vivaient encore a la fin. ` +
-    `La plus longue vie d'agent a dure ${num(longest)} ticks. Les ${feat.length} chapitres ci-dessous sont les vies dont la memoire a le plus pese, parmi celles dont on a garde la trajectoire.</p>`;
+    `${num(o.mort)} sont morts de faim, ${num(o.sommeil)} ont fini par oublier, ${num(o.vivant)} vivaient encore a la fin. ` +
+    `La plus longue vie d'agent a dure ${num(META.longest_span || 0)} ticks. Les ${feat.length} chapitres ci-dessous sont les vies dont la memoire a le plus pese.</p>` +
+    `<div class="bar" title="mort de faim ${pc(o.mort)} / sommeil ${pc(o.sommeil)} / vivant ${pc(o.vivant)}">` +
+      `<span style="width:${pc(o.mort)};background:var(--peril)"></span>` +
+      `<span style="width:${pc(o.sommeil)};background:var(--lapse)"></span>` +
+      `<span style="width:${pc(o.vivant)};background:var(--alive)"></span>` +
+    `</div>` +
+    `<p class="hint">rouge = mort de faim &nbsp; gris = retombe (sommeil) &nbsp; vert = vivant a la fin</p>`;
 
   const box = document.getElementById('lives');
   feat.forEach(life => {
     const peak = Math.max(0, ...(life.beats || []).map(b => (b.mem || []).length));
     const sec = document.createElement('section');
     sec.className = 'life';
+    sec.id = 'life-' + life.id;
     sec.innerHTML =
       `<h2>Individu ${life.id}</h2>` +
-      `<div class="chip">lignee ${life.lineage} &nbsp; generation ${life.generation} &nbsp; perception ${life.perception.toFixed(2)} &nbsp; ` +
-      `duree agent ${num(span(life))} ticks &nbsp; ${peak} souvenirs au plus &nbsp; ${life.ended}</div>` +
+      `<div class="chip"><span class="pill ${life.ended}">${life.ended === 'mort' ? 'mort de faim' : life.ended}</span>` +
+      `<span>lignee ${life.lineage}</span><span>generation ${life.generation}</span>` +
+      `<span>perception ${life.perception.toFixed(2)}</span>` +
+      `<span>duree ${num(span(life))} ticks</span><span>jusqu'a ${peak} souvenirs</span></div>` +
       `<div class="panels">` +
         `<figure><div class="t">carte memoire</div>${drawMap(life)}</figure>` +
-        `<figure><div class="t">energie et souvenirs</div>${drawEnergy(life)}</figure>` +
-        `<figure><div class="t">besoins</div>${drawNeeds(life)}</figure>` +
+        `<figure><div class="t">energie et souvenirs, 0 a 100</div>${drawEnergy(life)}</figure>` +
+        `<figure><div class="t">besoins, 0 a 100</div>${drawNeeds(life)}</figure>` +
       `</div>` +
       `<p>${prose(life)}</p>`;
     box.appendChild(sec);
   });
 
   const tb = document.querySelector('#all tbody');
-  tb.innerHTML = L.slice(0, 200).map(l =>
-    `<tr><td>${l.id}</td><td>${l.lineage}</td><td>${l.generation}</td><td>an ${yearOf(l.awoke_tick)}</td>` +
-    `<td>${num(span(l))}</td><td>${l.ended}</td><td>${(l.memories || []).length}</td></tr>`
-  ).join('');
+  tb.innerHTML = L.slice(0, 300).map(l => {
+    const sp = span(l);
+    return `<tr data-id="${l.id}">` +
+      `<td data-v="${l.id}">${l.id}</td><td data-v="${l.lineage}">${l.lineage}</td>` +
+      `<td data-v="${l.generation}">${l.generation}</td><td data-v="${yearOf(l.awoke_tick)}">${yearOf(l.awoke_tick)}</td>` +
+      `<td data-v="${sp}">${num(sp)}</td><td data-v="${(l.memories || []).length}">${(l.memories || []).length}</td>` +
+      `<td class="${l.ended}" data-v="${l.ended}">${l.ended === 'mort' ? 'mort de faim' : l.ended}</td></tr>`;
+  }).join('');
+  const table = document.getElementById('all');
+  sortableTable(table);
+  table.tBodies[0].addEventListener('click', e => {
+    const tr = e.target.closest('tr');
+    if (!tr) return;
+    const id = +tr.dataset.id;
+    if (featIds.has(id)) document.getElementById('life-' + id).scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
 
   document.getElementById('foot').textContent =
-    "Carte memoire : croix rouge = un peril de famine (souvenir subjectif) ; losange rouge = un lieu ou l'agent a vu mourir un des siens (souvenir ancre, il pointe l'evenement du monde) ; disque vert = une aubaine ; rond violet = le lieu d'eveil ; ligne bleue = le chemin de l'agent. " +
-    "Le peril de famine reste subjectif : c'est l'etat de l'agent, sans fait a citer. La mort vue est ancree : son numero d'evenement se retrouve dans events.jsonl. " +
+    "Le peril de famine reste subjectif : l'etat de l'agent, sans fait a citer. La mort vue est ancree : son numero d'evenement se retrouve dans events.jsonl. " +
     "Rien ici n'est ecrit par un modele de langage : la prose est faite de gabarits sur les donnees de la simulation.";
 })();
 </script>

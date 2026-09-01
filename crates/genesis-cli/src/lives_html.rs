@@ -10,6 +10,7 @@ use genesis_core::SimConfig;
 use crate::AgentLife;
 
 const TEMPLATE: &str = include_str!("lives_template.html");
+const COMMON_JS: &str = include_str!("reader_common.js");
 
 /// `all` est deja trie (vies les plus longues d'abord). Seules les `embed` premieres sont
 /// serialisees dans la page ; le reste ne sert qu'aux totaux (issues, plus longue vie).
@@ -55,6 +56,7 @@ pub fn render(
     .replace("</", "<\\/");
 
     TEMPLATE
+        .replace("__COMMON_JS__", COMMON_JS)
         .replace("__SEED__", &meta.seed.to_string())
         .replace("__ENGINE__", &meta.engine_version)
         .replace("__TICKS__", &meta.ticks_played.to_string())

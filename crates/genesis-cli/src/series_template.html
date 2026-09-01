@@ -5,41 +5,52 @@
 <style>
   :root { color-scheme:light;
     --ground:#f3f2ee; --raised:#fff; --ink:#1b1a17; --ink-soft:#4a463e; --muted:#7d7869;
-    --line:#ddd8cc; --grid:#ebe8df; }
+    --line:#ddd8cc; --grid:#ebe8df; --up:#3b6f4e; --down:#9a3b3b; }
   @media (prefers-color-scheme:dark) { :root { color-scheme:dark;
     --ground:#14150f; --raised:#1c1d16; --ink:#e9e6da; --ink-soft:#b7b2a2; --muted:#867f6d;
-    --line:#2c2d22; --grid:#22231b; } }
+    --line:#2c2d22; --grid:#22231b; --up:#8fbfa0; --down:#d98a8a; } }
   * { box-sizing:border-box; }
-  body { margin:0; background:var(--ground); color:var(--ink); font:16px/1.6 Georgia, "Times New Roman", serif; }
-  .wrap { max-width:900px; margin:0 auto; padding:44px 24px 96px; }
-  h1 { font-size:1.6rem; margin:0 0 .3rem; }
-  h2 { font-size:1.05rem; margin:2.4rem 0 .2rem; }
-  .sub { color:var(--muted); font-family:ui-monospace, monospace; font-size:.74rem;
+  body { margin:0; background:var(--ground); color:var(--ink); font:16px/1.62 Georgia, "Times New Roman", serif; }
+  .wrap { max-width:1060px; margin:0 auto; padding:44px 26px 110px; }
+  h1 { font-size:1.7rem; margin:0 0 .3rem; }
+  h2 { font-size:1.2rem; margin:2.8rem 0 .25rem; }
+  .sub { color:var(--muted); font-family:ui-monospace, monospace; font-size:.78rem;
     letter-spacing:.09em; text-transform:uppercase; margin-bottom:1.6rem; }
-  p { max-width:66ch; color:var(--ink-soft); }
+  p { max-width:70ch; color:var(--ink-soft); }
+  .headline { font-family:ui-monospace, monospace; font-size:.82rem; color:var(--ink);
+    background:var(--raised); border:1px solid var(--line); border-radius:10px;
+    padding:.7rem 1rem; margin:.4rem 0 1.4rem; display:flex; flex-wrap:wrap; gap:.5rem 1.6rem; }
+  .headline b { color:var(--muted); font-weight:400; }
   figure { margin:.8rem 0 0; background:var(--raised); border:1px solid var(--line);
-    border-radius:8px; padding:.9rem 1rem 1.1rem; }
+    border-radius:10px; padding:1rem 1.1rem 1.2rem; }
   .chart { width:100%; height:auto; display:block; }
-  .legend { font-family:ui-monospace, monospace; font-size:.72rem; color:var(--muted);
-    margin:.5rem 0 0; line-height:1.9; }
-  .legend b { font-weight:400; }
-  .spark-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(160px, 1fr));
-    gap:.7rem; margin-top:.8rem; }
-  .spark { background:var(--raised); border:1px solid var(--line); border-radius:8px; padding:.6rem .7rem; }
-  .spark .t { font-family:ui-monospace, monospace; font-size:.66rem; text-transform:uppercase;
-    letter-spacing:.05em; color:var(--muted); margin-bottom:.2rem; }
-  table { border-collapse:collapse; width:100%; font-family:ui-monospace, monospace; font-size:.78rem;
-    background:var(--raised); border:1px solid var(--line); border-radius:8px; overflow:hidden; margin:.9rem 0 0; }
-  th,td { text-align:right; padding:.5rem .7rem; border-bottom:1px solid var(--line); }
+  .legend { display:flex; flex-wrap:wrap; gap:.45rem 1.3rem; margin:.7rem 0 0;
+    font-family:ui-monospace, monospace; font-size:.78rem; color:var(--ink-soft); }
+  .lg-item { display:inline-flex; align-items:center; gap:.4rem; }
+  .sw { width:15px; height:15px; border-radius:3px; flex:none; }
+  .spark-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(250px, 1fr));
+    gap:.8rem; margin-top:.9rem; }
+  .spark { background:var(--raised); border:1px solid var(--line); border-radius:10px; padding:.7rem .85rem; }
+  .spark .t { font-family:ui-monospace, monospace; font-size:.74rem; text-transform:uppercase;
+    letter-spacing:.05em; color:var(--muted); margin-bottom:.25rem; }
+  table { border-collapse:collapse; width:100%; font-family:ui-monospace, monospace; font-size:.84rem;
+    background:var(--raised); border:1px solid var(--line); border-radius:10px; overflow:hidden; margin:.9rem 0 0; }
+  th,td { text-align:right; padding:.55rem .8rem; border-bottom:1px solid var(--line); }
   th:first-child, td:first-child { text-align:left; }
-  th { background:var(--ground); text-transform:uppercase; font-size:.6rem; letter-spacing:.05em; color:var(--muted); }
+  th { background:var(--ground); text-transform:uppercase; font-size:.68rem; letter-spacing:.05em;
+    color:var(--muted); cursor:pointer; user-select:none; position:relative; }
+  th.sort-asc::after { content:''; border:4px solid transparent; border-bottom-color:currentColor;
+    position:absolute; margin-left:5px; margin-top:4px; }
+  th.sort-desc::after { content:''; border:4px solid transparent; border-top-color:currentColor;
+    position:absolute; margin-left:5px; margin-top:8px; }
   tr:last-child td { border-bottom:none; }
-  .up { color:#3b6f4e; } .down { color:#9a3b3b; }
-  @media (prefers-color-scheme:dark) { .up { color:#8fbfa0; } .down { color:#d98a8a; } }
+  .up { color:var(--up); } .down { color:var(--down); }
 </style></head><body><div class="wrap">
 
 <h1>Monde w__SEED__, evolution genetique</h1>
 <div class="sub">graine __SEED__ &nbsp; moteur __ENGINE__ &nbsp; __TICKS__ ticks &nbsp; __GENMAX__ generations</div>
+
+<div class="headline" id="headline"></div>
 
 <p>Chaque genome a sept traits, tous dans l'intervalle 0 a 1. La selection naturelle est le
 seul moteur : elle vient du bilan d'energie et de la mort differentielle, personne ne la
@@ -66,25 +77,22 @@ qui commence.</p>
 <h2>Ce que la selection a deplace</h2>
 <table id="delta"><thead><tr><th>trait</th><th>depart</th><th>fin</th><th>delta</th></tr></thead><tbody></tbody></table>
 
-<script id="meta" type="application/json">__META__</script>
-<script id="series" type="application/json">__SERIES__</script>
+<script id="ser-meta" type="application/json">__META__</script>
+<script id="ser-series" type="application/json">__SERIES__</script>
 <script>
-"use strict";
-const META = JSON.parse(document.getElementById('meta').textContent);
-const S = JSON.parse(document.getElementById('series').textContent);
+__COMMON_JS__
+const META = JSON.parse(document.getElementById('ser-meta').textContent);
+const S = JSON.parse(document.getElementById('ser-series').textContent);
 
 const TRAITS = ['metabolisme', 'vitesse', 'perception', 'efficacite', 'fertilite', 'longevite', 'cohesion'];
 const COL = ['#c86b3c', '#3b8fb5', '#4e9e5a', '#8a7fc0', '#d0a13a', '#7d7869', '#4db5b0'];
-const NS = 'http://www.w3.org/2000/svg';
-
-function css(v) { return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
 
 // -- Trace un jeu de courbes dans un <svg> deja dimensionne par son viewBox.
 function draw(svgId, opt) {
   const svg = document.getElementById(svgId);
   const vb = svg.viewBox.baseVal;
   const W = vb.width, H = vb.height;
-  const m = { l: 46, r: 12, t: 10, b: 26 };
+  const m = { l: 52, r: 12, t: 12, b: 30 };
   const iw = W - m.l - m.r, ih = H - m.t - m.b;
   const xs = opt.x, xmin = Math.min(...xs), xmax = Math.max(...xs);
   const ymin = opt.ymin, ymax = opt.ymax;
@@ -96,12 +104,12 @@ function draw(svgId, opt) {
   for (let i = 0; i <= 4; i++) {
     const yv = ymin + (ymax - ymin) * i / 4, y = Y(yv);
     out += `<line x1="${m.l}" y1="${y.toFixed(1)}" x2="${W - m.r}" y2="${y.toFixed(1)}" stroke="${gc}" stroke-width="1"/>`;
-    out += `<text x="${m.l - 6}" y="${(y + 3).toFixed(1)}" text-anchor="end" font-size="9" font-family="ui-monospace,monospace" fill="${mc}">${opt.yfmt ? opt.yfmt(yv) : yv.toFixed(2)}</text>`;
+    out += `<text x="${m.l - 7}" y="${(y + 4).toFixed(1)}" text-anchor="end" font-size="12" font-family="ui-monospace,monospace" fill="${mc}">${opt.yfmt ? opt.yfmt(yv) : yv.toFixed(2)}</text>`;
   }
   // graduations x
   for (let i = 0; i <= 4; i++) {
     const xv = xmin + (xmax - xmin) * i / 4, x = X(xv);
-    out += `<text x="${x.toFixed(1)}" y="${H - 6}" text-anchor="middle" font-size="9" font-family="ui-monospace,monospace" fill="${mc}">${opt.xfmt ? opt.xfmt(xv) : Math.round(xv)}</text>`;
+    out += `<text x="${x.toFixed(1)}" y="${H - 8}" text-anchor="middle" font-size="12" font-family="ui-monospace,monospace" fill="${mc}">${opt.xfmt ? opt.xfmt(xv) : Math.round(xv)}</text>`;
   }
   out += `<line x1="${m.l}" y1="${m.t}" x2="${m.l}" y2="${m.t + ih}" stroke="${lc}" stroke-width="1"/>`;
   // bandes
@@ -128,26 +136,39 @@ const col = k => S.map(r => r[k]);
 const gens = col('mean_generation');
 const ticks = col('tick');
 
+function legendInto(id, items) {
+  document.getElementById(id).innerHTML = items.map(it =>
+    `<span class="lg-item"><span class="sw" style="background:${it.c}"></span>${it.t}</span>`
+  ).join('');
+}
+
+// -- Titre chiffre --
+const L0 = S[0], LN = S[S.length - 1];
+document.getElementById('headline').innerHTML =
+  `<span><b>generations</b> ${Math.round(LN.mean_generation)} (max ${LN.max_generation})</span>` +
+  `<span><b>population finale</b> ${LN.population.toLocaleString('fr')}</span>` +
+  `<span><b>diversite genetique</b> ${L0.genetic_diversity.toFixed(3)} &rarr; ${LN.genetic_diversity.toFixed(3)}</span>` +
+  `<span><b>agents vivants</b> ${(LN.agents_alive || 0).toLocaleString('fr')}</span>`;
+
 // 1. traits par generation
 draw('c-traits', {
   x: gens, ymin: 0, ymax: 1,
   lines: TRAITS.map((_, k) => ({ y: S.map(r => r.trait_mean[k]), color: COL[k] })),
   xfmt: v => Math.round(v) + ' g'
 });
-document.getElementById('l-traits').innerHTML =
-  TRAITS.map((t, k) => `<b style="color:${COL[k]}">${t}</b>`).join(' &nbsp; ');
+legendInto('l-traits', TRAITS.map((t, k) => ({ t, c: COL[k] })));
 
 // 2. sparklines de distribution
 const sg = document.getElementById('sparks');
 TRAITS.forEach((t, k) => {
   const d = document.createElement('div');
   d.className = 'spark';
-  d.innerHTML = `<div class="t">${t}</div><svg class="chart" viewBox="0 0 220 70" id="sp-${k}" role="img"></svg>`;
+  d.innerHTML = `<div class="t">${t}</div><svg class="chart" viewBox="0 0 300 110" id="sp-${k}" role="img"></svg>`;
   sg.appendChild(d);
   draw(`sp-${k}`, {
     x: gens, ymin: 0, ymax: 1,
     bands: [{ lo: S.map(r => r.trait_p10[k]), hi: S.map(r => r.trait_p90[k]), color: COL[k] }],
-    lines: [{ y: S.map(r => r.trait_p50[k]), color: COL[k], w: 1.2 }],
+    lines: [{ y: S.map(r => r.trait_p50[k]), color: COL[k], w: 1.4 }],
     yfmt: v => v.toFixed(1), xfmt: () => ''
   });
 });
@@ -163,8 +184,11 @@ draw('c-pop', {
   ],
   yfmt: v => Math.round(v), xfmt: v => Math.round(v / 1000) + 'k'
 });
-document.getElementById('l-pop').innerHTML =
-  `<b style="color:#3b8fb5">population</b> &nbsp; <b style="color:#4db5b0">entites en cellule</b> &nbsp; <b style="color:${css('--muted')}">capacite de charge (pointille)</b>`;
+legendInto('l-pop', [
+  { t: 'population', c: '#3b8fb5' },
+  { t: 'entites en cellule', c: '#4db5b0' },
+  { t: 'capacite de charge (pointille)', c: css('--muted') },
+]);
 
 // 4. diversite + generation (double echelle, generation normalisee sur son propre max)
 const divv = col('genetic_diversity');
@@ -178,8 +202,10 @@ draw('c-div', {
   ],
   yfmt: () => '', xfmt: v => Math.round(v / 1000) + 'k'
 });
-document.getElementById('l-div').innerHTML =
-  `<b style="color:#8a7fc0">diversite genetique</b> (max ${dmax.toFixed(2)}) &nbsp; <b style="color:#c86b3c">generation moyenne</b> (max ${Math.round(gmax)})`;
+legendInto('l-div', [
+  { t: `diversite genetique (max ${dmax.toFixed(2)})`, c: '#8a7fc0' },
+  { t: `generation moyenne (max ${Math.round(gmax)})`, c: '#c86b3c' },
+]);
 
 // 5. table des deltas
 const first = S[0], last = S[S.length - 1];
@@ -189,7 +215,9 @@ const rows = TRAITS.map((t, k) => ({
 document.querySelector('#delta tbody').innerHTML = rows.map(r => {
   const cls = r.d > 0.005 ? 'up' : (r.d < -0.005 ? 'down' : '');
   const sign = r.d >= 0 ? '+' : '';
-  return `<tr><td>${r.t}</td><td>${r.a.toFixed(3)}</td><td>${r.b.toFixed(3)}</td><td class="${cls}">${sign}${r.d.toFixed(3)}</td></tr>`;
+  return `<tr><td>${r.t}</td><td data-v="${r.a}">${r.a.toFixed(3)}</td><td data-v="${r.b}">${r.b.toFixed(3)}</td>` +
+    `<td class="${cls}" data-v="${r.d}">${sign}${r.d.toFixed(3)}</td></tr>`;
 }).join('');
+sortableTable(document.getElementById('delta'));
 </script>
 </div></body></html>
