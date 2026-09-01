@@ -446,6 +446,11 @@ pub struct CognitionCfg {
     /// Bouton maitre des besoins : met a l'echelle leurs effets sur le comportement.
     /// `0` = comportement de la tranche 3 (pour comparer).
     pub needs_weight: f32,
+    /// Personnalite (0.0.3, tranche 5). `true` : `caution` et `curiosity` sont des traits
+    /// du genome, herites et selectionnes. `false` : ils sont derives de `lifespan` et
+    /// `perception` (comportement des tranches 1 a 4). Le genome porte les deux traits dans
+    /// les deux cas : le flux RNG est identique, l'A/B est propre.
+    pub heritable_personality: bool,
 }
 impl Default for CognitionCfg {
     fn default() -> Self {
@@ -472,6 +477,7 @@ impl Default for CognitionCfg {
             fear_gain: 1.2,
             social_pull: 0.3,
             needs_weight: 1.0,
+            heritable_personality: true,
         }
     }
 }

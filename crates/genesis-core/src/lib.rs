@@ -47,4 +47,6 @@ pub const ENGINE_VERSION: &str = env!("CARGO_PKG_VERSION");
 ///      vues) : la memoire subjective pointe le fait objectif (invariant 5).
 /// v9 : besoins (`Mind.needs` : faim, peur, solitude) : l'agent a un etat interne qui
 ///      pondere ses choix, plus seulement un reflexe.
-pub const SCHEMA_VERSION: u32 = 9;
+/// v10 : genome a 9 traits (`caution`, `curiosity`) : la personnalite est heritee et
+///       selectionnee, plus derivee des traits de corps.
+pub const SCHEMA_VERSION: u32 = 10;

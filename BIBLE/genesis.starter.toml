@@ -150,6 +150,7 @@ fear_shock_window = 200    # un choc de péril de moins de N ticks maintient la 
 fear_gain         = 1.2    # de combien la peur amplifie l'évitement des souvenirs aversifs
 social_pull       = 0.3    # poids maxi du glissement vers le centre des siens quand l'agent est isolé
 needs_weight      = 1.0    # bouton maître des besoins ; 0 = comportement de la tranche 3
+heritable_personality = true  # (tranche 5) prudence/curiosité = traits du génome hérités ; false = dérivées de longévité/perception
 
 [view]
 # Niveau de détail de la projection (genesis-view::project). Au delà du seuil, la frame

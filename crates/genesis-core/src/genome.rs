@@ -16,7 +16,12 @@ use crate::entity::EntityId;
 use crate::rng::Rng;
 
 /// Nombre de traits du genome. Un seul point a changer si on en ajoute.
-pub const N_TRAITS: usize = 7;
+pub const N_TRAITS: usize = 9;
+
+/// Les traits de corps : les `SPECIES_TRAITS` premiers. La signature d'espece
+/// (`genome_key`) ne porte que sur eux ; la personnalite (`caution`, `curiosity`) est un
+/// calque comportemental, elle ne fait pas d'une population une espece distincte.
+pub const SPECIES_TRAITS: usize = 7;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct Traits {
@@ -29,6 +34,18 @@ pub struct Traits {
     /// Tendance a s'agreger : haut = l'entite se colle a ses voisins proches et forme des
     /// colonies. Evolue comme les autres traits.
     pub cohesion: f32,
+    /// Personnalite (0.0.3, tranche 5), heritee, indice 7. Haut = un agent evite plus fort
+    /// ses souvenirs de danger.
+    #[serde(default = "half")]
+    pub caution: f32,
+    /// Personnalite, heritee, indice 8. Haut = un agent est plus attire par ses souvenirs
+    /// de lieux d'abondance et explore davantage.
+    #[serde(default = "half")]
+    pub curiosity: f32,
+}
+
+fn half() -> f32 {
+    0.5
 }
 
 impl Traits {
@@ -41,6 +58,8 @@ impl Traits {
             self.fertility,
             self.lifespan,
             self.cohesion,
+            self.caution,
+            self.curiosity,
         ]
     }
 
@@ -53,6 +72,8 @@ impl Traits {
             fertility: a[4],
             lifespan: a[5],
             cohesion: a[6],
+            caution: a[7],
+            curiosity: a[8],
         }
     }
 

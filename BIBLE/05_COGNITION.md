@@ -1,11 +1,15 @@
 # 05. Cognition
 
-Statut : TRANCHES 1 A 4 FAITES (le premier souvenir, la page biographie, les souvenirs
-ancrés, les besoins). Le pont Entity vers Agent et la question semé ou cultivé sont posés ;
-la mémoire épisodique tourne, se lit dans `lives.html`, un souvenir de mort vue pointe le
-fait objectif, et l'agent a un état interne (faim, peur, solitude) qui pondère ses choix.
-L'architecture détaillée (Context Builder, Model Router, RAG) attend 0.0.5 et sera reprise
-ici à ce moment.
+Statut : TRANCHES 1 A 5 FAITES (le premier souvenir, la biographie, les souvenirs ancrés,
+les besoins, la personnalité héritée). La mémoire épisodique tourne, se lit dans
+`lives.html`, un souvenir de mort vue pointe le fait objectif, l'agent a un état interne
+(faim, peur, solitude) et une personnalité (prudence, curiosité) transmise avec mutation.
+L'architecture détaillée (Context Builder, Model Router, RAG) attend 0.0.5.
+
+**Monde de référence : `worlds/w2` = graine 1 depuis le schéma v10.** Le passage à 9 traits
+a décalé le flux RNG ; la graine 3 (référence des tranches 1 à 4) s'éteint désormais tôt.
+Les mesures A/B ci-dessous marquées « (v9, graine 3) » portent sur un monde qui n'existe
+plus ; l'état consolidé en bas de section est sur la graine 1, schéma v10.
 
 Dernière révision : 2026-09-01.
 
@@ -198,9 +202,59 @@ phrase de tempérament (« Il a vécu surtout affamé, sur ses gardes... »). Le
 mettent en avant les survivants (mémoire riche = a duré), leurs jauges sont donc calmes ;
 c'est la population large qui montre l'effet (l'A/B).
 
-**Ce qui reste (tranche 5 et après).** Personnalité héritée (`caution` / `curiosity` au
-génome, pas dérivées de `lifespan` / `perception`), modèle de comportement complet et
-lisible (choix explicite fuir / manger / errer), dé-simulation de la biologie sous l'agent.
+## Tranche 5 : la personnalité héritée (fait, 2026-09-01)
+
+`caution` et `curiosity` étaient dérivés des traits de corps (`caution = f(lifespan)`,
+`curiosity = f(perception)`). Ils deviennent deux vrais traits du génome, indices 7 et 8 :
+`N_TRAITS` 7 -> 9, schéma v10. Transmis avec mutation par `Genome::divide` comme les autres,
+donc hérités et soumis à sélection sans code en plus. La signature d'espèce
+(`genome_key`, `SPECIES_TRAITS = 7`) ne porte que sur les traits de corps : une population
+qui ne diverge qu'en tempérament n'est pas une espèce distincte.
+
+En phase 2/3, la personnalité vient du génome : `caution_eff = 0.25 + 0.7 * traits.caution`
+(idem curiosity), sinon, si `heritable_personality` est faux, les anciennes formules
+dérivées (le génome porte les deux traits dans les deux cas, le flux RNG est identique :
+l'A/B est propre).
+
+**Résultat (A/B graine 1, 60000 ticks, v10).**
+- **héritée vs dérivée** : morts par famine 4 300 contre 5 100 (-16 %), agents vivants
+  1 620 contre 1 560. Laisser le tempérament flotter libre plutôt que l'attacher au corps
+  donne une petite avance : la population trouve son propre équilibre.
+- **la prudence gagne-t-elle ?** Non, pas nettement. Sur toute la course, `caution` et
+  `curiosity` restent près de 0,5, la bande p10-p90 tient dans ~0,48-0,53 : les deux traits
+  sont **quasi neutres**, ils dérivent, ils ne balaient pas. Avec ces paramètres, la peur
+  et les besoins portent déjà l'évitement ; la variation individuelle de prudence ne creuse
+  pas d'écart de survie assez grand pour être sélectionnée, et une prudence haute a un coût
+  (moins de nourriture). C'est un résultat, pas un échec : le tempérament est un degré de
+  liberté que la sélection ne contraint presque pas ici.
+
+Le brin d'ADN du lecteur passe à 9 barreaux, `series.html` trace 9 courbes de traits.
+
+---
+
+## État consolidé de la cognition (schéma v10, graine 1)
+
+A/B graine 1, 60000 ticks : cognition complète (mémoire + ancré + besoins + personnalité)
+contre `mem_weight = 0` (aucune cognition, comportement 0.0.2).
+
+| | cognition complète | aucune cognition |
+|---|---|---|
+| morts par famine | **4 300** | 25 800 |
+| morts d'âge | 2 250 | 46 |
+| agents vivants | ~1 600 | ~190 |
+| perception moyenne | 0,75 | 0,95 |
+| générations en 60k ticks | 17 | 27 |
+
+La cognition **divise les morts par famine par six** et fait basculer la population d'un
+régime limité par la famine à un régime limité par la vieillesse. Effet le plus net sur le
+génome : sans cognition la perception est sélectionnée à fond vers 1,0 ; avec, elle se
+stabilise à 0,75, parce que la mémoire porte la survie et que percevoir loin devient moins
+vital. Le monde sans cognition tourne plus de générations (mortalité forte = renouvellement
+rapide).
+
+**Ce qui reste (tranche 6 et après).** Modèle de comportement complet et lisible (choix
+explicite fuir / manger / suivre / errer, tracé dans la biographie), dé-simulation de la
+biologie sous l'agent, souvenirs sociaux (reconnaître un autre agent).
 
 ---
 

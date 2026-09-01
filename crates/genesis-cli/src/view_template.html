@@ -153,7 +153,7 @@
     <canvas id="c"></canvas>
     <div class="dna">
       <div class="cap">ADN, espece dominante</div>
-      <svg id="dna-svg" width="178" height="232" viewBox="0 0 178 232"></svg>
+      <svg id="dna-svg" width="178" height="286" viewBox="0 0 178 286"></svg>
     </div>
   </div>
 
@@ -267,6 +267,8 @@ const TRAITS = [
   ['fertilite', "Rythme de replication. Haut = gestation courte, se redivise vite apres une division."],
   ['longevite', "Age auquel la probabilite de mourir de vieillesse commence a monter. Haut = vit plus longtemps."],
   ['cohesion', "Tendance a s'agreger. Haut = l'entite se colle a ses voisins genetiquement proches et forme des colonies. Une colonie protege la reproduction."],
+  ['prudence', "Personnalite (0.0.3), heritee. Haut = un agent evite plus fort les lieux de sa memoire ou il a frole la mort ou vu mourir un des siens."],
+  ['curiosite', "Personnalite (0.0.3), heritee. Haut = un agent est plus attire par ses souvenirs de lieux d'abondance et explore davantage."],
 ];
 
 function set(id, val) { document.getElementById(id).textContent = val; }
@@ -319,11 +321,11 @@ const feedRows = [];
   }
 })();
 
-// --- Brin d'ADN : les 7 traits quantifies (0..3) de l'espece dominante, en double helice
+// --- Brin d'ADN : les 9 traits quantifies (0..3) de l'espece dominante, en double helice
 //     qui se tord lentement. DOM cree une fois, on n'anime que les attributs.
 
 const NS = 'http://www.w3.org/2000/svg';
-const DNA_LABELS = ['metab', 'vites', 'perce', 'effic', 'ferti', 'longe', 'cohes'];
+const DNA_LABELS = ['metab', 'vites', 'perce', 'effic', 'ferti', 'longe', 'cohes', 'prude', 'curio'];
 const dnaRungs = [];
 let dnaLevels = new Array(TRAITS.length).fill(1);
 let dnaTwist = 0;
@@ -331,7 +333,7 @@ let dnaTwist = 0;
   const svg = document.getElementById('dna-svg');
   const n = TRAITS.length;
   const pad = 14, labX = 62, cx = 118, amp = 27;
-  const step = (232 - 2 * pad) / (n - 1);
+  const step = (286 - 2 * pad) / (n - 1);
   for (let i = 0; i < n; i++) {
     const y = pad + i * step;
     const lab = document.createElementNS(NS, 'text');

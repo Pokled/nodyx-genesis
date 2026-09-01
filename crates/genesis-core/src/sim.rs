@@ -20,7 +20,7 @@ use crate::cognition::{Memory, Mind};
 use crate::config::SimConfig;
 use crate::entity::{Action, Entity, EntityId, Position};
 use crate::event::{DeathCause, Event, EventKind, ReplicationFail};
-use crate::genome::{Genome, N_TRAITS};
+use crate::genome::{Genome, N_TRAITS, SPECIES_TRAITS};
 use crate::spatial::SpatialHash;
 use crate::world::{Cell, ResourceField, Space, WorldState};
 
@@ -162,6 +162,7 @@ pub fn tick(world: &mut WorldState, cfg: &SimConfig) -> Vec<Event> {
     let cog_needs_weight = cfg.cognition.needs_weight;
     let cog_fear_gain = cfg.cognition.fear_gain;
     let cog_social_pull = cfg.cognition.social_pull;
+    let cog_heritable = cfg.cognition.heritable_personality;
     let plans: Vec<Option<(Position, f32)>> = entities_ref
         .par_iter()
         .enumerate()
@@ -245,8 +246,19 @@ pub fn tick(world: &mut WorldState, cfg: &SimConfig) -> Vec<Event> {
                     if drive <= 0.0 && gate_av <= 0.0 {
                         target
                     } else {
-                        let caution = 0.3 + 0.5 * e.genome.traits.lifespan;
-                        let curiosity = 0.4 + 0.6 * e.genome.traits.perception;
+                        // Personnalite : deux traits herites (0.0.3, tranche 5), ou, si
+                        // `heritable_personality` est faux, les anciennes formules derivees.
+                        let (caution, curiosity) = if cog_heritable {
+                            (
+                                0.25 + 0.7 * e.genome.traits.caution,
+                                0.3 + 0.7 * e.genome.traits.curiosity,
+                            )
+                        } else {
+                            (
+                                0.3 + 0.5 * e.genome.traits.lifespan,
+                                0.4 + 0.6 * e.genome.traits.perception,
+                            )
+                        };
                         let av_amp = 1.0 + fear * cog_fear_gain;
                         let inv2s2 = 1.0 / (2.0 * cog_radius * cog_radius);
                         let (mut vx, mut vy) = (0.0f32, 0.0f32);
@@ -728,10 +740,12 @@ pub fn tick(world: &mut WorldState, cfg: &SimConfig) -> Vec<Event> {
     events
 }
 
-/// Quantifie un genome en une cle : chaque trait sur 2 bits (0..3), N_TRAITS traits.
+/// Quantifie un genome en une cle : chaque trait de corps sur 2 bits (0..3), les
+/// `SPECIES_TRAITS` premiers (7 x 2 = 14 bits, tient dans un u16). La personnalite
+/// (`caution`, `curiosity`) ne compte pas dans la signature d'espece.
 fn genome_key(t: &crate::genome::Traits) -> u16 {
     let mut k = 0u16;
-    for (i, &q) in t.quantized().iter().enumerate() {
+    for (i, &q) in t.quantized().iter().take(SPECIES_TRAITS).enumerate() {
         k |= (q as u16) << (2 * i);
     }
     k
@@ -740,7 +754,7 @@ fn genome_key(t: &crate::genome::Traits) -> u16 {
 /// Meme cle, a partir d'un tableau de traits moyens (cellule).
 fn genome_key_arr(a: &[f32; N_TRAITS]) -> u16 {
     let mut k = 0u16;
-    for (i, &v) in a.iter().enumerate() {
+    for (i, &v) in a.iter().take(SPECIES_TRAITS).enumerate() {
         let q = (v * 4.0).clamp(0.0, 3.0) as u16;
         k |= q << (2 * i);
     }
@@ -1209,10 +1223,10 @@ fn group_spread(ps: &[Position]) -> f32 {
     d / n
 }
 
-/// Distance L1 entre deux cles de genome, en unites de trait (un cran = 0.25).
+/// Distance L1 entre deux cles de genome (traits de corps), en unites de trait (un cran = 0.25).
 fn key_distance(a: u16, b: u16) -> f32 {
     let mut d = 0.0f32;
-    for i in 0..N_TRAITS {
+    for i in 0..SPECIES_TRAITS {
         let qa = ((a >> (2 * i)) & 3) as i32;
         let qb = ((b >> (2 * i)) & 3) as i32;
         d += (qa - qb).unsigned_abs() as f32 * 0.25;

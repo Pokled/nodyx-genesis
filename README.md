@@ -55,7 +55,9 @@ series.html        le graphe d'evolution genetique du monde
 
 Ouvre `worlds/w1/view.html` : la grille, les entites, la timeline, le compteur de
 population. Tu peux rejouer, scruter, changer la vitesse. `series.html` montre la derive des
-sept traits du genome sur toute la duree du monde, trait par trait, distributions comprises.
+neuf traits du genome sur toute la duree du monde, trait par trait, distributions comprises.
+`lives.html` (0.0.3) raconte la vie de quelques agents : leur memoire, leurs besoins, ce
+qu'ils ont evite ou cherche.
 
 ## Verifier le determinisme
 

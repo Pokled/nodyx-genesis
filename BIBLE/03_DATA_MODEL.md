@@ -203,7 +203,8 @@ struct Genome {
     parent_b:  Option<EntityId>,
 }
 
-struct GenomeTraits {   // 7 traits, tous normalisés 0..1 (genome.rs::N_TRAITS)
+struct GenomeTraits {   // 9 traits, tous normalisés 0..1 (genome.rs::N_TRAITS)
+    // -- 7 traits de corps (genome.rs::SPECIES_TRAITS ; seuls eux forment la signature d'espèce) :
     metabolism:  f32,   // énergie brûlée par tick
     speed:       f32,   // distance de déplacement max par tick
     perception:  f32,   // rayon de détection des ressources
@@ -211,6 +212,9 @@ struct GenomeTraits {   // 7 traits, tous normalisés 0..1 (genome.rs::N_TRAITS)
     fertility:   f32,   // rythme de réplication : gestation = base * (1.5 - fertility)
     lifespan:    f32,   // âge auquel la probabilité de mort monte
     cohesion:    f32,   // retenue sur les communs quand l'entité est entourée de parents
+    // -- 2 traits de personnalité (0.0.3 tranche 5, hérités, ne comptent pas dans l'espèce) :
+    caution:     f32,   // haut = l'agent évite plus fort ses souvenirs de danger
+    curiosity:   f32,   // haut = l'agent est plus attiré par ses souvenirs d'abondance
 }
 ```
 

@@ -52,9 +52,11 @@
 
 <div class="headline" id="headline"></div>
 
-<p>Chaque genome a sept traits, tous dans l'intervalle 0 a 1. La selection naturelle est le
-seul moteur : elle vient du bilan d'energie et de la mort differentielle, personne ne la
-declare. Ci-dessous, comment la population a derive sur toute la duree du monde.</p>
+<p>Chaque genome a neuf traits, tous dans l'intervalle 0 a 1 : sept de corps (metabolisme,
+vitesse, perception, efficacite, fertilite, longevite, cohesion) et deux de personnalite
+(prudence, curiosite, herites depuis 0.0.3). La selection naturelle est le seul moteur :
+elle vient du bilan d'energie et de la mort differentielle, personne ne la declare.
+Ci-dessous, comment la population a derive sur toute la duree du monde.</p>
 
 <h2>Les traits dans le temps</h2>
 <figure><svg id="c-traits" class="chart" viewBox="0 0 860 260" role="img" aria-label="moyenne des traits par generation"></svg>
@@ -84,8 +86,8 @@ __COMMON_JS__
 const META = JSON.parse(document.getElementById('ser-meta').textContent);
 const S = JSON.parse(document.getElementById('ser-series').textContent);
 
-const TRAITS = ['metabolisme', 'vitesse', 'perception', 'efficacite', 'fertilite', 'longevite', 'cohesion'];
-const COL = ['#c86b3c', '#3b8fb5', '#4e9e5a', '#8a7fc0', '#d0a13a', '#7d7869', '#4db5b0'];
+const TRAITS = ['metabolisme', 'vitesse', 'perception', 'efficacite', 'fertilite', 'longevite', 'cohesion', 'prudence', 'curiosite'];
+const COL = ['#c86b3c', '#3b8fb5', '#4e9e5a', '#8a7fc0', '#d0a13a', '#7d7869', '#4db5b0', '#b5535a', '#5a9bb5'];
 
 // -- Trace un jeu de courbes dans un <svg> deja dimensionne par son viewBox.
 function draw(svgId, opt) {
