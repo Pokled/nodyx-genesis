@@ -171,20 +171,22 @@ struct Mind {
 struct Memory {
     formed_tick: u64,
     place:       Position,
-    kind:        MemoryKind,     // Peril | Bounty
+    kind:        MemoryKind,     // Peril | Bounty | Witnessed (mort d'un proche vue, 0.0.3 tranche 3)
     event_seq:   Option<u64>,    // lien vers le fait objectif (Event.seq). Invariant 5 : la
                                  // mémoire subjective ne réécrit jamais l'histoire objective,
                                  // la divergence se mesure, elle ne se corrige pas.
-                                 // None en tranche 1 (péril = famine subjective, sans événement).
+                                 // None pour Peril (famine subjective) ; Some(seq de l'EntityDied) pour Witnessed.
     strength:    f32,            // (0, 1], décroît * memory_decay par tick, oubli sous memory_eps
 }
 
 struct Shock { tick: u64, place: Position, peril: bool }   // écrit pour toutes les entités
 ```
 
-En tranche 1 la mémoire biaise seulement le déplacement de l'agent (phase 2/3, hors des
-lieux de péril, vers les lieux d'aubaine). Besoins, personnalité héritée et modèle de
-comportement complet sont des tranches suivantes.
+La mémoire biaise le déplacement de l'agent (phase 2/3, hors des lieux de péril et de mort
+vue, vers les lieux d'aubaine). En tranche 3, un agent témoin d'un `EntityDied` proche (un
+membre de sa lignée) en garde un souvenir `Witnessed` ancré sur ce `seq` : c'est le premier
+souvenir vérifiable au sens fort. Besoins, personnalité héritée et modèle de comportement
+complet sont des tranches suivantes.
 
 ## Génome
 

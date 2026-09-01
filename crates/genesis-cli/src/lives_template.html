@@ -81,20 +81,26 @@ function endText(l) {
 
 function dist2(a, bx, by) { const dx = a[0] - bx, dy = a[1] - by; return dx * dx + dy * dy; }
 
+// -- Genres de souvenir : 0 peril (famine propre), 1 aubaine, 2 mort vue (ancree). --
+const KIND_STR = ['peril', 'bounty', 'witnessed'];
+function kindOf(s) { const i = KIND_STR.indexOf(s); return i < 0 ? 0 : i; }
+function aversive(k) { return k === 0 || k === 2; }
+
 // -- Tous les lieux de memoire d'une vie : l'union des souvenirs vus a chaque temps de vie
-//    plus la memoire de fin, regroupes par case (2x2) et par valence. --
+//    plus la memoire de fin, regroupes par case (2x2) et par genre. --
 function memPlaces(life) {
   const map = new Map();
-  const add = (x, y, peril, str, tick) => {
-    const k = Math.round(x / 2) + ',' + Math.round(y / 2) + ',' + (peril ? 'p' : 'b');
-    let o = map.get(k);
-    if (!o) { o = { x, y, peril, maxs: 0, first: tick, series: [] }; map.set(k, o); }
+  const add = (x, y, k, str, tick, evseq) => {
+    const key = Math.round(x / 2) + ',' + Math.round(y / 2) + ',' + k;
+    let o = map.get(key);
+    if (!o) { o = { x, y, k, maxs: 0, first: tick, evseq: null, series: [] }; map.set(key, o); }
     o.maxs = Math.max(o.maxs, str);
     o.first = Math.min(o.first, tick);
+    if (evseq != null) o.evseq = evseq;
     o.series.push({ tick, s: str });
   };
-  (life.beats || []).forEach(bt => (bt.mem || []).forEach(m => add(m.x, m.y, m.p, m.s, bt.tick)));
-  (life.memories || []).forEach(m => add(m.place.x, m.place.y, m.kind === 'peril', m.strength, m.formed_tick));
+  (life.beats || []).forEach(bt => (bt.mem || []).forEach(m => add(m.x, m.y, m.k, m.s, bt.tick, m.e != null ? m.e : null)));
+  (life.memories || []).forEach(m => add(m.place.x, m.place.y, kindOf(m.kind), m.strength, m.formed_tick, m.event_seq));
   const list = [...map.values()];
   list.forEach(o => o.series.sort((a, b) => a.tick - b.tick));
   list.sort((a, b) => b.maxs - a.maxs);
@@ -121,9 +127,11 @@ function drawMap(life) {
   }
   s += `<circle cx="${X(life.awoke_place[0]).toFixed(1)}" cy="${Y(life.awoke_place[1]).toFixed(1)}" r="3.4" fill="none" stroke="${css('--wake')}" stroke-width="1.6"/>`;
   memPlaces(life).forEach(m => {
-    const x = X(m.x), y = Y(m.y), r = 2 + m.maxs * 5;
-    if (m.peril) {
-      const c = css('--peril');
+    const x = X(m.x), y = Y(m.y), r = 2 + m.maxs * 5, c = css('--peril');
+    if (m.k === 2) {
+      // mort vue : un losange rouge (ancre sur un evenement).
+      s += `<path d="M ${x.toFixed(1)},${(y-r).toFixed(1)} L ${(x+r).toFixed(1)},${y.toFixed(1)} L ${x.toFixed(1)},${(y+r).toFixed(1)} L ${(x-r).toFixed(1)},${y.toFixed(1)} Z" fill="${c}" fill-opacity="0.5" stroke="${c}" stroke-width="1.2"/>`;
+    } else if (m.k === 0) {
       s += `<line x1="${(x-r).toFixed(1)}" y1="${(y-r).toFixed(1)}" x2="${(x+r).toFixed(1)}" y2="${(y+r).toFixed(1)}" stroke="${c}" stroke-width="1.7"/>`;
       s += `<line x1="${(x-r).toFixed(1)}" y1="${(y+r).toFixed(1)}" x2="${(x+r).toFixed(1)}" y2="${(y-r).toFixed(1)}" stroke="${c}" stroke-width="1.7"/>`;
     } else {
@@ -157,7 +165,7 @@ function drawEnergy(life) {
     if (p.series.length < 2) return;
     let d = '';
     p.series.forEach((pt, i) => { d += (i ? 'L' : 'M') + X(pt.tick).toFixed(1) + ',' + Y(pt.s * 100).toFixed(1) + ' '; });
-    s += `<path d="${d}" fill="none" stroke="${p.peril ? css('--peril') : css('--bounty')}" stroke-width="1" stroke-opacity="0.7"/>`;
+    s += `<path d="${d}" fill="none" stroke="${aversive(p.k) ? css('--peril') : css('--bounty')}" stroke-width="1" stroke-opacity="0.7"${p.k === 2 ? ' stroke-dasharray="3,2"' : ''}/>`;
   });
   if (b.length > 1) {
     let d = '';
@@ -180,19 +188,42 @@ function prose(life) {
   if (places.length === 0) {
     parts.push("Aucun souvenir lisible : il n'a jamais garde de lieu assez longtemps.");
   } else {
-    const perils = places.filter(p => p.peril), bounties = places.filter(p => !p.peril);
-    parts.push(`Au fil de sa vie il a retenu ${perils.length} lieu${perils.length > 1 ? 'x' : ''} de peril et ${bounties.length} d'abondance` +
-      (peakMem > 1 ? `, jusqu'a ${peakMem} en memoire a la fois` : '') + '.');
+    const perils = places.filter(p => p.k === 0), bounties = places.filter(p => p.k === 1), seen = places.filter(p => p.k === 2);
+    const bits = [];
+    if (perils.length) bits.push(`${perils.length} lieu${perils.length > 1 ? 'x' : ''} de peril`);
+    if (seen.length) bits.push(`${seen.length} lieu${seen.length > 1 ? 'x' : ''} ou il a vu mourir un des siens`);
+    if (bounties.length) bits.push(`${bounties.length} lieu${bounties.length > 1 ? 'x' : ''} d'abondance`);
+    if (bits.length === 0) bits.push('rien de durable');
+    parts.push(`Au fil de sa vie il a retenu ${bits.join(', ')}` + (peakMem > 1 ? `, jusqu'a ${peakMem} souvenirs a la fois` : '') + '.');
+
+    // La mort vue : le souvenir ancre, celui qu'on peut tracer jusqu'a un fait du monde.
+    const w = seen.slice().sort((a, b) => b.maxs - a.maxs)[0];
+    if (w) {
+      const before = b.filter(x => x.tick <= w.first), after = b.filter(x => x.tick > w.first + 200);
+      let phrase = `Au tick ${num(w.first)}, il a vu mourir un des siens pres de (${w.x.toFixed(0)}, ${w.y.toFixed(0)})`;
+      if (w.evseq != null) phrase += `, evenement ${w.evseq}`;
+      phrase += ' ; il en a garde le lieu';
+      if (before.length >= 3 && after.length >= 5) {
+        const mb = Math.sqrt(before.reduce((s, x) => s + dist2(x.pos, w.x, w.y), 0) / before.length);
+        const ma = Math.sqrt(after.reduce((s, x) => s + dist2(x.pos, w.x, w.y), 0) / after.length);
+        phrase += ma > mb + 2 ? `, et s'en est ensuite tenu a distance : ${mb.toFixed(0)} cases de moyenne avant, ${ma.toFixed(0)} apres.`
+          : (ma < mb - 2 ? `, mais y est retourne (${mb.toFixed(0)} cases avant, ${ma.toFixed(0)} apres).`
+            : ` (distance a peu pres stable, ${mb.toFixed(0)} puis ${ma.toFixed(0)} cases).`);
+      } else phrase += '.';
+      parts.push(phrase);
+    }
 
     const strong = places[0];
-    const win = b.filter(x => Math.abs(x.tick - strong.first) <= 400);
-    const loE = win.length ? Math.min(...win.map(x => x.energy)) : null;
-    parts.push(`Le plus marquant : un ${strong.peril ? 'peril' : 'lieu d\'abondance'} pres de (${strong.x.toFixed(0)}, ${strong.y.toFixed(0)}), rencontre vers le tick ${num(strong.first)}` +
-      (strong.peril && loE != null && loE < 30 ? `, quand son energie etait tombee a ${loE} %` : '') + '.');
+    if (strong.k !== 2 || !w) {
+      const win = b.filter(x => Math.abs(x.tick - strong.first) <= 400);
+      const loE = win.length ? Math.min(...win.map(x => x.energy)) : null;
+      parts.push(`Le souvenir le plus fort : un ${strong.k === 1 ? 'lieu d\'abondance' : 'peril'} pres de (${strong.x.toFixed(0)}, ${strong.y.toFixed(0)}), vers le tick ${num(strong.first)}` +
+        (strong.k === 0 && loE != null && loE < 30 ? `, quand son energie etait tombee a ${loE} %` : '') + '.');
+    }
 
-    // Divergence : un lieu de peril rencontre assez tot, avec de la vie apres.
+    // Divergence : un lieu aversif (peril de famine) rencontre assez tot, avec de la vie apres.
     const cand = places
-      .filter(p => p.peril && p.maxs > 0.25)
+      .filter(p => p.k === 0 && p.maxs > 0.25)
       .map(p => ({ p, after: b.filter(x => x.tick > p.first + 200) }))
       .filter(o => o.after.length >= 5)
       .sort((x, y) => y.after.length - x.after.length)[0];
@@ -248,8 +279,8 @@ function prose(life) {
   ).join('');
 
   document.getElementById('foot').textContent =
-    "Les souvenirs de peril sont subjectifs : la propre faim de l'agent, sans evenement du monde a citer. " +
-    "Les souvenirs ancres sur un fait objectif (la mort d'un proche, vue) et le lien vers l'evenement d'origine arrivent a la tranche suivante. " +
+    "Carte memoire : croix rouge = un peril de famine (souvenir subjectif) ; losange rouge = un lieu ou l'agent a vu mourir un des siens (souvenir ancre, il pointe l'evenement du monde) ; disque vert = une aubaine ; rond violet = le lieu d'eveil ; ligne bleue = le chemin de l'agent. " +
+    "Le peril de famine reste subjectif : c'est l'etat de l'agent, sans fait a citer. La mort vue est ancree : son numero d'evenement se retrouve dans events.jsonl. " +
     "Rien ici n'est ecrit par un modele de langage : la prose est faite de gabarits sur les donnees de la simulation.";
 })();
 </script>

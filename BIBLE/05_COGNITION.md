@@ -1,9 +1,10 @@
 # 05. Cognition
 
-Statut : TRANCHES 1 ET 2 FAITES (le premier souvenir, puis la page biographie). Le pont
-Entity vers Agent et la question semé ou cultivé sont posés ; la mémoire épisodique minimale
-est construite, tourne, et se lit dans `lives.html`. L'architecture détaillée (Context
-Builder, Model Router, RAG) attend 0.0.5 et sera reprise ici à ce moment.
+Statut : TRANCHES 1 A 3 FAITES (le premier souvenir, la page biographie, les souvenirs
+ancrés). Le pont Entity vers Agent et la question semé ou cultivé sont posés ; la mémoire
+épisodique tourne, se lit dans `lives.html`, et un souvenir de mort vue pointe désormais le
+fait objectif. L'architecture détaillée (Context Builder, Model Router, RAG) attend 0.0.5 et
+sera reprise ici à ce moment.
 
 Dernière révision : 2026-09-01.
 
@@ -135,10 +136,36 @@ beaucoup meurent de faim, aucune ne retombe (elles meurent avant d'oublier). Un 
 grille (~120, 122) revient souvent comme lieu de péril partagé : les agents repoussés des
 zones centrales s'y échouent.
 
-**Ce qui reste (tranche 3 et après).** Besoins (jauges), personnalité héritée (paramètres
-au génome, pas dérivés), souvenirs ancrés sur un événement (mort d'un proche vue) avec le
-lien `event_seq` vers le fait objectif, modèle de comportement complet, dé-simulation de la
-biologie sous l'agent.
+## Tranche 3 : le souvenir ancré (fait, 2026-09-01)
+
+En tranches 1 et 2, tous les souvenirs sont subjectifs : le péril, c'est la propre famine de
+l'agent, `Memory.event_seq = None`. Le critère du jalon parle d'un souvenir **vérifiable**.
+
+Schema v8. Nouveau genre `MemoryKind::Witnessed` : un lieu où l'agent a vu mourir un des
+siens. Formation en phase 6 de `sim.rs`, après le retrait des morts (pas d'auto-témoignage),
+séquentiel, sans RNG : pour chaque `EntityDied` du tick, tout agent à moins de
+`witness_radius` (défaut 4) et de la même lignée fondatrice (`witness_kin_only`) enregistre
+un `Memory { kind: Witnessed, event_seq: Some(seq de l'EntityDied), strength: 1.0 }`. Le
+souvenir se comporte comme un péril pour le biais de déplacement (il repousse, modulé par la
+prudence). `MemoryKind::is_aversive()` regroupe péril et mort vue.
+
+Invariant 5 : le souvenir porte le `seq` du fait, il ne le réécrit pas. La biographie peut
+alors écrire « au tick 45 000, il a vu mourir un des siens près de (113, 113), événement
+191 641 ; il s'en est ensuite tenu à distance : 6 cases de moyenne avant, 37 après » ; le
+numéro se retrouve dans `events.jsonl`. C'est la boucle fermée avec la traçabilité causale
+de 0.0.2 (les `seq` attribués à la création, tranchée 15).
+
+**Résultat (A/B graine 3, 60000 ticks, `witness_radius` défaut vs 0).** Les morts par famine
+tombent de 13 100 à 8 700 (**-33 %**, en plus du -15 % de la tranche 1), les morts d'âge
+montent un peu (les agents vivent plus longtemps), la population d'équilibre ne bouge pas,
+le nombre d'agents vivants passe de ~300 à ~530. Voir mourir les siens et retenir le lieu
+est fortement adaptatif : les agents évitent les grappes de mortalité. Effet secondaire : la
+pression sur la perception se relâche un peu (perception moyenne 0,92 -> 0,88). Déterministe
+byte-identique 1 vs 8 threads. Test `witnessed_memories_are_anchored`.
+
+**Ce qui reste (tranche 4 et après).** Besoins (jauges), personnalité héritée (paramètres au
+génome, pas dérivés), modèle de comportement complet, dé-simulation de la biologie sous
+l'agent.
 
 ---
 

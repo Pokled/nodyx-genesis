@@ -140,6 +140,8 @@ max_memories      = 12     # nombre maximal de souvenirs (le plus faible cède l
 memory_merge_dist = 3.0    # deux souvenirs de même nature à moins de N cases fusionnent
 mem_weight        = 0.5    # poids maximal du biais mémoire dans la cible de déplacement
 mem_radius        = 7.0    # portée spatiale du noyau de souvenir, en cases
+witness_radius    = 4.0    # (tranche 3) un agent à moins de N cases d'une mort la voit, souvenir ancré ; 0 désactive
+witness_kin_only  = true   # ne retenir que la mort d'un membre de sa propre lignée fondatrice
 
 [view]
 # Niveau de détail de la projection (genesis-view::project). Au delà du seuil, la frame

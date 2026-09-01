@@ -277,6 +277,44 @@ fn agents_awake_and_remember() {
 }
 
 #[test]
+fn witnessed_memories_are_anchored() {
+    // Cognition (0.0.3, tranche 3) : un agent temoin d'une mort en garde un souvenir de
+    // genre `Witnessed` dont `event_seq` pointe le vrai `EntityDied`, anterieur ou du meme
+    // tick que la formation du souvenir.
+    use genesis_core::{EventKind, MemoryKind};
+    let cfg = SimConfig::default();
+    let mut w = WorldState::new(3, &cfg);
+    let mut died: std::collections::HashMap<u64, u64> = std::collections::HashMap::new(); // seq -> tick
+    let mut anchored = 0usize;
+    for _ in 0..60_000 {
+        let ev = tick(&mut w, &cfg);
+        for e in ev.iter() {
+            if let EventKind::EntityDied { .. } = e.kind {
+                died.insert(e.seq, e.tick);
+            }
+        }
+        for a in w.entities.iter() {
+            let Some(m) = &a.mind else { continue };
+            for mem in m.episodic.iter() {
+                if matches!(mem.kind, MemoryKind::Witnessed) {
+                    let seq = mem.event_seq.expect("un souvenir Witnessed doit etre ancre");
+                    let dtick = died
+                        .get(&seq)
+                        .copied()
+                        .unwrap_or_else(|| panic!("event_seq {seq} n'est pas un EntityDied connu"));
+                    assert!(dtick <= mem.formed_tick, "la mort vue est posterieure au souvenir");
+                    anchored += 1;
+                }
+            }
+        }
+        if w.entities.is_empty() {
+            break;
+        }
+    }
+    assert!(anchored > 0, "aucun souvenir ancre sur une mort en 60000 ticks");
+}
+
+#[test]
 fn agent_promotion_is_reversible() {
     // Un agent qui n'a plus aucun souvenir depuis longtemps retombe entite de fond : aucun
     // agent ne doit garder une memoire vide au-dela du delai de grace plus de latence.

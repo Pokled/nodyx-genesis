@@ -423,6 +423,11 @@ pub struct CognitionCfg {
     pub mem_weight: f32,
     /// Portee spatiale du noyau de souvenir, en cases.
     pub mem_radius: f32,
+    /// Un agent a moins de N cases d'une mort la voit et en garde un souvenir ancre
+    /// (0.0.3, tranche 3). `0` desactive.
+    pub witness_radius: f32,
+    /// Ne retenir que la mort d'un membre de sa propre lignee fondatrice (« un des siens »).
+    pub witness_kin_only: bool,
 }
 impl Default for CognitionCfg {
     fn default() -> Self {
@@ -440,6 +445,8 @@ impl Default for CognitionCfg {
             memory_merge_dist: 3.0,
             mem_weight: 0.5,
             mem_radius: 7.0,
+            witness_radius: 4.0,
+            witness_kin_only: true,
         }
     }
 }

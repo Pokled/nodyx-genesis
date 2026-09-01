@@ -43,4 +43,6 @@ pub const ENGINE_VERSION: &str = env!("CARGO_PKG_VERSION");
 ///      causale de base (`Watch.deaths_since_check`, `last_death_seq_by_lineage`).
 /// v7 : cognition (`Entity.mind`, `Entity.last_shock`) : la marche « individu » de
 ///      l'escalier. Un agent porte une memoire episodique qui biaise son deplacement.
-pub const SCHEMA_VERSION: u32 = 7;
+/// v8 : souvenirs ancres (`MemoryKind::Witnessed`, `Memory.event_seq` peuple pour les morts
+///      vues) : la memoire subjective pointe le fait objectif (invariant 5).
+pub const SCHEMA_VERSION: u32 = 8;

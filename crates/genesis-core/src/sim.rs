@@ -239,11 +239,9 @@ pub fn tick(world: &mut WorldState, cfg: &SimConfig) -> Vec<Event> {
                             let d2 = dx * dx + dy * dy;
                             let d = d2.sqrt().max(1e-3);
                             let k = m.strength * (-d2 * inv2s2).exp();
-                            // Peril : repousse (direction pos - place). Aubaine : attire.
-                            let scale = match m.kind {
-                                crate::cognition::MemoryKind::Peril => caution,
-                                crate::cognition::MemoryKind::Bounty => -curiosity,
-                            };
+                            // Peril et mort vue : repoussent (direction pos - place),
+                            // moduls par la prudence. Aubaine : attire, modulee par la curiosite.
+                            let scale = if m.kind.is_aversive() { caution } else { -curiosity };
                             vx += scale * k * dx / d;
                             vy += scale * k * dy / d;
                         }
@@ -403,12 +401,16 @@ pub fn tick(world: &mut WorldState, cfg: &SimConfig) -> Vec<Event> {
         e.cooldown = e.cooldown.saturating_sub(1);
     }
 
+    // Positions des morts de ce tick, avec le `seq` de leur `EntityDied` : les agents
+    // temoins en garderont un souvenir ancre (0.0.3, tranche 3).
+    let mut deaths_here: Vec<(Position, u64, u16)> = Vec::new();
+
     // Depot des cadavres puis retrait, une seule passe de `retain`.
     for &(id, cause) in &dead {
-        let (dead_cell, dead_lineage) = world
+        let (dead_cell, dead_lineage, dead_pos) = world
             .get(id)
-            .map(|e| (e.cell_id, e.genome.lineage))
-            .unwrap_or((None, 0));
+            .map(|e| (e.cell_id, e.genome.lineage, e.position))
+            .unwrap_or((None, 0, Position { x: 0.0, y: 0.0 }));
         if let Some(e) = world.get(id) {
             let (pos, energy) = (e.position, e.energy.max(0.0));
             let idx = world.resources.index(&space, pos);
@@ -441,10 +443,41 @@ pub fn tick(world: &mut WorldState, cfg: &SimConfig) -> Vec<Event> {
             world.watch.deaths_since_check.remove(0);
         }
         world.watch.last_death_seq_by_lineage.insert(dead_lineage, seq);
+        deaths_here.push((dead_pos, seq, dead_lineage));
     }
     if !dead.is_empty() {
         let gone: std::collections::HashSet<EntityId> = dead.iter().map(|&(id, _)| id).collect();
         world.entities.retain(|e| !gone.contains(&e.id));
+    }
+
+    // Temoins : un agent proche d'une mort en garde un souvenir ancre sur l'`EntityDied`.
+    // Apres le retrait des morts (pas d'auto-temoignage), sequentiel, sans RNG.
+    let wc = &cfg.cognition;
+    let wr2 = wc.witness_radius * wc.witness_radius;
+    if wr2 > 0.0 && !deaths_here.is_empty() {
+        let max_mem = wc.max_memories as usize;
+        for &(dpos, dseq, dlin) in &deaths_here {
+            for i in 0..world.entities.len() {
+                let e = &world.entities[i];
+                if e.mind.is_none()
+                    || (wc.witness_kin_only && e.genome.lineage != dlin)
+                    || e.position.dist2(&dpos) > wr2
+                {
+                    continue;
+                }
+                world.entities[i].mind.as_deref_mut().unwrap().record(
+                    Memory {
+                        formed_tick: t,
+                        place: dpos,
+                        kind: crate::cognition::MemoryKind::Witnessed,
+                        event_seq: Some(dseq),
+                        strength: 1.0,
+                    },
+                    max_mem,
+                    wc.memory_merge_dist,
+                );
+            }
+        }
     }
 
     drop(_sp.take()); _sp = prof::Span::start(7);

@@ -27,10 +27,21 @@ use genesis_view::{project, series_row, SeriesRow, ViewFrame};
 struct MemSnap {
     x: f32,
     y: f32,
-    /// `true` = peril, `false` = aubaine.
-    p: bool,
+    /// genre : 0 = peril (famine propre), 1 = aubaine, 2 = mort vue (ancree).
+    k: u8,
     /// force du souvenir, (0, 1].
     s: f32,
+    /// `seq` de l'evenement d'origine, pour les souvenirs ancres (mort vue).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    e: Option<u64>,
+}
+
+fn mem_kind_code(k: genesis_core::MemoryKind) -> u8 {
+    match k {
+        genesis_core::MemoryKind::Peril => 0,
+        genesis_core::MemoryKind::Bounty => 1,
+        genesis_core::MemoryKind::Witnessed => 2,
+    }
 }
 
 /// Un temps de vie d'agent (0.0.3, tranche 2) : sa position, son energie et sa memoire,
@@ -293,8 +304,9 @@ fn cmd_run(flags: &HashMap<String, String>) -> std::io::Result<()> {
                             .map(|s| MemSnap {
                                 x: s.place.x,
                                 y: s.place.y,
-                                p: matches!(s.kind, genesis_core::MemoryKind::Peril),
+                                k: mem_kind_code(s.kind),
                                 s: s.strength,
+                                e: s.event_seq,
                             })
                             .collect()
                     });
@@ -359,14 +371,19 @@ fn cmd_run(flags: &HashMap<String, String>) -> std::io::Result<()> {
         l.beats.clear();
         l.events.clear();
     }
-    // Pour les chapitres, on remonte en tete les vies dont la memoire a le plus pese : plus
-    // grande memoire atteinte, puis memoire de fin, puis duree d'agent. Le reste garde
-    // l'ordre par duree.
+    // Pour les chapitres, on remonte en tete les vies dont la memoire a le plus pese : une
+    // mort vue (souvenir ancre) d'abord, puis la plus grande memoire atteinte, puis la
+    // memoire de fin, puis la duree d'agent. Le reste garde l'ordre par duree.
     let peak_mem = |l: &AgentLife| l.beats.iter().map(|b| b.mem.len()).max().unwrap_or(0);
+    let saw_death = |l: &AgentLife| {
+        l.memories.iter().any(|m| matches!(m.kind, genesis_core::MemoryKind::Witnessed))
+            || l.beats.iter().any(|b| b.mem.iter().any(|s| s.k == 2))
+    };
     let head = lives_vec.len().min(BIO_KEEP_DETAIL);
     lives_vec[..head].sort_by(|a, b| {
-        peak_mem(b)
-            .cmp(&peak_mem(a))
+        saw_death(b)
+            .cmp(&saw_death(a))
+            .then(peak_mem(b).cmp(&peak_mem(a)))
             .then(b.memories.len().cmp(&a.memories.len()))
             .then(agent_span(b).cmp(&agent_span(a)))
     });

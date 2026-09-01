@@ -18,14 +18,25 @@ use serde::{Deserialize, Serialize};
 
 use crate::entity::Position;
 
-/// Nature d'un souvenir episodique. Tranche 1 : deux valences spatiales.
+/// Nature d'un souvenir episodique.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum MemoryKind {
-    /// Un lieu ou l'agent a failli mourir (famine). A eviter.
+    /// Un lieu ou l'agent a failli mourir (sa propre famine). A eviter. Subjectif : pas
+    /// d'evenement source (`event_seq` reste `None`).
     Peril,
     /// Un lieu ou l'agent a trouve beaucoup a manger d'un coup. A retrouver.
     Bounty,
+    /// Un lieu ou l'agent a vu mourir un des siens (0.0.3, tranche 3). A eviter, comme le
+    /// peril. Ancre : `event_seq` pointe l'`EntityDied` correspondant (invariant 5).
+    Witnessed,
+}
+
+impl MemoryKind {
+    /// `true` si ce souvenir repousse l'agent (peril ou mort vue).
+    pub fn is_aversive(&self) -> bool {
+        matches!(self, MemoryKind::Peril | MemoryKind::Witnessed)
+    }
 }
 
 /// Un souvenir episodique : un lieu, une valence, une force qui decroit.
