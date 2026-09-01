@@ -99,13 +99,15 @@ impl EventKind {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Event {
-    /// Numero d'ordre, monotone par monde. Attribue a l'ecriture dans le journal.
+    /// Numero d'ordre, monotone par monde. Attribue a la creation (dans `tick()`), pour que
+    /// les evenements de veille puissent pointer les evenements qui les ont causes.
     pub seq: u64,
     pub tick: u64,
     pub kind: EventKind,
     /// Saillance 0..255. Copiee de `kind.base_salience()` a la creation, peut monter ensuite.
     pub salience: u8,
-    /// seq des evenements qui ont cause celui-ci.
+    /// seq des evenements qui ont cause celui-ci. Cable pour `PopulationCrash` (la vague de
+    /// morts) et `LineageExtinct` (la derniere mort de la lignee) ; le reste a 0.0.6 (T-15).
     pub causes: Vec<u64>,
     pub cascade_depth: u16,
 }

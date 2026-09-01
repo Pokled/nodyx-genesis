@@ -60,19 +60,59 @@ fn snapshot_plus_replay_equals_live_state() {
 
 #[test]
 fn event_seq_is_monotonic_within_a_run() {
+    // Depuis 0.0.2 (tranche 3b) le `seq` est attribue dans `tick()`, pas a l'ecriture.
+    // Il doit rester croissant d'un evenement au suivant (des trous sont admis : le
+    // garde-fou anti-cascade tronque certains evenements deja numerotes).
     let cfg = small_cfg();
     let mut w = WorldState::new(99, &cfg);
-    let mut next_seq = 0u64;
-    let mut last = 0u64;
+    let mut last: Option<u64> = None;
     for _ in 0..4000 {
-        let mut ev = tick(&mut w, &cfg);
-        for e in ev.iter_mut() {
-            e.seq = next_seq;
-            next_seq += 1;
-            assert!(e.seq >= last);
-            last = e.seq;
+        let ev = tick(&mut w, &cfg);
+        for e in ev.iter() {
+            if let Some(l) = last {
+                assert!(e.seq > l, "seq non croissant : {} apres {}", e.seq, l);
+            }
+            last = Some(e.seq);
         }
     }
+    assert!(last.is_some(), "aucun evenement produit");
+}
+
+#[test]
+fn causes_are_wired() {
+    // Tranche 3b : `PopulationCrash` cite la vague de morts, `LineageExtinct` cite la
+    // derniere mort de la lignee. On verifie qu'au moins un lien existe et pointe un
+    // `EntityDied` anterieur.
+    use genesis_core::EventKind;
+    let cfg = SimConfig::default();
+    let mut w = WorldState::new(3, &cfg);
+    let mut died: std::collections::HashMap<u64, u64> = std::collections::HashMap::new(); // seq -> tick
+    let mut linked = 0usize;
+    for _ in 0..60_000 {
+        let ev = tick(&mut w, &cfg);
+        for e in ev.iter() {
+            match &e.kind {
+                EventKind::EntityDied { .. } => {
+                    died.insert(e.seq, e.tick);
+                }
+                EventKind::PopulationCrash { .. } | EventKind::LineageExtinct { .. } => {
+                    for &c in e.causes.iter() {
+                        assert!(c < e.seq, "cause {} apres l'effet {}", c, e.seq);
+                        let dtick = died.get(&c).copied().unwrap_or_else(|| {
+                            panic!("cause {} n'est pas un EntityDied connu", c)
+                        });
+                        assert!(dtick <= e.tick, "cause au tick {} apres l'effet {}", dtick, e.tick);
+                        linked += 1;
+                    }
+                }
+                _ => {}
+            }
+        }
+        if w.entities.is_empty() {
+            break;
+        }
+    }
+    assert!(linked > 0, "aucun lien causal cable sur toute la course");
 }
 
 #[test]

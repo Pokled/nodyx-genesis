@@ -101,14 +101,18 @@ fn cmd_run(flags: &HashMap<String, String>) -> std::io::Result<()> {
     wdir.write_config(&cfg)?;
 
     let mut world = WorldState::new(seed, &cfg);
-    let mut next_seq: u64 = 0;
 
-    // Evenement fondateur et naissance des deux entites.
+    // Evenement fondateur et naissance des deux entites. Les `seq` 0..N sont poses ici a la
+    // main (avant le premier tick) ; le compteur du monde reprend a la suite.
     let mut founding: Vec<Event> = vec![Event::now(0, EventKind::WorldCreated)];
     for id in world.entities.iter().map(|e| e.id).collect::<Vec<_>>() {
         founding.push(Event::now(0, EventKind::EntitySpawned { entity: id }));
     }
-    wdir.append_events(&mut founding, &mut next_seq)?;
+    for (n, e) in founding.iter_mut().enumerate() {
+        e.seq = n as u64;
+    }
+    world.next_event_seq = founding.len() as u64;
+    wdir.append_events(&founding)?;
 
     wdir.write_snapshot(&world)?;
 
@@ -136,9 +140,9 @@ fn cmd_run(flags: &HashMap<String, String>) -> std::io::Result<()> {
     let dense_every: u64 = (frame_every / 4).max(1);
 
     for _ in 0..ticks {
-        let mut ev = tick(&mut world, &cfg);
+        let ev = tick(&mut world, &cfg);
         since_frame.extend(ev.iter().cloned());
-        wdir.append_events(&mut ev, &mut next_seq)?;
+        wdir.append_events(&ev)?;
         notable.extend(ev.iter().filter(|e| e.salience >= NOTABLE).cloned());
 
         let interval = if world.tick <= genesis_window { dense_every } else { frame_every };
@@ -170,7 +174,7 @@ fn cmd_run(flags: &HashMap<String, String>) -> std::io::Result<()> {
         engine_version: genesis_core::ENGINE_VERSION.to_string(),
         schema_version: genesis_core::SCHEMA_VERSION,
         ticks_played: world.tick,
-        last_event_seq: next_seq,
+        last_event_seq: world.next_event_seq,
     };
     wdir.write_meta(&meta)?;
 
@@ -215,6 +219,10 @@ fn cmd_replay(_flags: &HashMap<String, String>, positional: Option<String>) -> s
     let recorded_json = serde_json::to_string(&recorded).map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string()))?;
 
     let mut world = WorldState::new(meta.seed, &cfg);
+    // Les evenements fondateurs (WorldCreated + un EntitySpawned par entite initiale) portent
+    // les `seq` 0..N ; `run` avance le compteur d'autant avant le premier tick, on refait
+    // pareil ici pour que la numerotation rejouee colle.
+    world.next_event_seq = 1 + world.entities.len() as u64;
     for _ in 0..meta.ticks_played {
         let _ = tick(&mut world, &cfg);
         if world.entities.is_empty() {

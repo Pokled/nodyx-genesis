@@ -68,7 +68,34 @@ mod prof {
 }
 pub use prof::dump as profile_dump;
 
-/// Fait avancer le monde d'un tick. Renvoie les evenements produits (seq non encore attribue).
+/// Cree un evenement, lui attribue le prochain `seq` (0.0.2, tranche 3b : a la creation,
+/// plus a l'ecriture), le pousse, renvoie son `seq`.
+fn emit(events: &mut Vec<Event>, ctr: &mut u64, tick: u64, kind: EventKind) -> u64 {
+    let seq = *ctr;
+    *ctr += 1;
+    let mut e = Event::now(tick, kind);
+    e.seq = seq;
+    events.push(e);
+    seq
+}
+
+/// Comme `emit`, mais l'evenement cite les `seq` qui l'ont cause.
+fn emit_caused(
+    events: &mut Vec<Event>,
+    ctr: &mut u64,
+    tick: u64,
+    kind: EventKind,
+    causes: Vec<u64>,
+) -> u64 {
+    let seq = *ctr;
+    *ctr += 1;
+    let mut e = Event::now(tick, kind).caused_by(causes);
+    e.seq = seq;
+    events.push(e);
+    seq
+}
+
+/// Fait avancer le monde d'un tick. Renvoie les evenements produits, `seq` deja attribue.
 pub fn tick(world: &mut WorldState, cfg: &SimConfig) -> Vec<Event> {
     world.tick += 1;
     let t = world.tick;
@@ -305,7 +332,10 @@ pub fn tick(world: &mut WorldState, cfg: &SimConfig) -> Vec<Event> {
 
     // Depot des cadavres puis retrait, une seule passe de `retain`.
     for &(id, cause) in &dead {
-        let dead_cell = world.get(id).and_then(|e| e.cell_id);
+        let (dead_cell, dead_lineage) = world
+            .get(id)
+            .map(|e| (e.cell_id, e.genome.lineage))
+            .unwrap_or((None, 0));
         if let Some(e) = world.get(id) {
             let (pos, energy) = (e.position, e.energy.max(0.0));
             let idx = world.resources.index(&space, pos);
@@ -325,7 +355,19 @@ pub fn tick(world: &mut WorldState, cfg: &SimConfig) -> Vec<Event> {
             DeathCause::Starvation => world.deaths_starvation += 1,
             DeathCause::Age => world.deaths_age += 1,
         }
-        events.push(Event::now(t, EventKind::EntityDied { entity: id, cause }));
+        let seq = emit(
+            &mut events,
+            &mut world.next_event_seq,
+            t,
+            EventKind::EntityDied { entity: id, cause },
+        );
+        // Tracabilite causale : le crash de population cite cette vague de morts, l'extinction
+        // de lignee cite la derniere mort d'un de ses membres.
+        world.watch.deaths_since_check.push(seq);
+        if world.watch.deaths_since_check.len() > 128 {
+            world.watch.deaths_since_check.remove(0);
+        }
+        world.watch.last_death_seq_by_lineage.insert(dead_lineage, seq);
     }
     if !dead.is_empty() {
         let gone: std::collections::HashSet<EntityId> = dead.iter().map(|&(id, _)| id).collect();
@@ -405,10 +447,12 @@ pub fn tick(world: &mut WorldState, cfg: &SimConfig) -> Vec<Event> {
             let frac = if soft { matter_retry_frac * 0.5 } else { matter_retry_frac };
             let wait = ((gest as f32) * frac).max(1.0) as u32;
             world.get_mut(a).unwrap().cooldown = wait;
-            events.push(Event::now(
+            emit(
+                &mut events,
+                &mut world.next_event_seq,
                 t,
                 EventKind::ReplicationFailed { parent: a, reason: ReplicationFail::Materials },
-            ));
+            );
             continue;
         }
 
@@ -434,10 +478,12 @@ pub fn tick(world: &mut WorldState, cfg: &SimConfig) -> Vec<Event> {
             birth_loss *= 1.0 - cell_birth_relief;
         }
         if world.rng.next_f32() < birth_loss {
-            events.push(Event::now(
+            emit(
+                &mut events,
+                &mut world.next_event_seq,
                 t,
                 EventKind::ReplicationFailed { parent: a, reason: ReplicationFail::Environment },
-            ));
+            );
             continue;
         }
 
@@ -447,13 +493,15 @@ pub fn tick(world: &mut WorldState, cfg: &SimConfig) -> Vec<Event> {
             match Genome::divide(&parent_genome, a, &cfg.reproduction, &mut world.rng) {
                 Some(g) => g,
                 None => {
-                    events.push(Event::now(
+                    emit(
+                        &mut events,
+                        &mut world.next_event_seq,
                         t,
                         EventKind::ReplicationFailed {
                             parent: a,
                             reason: ReplicationFail::LethalMutation,
                         },
-                    ));
+                    );
                     continue;
                 }
             };
@@ -471,10 +519,12 @@ pub fn tick(world: &mut WorldState, cfg: &SimConfig) -> Vec<Event> {
             world.repro_blocked_materials += 1;
             let wait = ((gest as f32) * matter_retry_frac).max(1.0) as u32;
             world.get_mut(a).unwrap().cooldown = wait;
-            events.push(Event::now(
+            emit(
+                &mut events,
+                &mut world.next_event_seq,
                 t,
                 EventKind::ReplicationFailed { parent: a, reason: ReplicationFail::Materials },
-            ));
+            );
             continue;
         }
         world.free_matter -= body_matter;
@@ -495,7 +545,12 @@ pub fn tick(world: &mut WorldState, cfg: &SimConfig) -> Vec<Event> {
             // detection s'il est proche et parent.
             cell_id: None,
         });
-        events.push(Event::now(t, EventKind::EntityDivided { parent: a, child: cid }));
+        emit(
+            &mut events,
+            &mut world.next_event_seq,
+            t,
+            EventKind::EntityDivided { parent: a, child: cid },
+        );
     }
     // Les nouveaux nes ont des id croissants, tous superieurs aux existants : un `push`
     // en fin de `Vec` garde le tri par id.
@@ -503,7 +558,7 @@ pub fn tick(world: &mut WorldState, cfg: &SimConfig) -> Vec<Event> {
         let id = nb.id;
         world.entities.push(nb);
         world.births_total += 1;
-        events.push(Event::now(t, EventKind::EntitySpawned { entity: id }));
+        emit(&mut events, &mut world.next_event_seq, t, EventKind::EntitySpawned { entity: id });
     }
 
     drop(_sp.take()); _sp = prof::Span::start(7);
@@ -518,11 +573,13 @@ pub fn tick(world: &mut WorldState, cfg: &SimConfig) -> Vec<Event> {
     // -- Phase 8 (journal) et 9 (instantane) sont pilotees par l'appelant (CLI).
 
     // Garde-fou anti-cascade : on plafonne les evenements du tick, en gardant les plus
-    // saillants (tri stable, donc deterministe).
+    // saillants (tri stable, donc deterministe). On rend ensuite l'ordre des `seq` : le
+    // journal reste croissant (les seq des evenements tronques sont des trous, admis).
     let event_cap = cfg.events.max_events_per_tick as usize;
     if events.len() > event_cap {
-        events.sort_by(|a, b| b.salience.cmp(&a.salience));
+        events.sort_by_key(|e| std::cmp::Reverse(e.salience));
         events.truncate(event_cap);
+        events.sort_by_key(|e| e.seq);
     }
     events
 }
@@ -706,7 +763,7 @@ fn cell_phase(
         world.cells.retain(|c| !gone.contains(&c.id));
         for id in dissolved {
             world.cells_dissolved_total += 1;
-            events.push(Event::now(t, EventKind::CellDissolved { cell: id }));
+            emit(events, &mut world.next_event_seq, t, EventKind::CellDissolved { cell: id });
         }
     }
 
@@ -866,10 +923,12 @@ fn cell_detect(
                 mean_traits: mean,
             });
             world.cells_formed_total += 1;
-            events.push(Event::now(
+            emit(
+                events,
+                &mut world.next_event_seq,
                 t,
                 EventKind::CellFormed { cell: cid, size: g.len() as u32 },
-            ));
+            );
         } else {
             new_pending.push((cpos, streak));
         }
@@ -928,7 +987,7 @@ fn run_watchers(world: &mut WorldState, cfg: &SimConfig, t: u64, events: &mut Ve
     for &lvl in LEVELS.iter() {
         if pop >= lvl && world.watch.milestone_hi < lvl {
             world.watch.milestone_hi = lvl;
-            events.push(Event::now(t, EventKind::PopulationMilestone { level: lvl }));
+            emit(events, &mut world.next_event_seq, t, EventKind::PopulationMilestone { level: lvl });
         }
     }
 
@@ -943,7 +1002,14 @@ fn run_watchers(world: &mut WorldState, cfg: &SimConfig, t: u64, events: &mut Ve
         if past >= 20 && pop < past {
             let drop = (past - pop) as f32 / past as f32;
             if drop >= wc.crash_drop_frac {
-                events.push(Event::now(t, EventKind::PopulationCrash { from: past, to: pop }));
+                let causes = world.watch.deaths_since_check.clone();
+                emit_caused(
+                    events,
+                    &mut world.next_event_seq,
+                    t,
+                    EventKind::PopulationCrash { from: past, to: pop },
+                    causes,
+                );
                 world.watch.pop_history.clear();
                 world.watch.pop_history.push(pop);
             }
@@ -957,7 +1023,20 @@ fn run_watchers(world: &mut WorldState, cfg: &SimConfig, t: u64, events: &mut Ve
             world.entities.iter().map(|e| e.genome.lineage).collect();
         for l in 0..world.watch.lineages {
             if !alive.contains(&l) {
-                events.push(Event::now(t, EventKind::LineageExtinct { lineage: l }));
+                let causes: Vec<u64> = world
+                    .watch
+                    .last_death_seq_by_lineage
+                    .get(&l)
+                    .copied()
+                    .into_iter()
+                    .collect();
+                emit_caused(
+                    events,
+                    &mut world.next_event_seq,
+                    t,
+                    EventKind::LineageExtinct { lineage: l },
+                    causes,
+                );
             }
         }
     }
@@ -994,7 +1073,7 @@ fn run_watchers(world: &mut WorldState, cfg: &SimConfig, t: u64, events: &mut Ve
                 let sid = world.watch.next_species_id;
                 world.watch.next_species_id += 1;
                 world.watch.species.insert(k, sid);
-                events.push(Event::now(t, EventKind::SpeciesEmerged { species: sid, size: c }));
+                emit(events, &mut world.next_event_seq, t, EventKind::SpeciesEmerged { species: sid, size: c });
             }
         }
         world.watch.species_streak = still;
@@ -1004,6 +1083,9 @@ fn run_watchers(world: &mut WorldState, cfg: &SimConfig, t: u64, events: &mut Ve
             .species
             .retain(|k, _| counts.get(k).copied().unwrap_or(0) >= floor);
     }
+
+    // La fenetre de morts a servi aux liens causaux de ce controle : on la vide.
+    world.watch.deaths_since_check.clear();
 }
 
 /// Cible de recherche de nourriture : le centre de masse des ressources dans le rayon de

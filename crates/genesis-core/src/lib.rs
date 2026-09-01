@@ -37,4 +37,6 @@ pub const ENGINE_VERSION: &str = env!("CARGO_PKG_VERSION");
 /// v3 : les entites sont un `Vec` trie par id (tableau JSON) au lieu d'un `BTreeMap` (objet).
 /// v4 : matiere structurelle (briques), un scalaire `WorldState.free_matter` conserve.
 /// v5 : cellules (`WorldState.cells`, `Entity.cell_id`) : la premiere marche de l'escalier.
-pub const SCHEMA_VERSION: u32 = 5;
+/// v6 : `seq` d'evenement attribue a la creation (`WorldState.next_event_seq`), tracabilite
+///      causale de base (`Watch.deaths_since_check`, `last_death_seq_by_lineage`).
+pub const SCHEMA_VERSION: u32 = 6;

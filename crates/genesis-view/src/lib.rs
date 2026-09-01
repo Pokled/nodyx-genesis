@@ -16,7 +16,7 @@ use genesis_core::event::{Event, EventKind};
 use genesis_core::genome::N_TRAITS;
 use genesis_core::{EntityId, SimConfig, WorldState};
 
-pub const VIEW_VERSION: u16 = 4;
+pub const VIEW_VERSION: u16 = 5;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct ViewFrame {
@@ -134,6 +134,10 @@ pub struct EventView {
     pub salience: u8,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub subjects: Vec<EntityId>,
+    /// `seq` des evenements qui ont cause celui-ci (0.0.2 : crash de population, extinction
+    /// de lignee ; vide ailleurs). Le graphe causal complet est a 0.0.6.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub causes: Vec<u64>,
     /// Precision lisible pour les evenements saillants (palier, effondrement, espece).
     #[serde(skip_serializing_if = "String::is_empty")]
     pub note: String,
@@ -542,6 +546,7 @@ fn event_view(e: &Event) -> Option<EventView> {
         kind,
         salience: e.salience,
         subjects,
+        causes: e.causes.clone(),
         note,
     })
 }

@@ -107,6 +107,14 @@ pub struct Watch {
     /// consecutifs tenus. Sert a exiger la persistance avant de former (0.0.2, tranche 2).
     #[serde(default)]
     pub cell_pending: Vec<(Position, u16)>,
+    /// seq des `EntityDied` depuis le dernier controle des veilleurs (plafonne). Un
+    /// `PopulationCrash` les cite comme causes (0.0.2, tranche 3b).
+    #[serde(default)]
+    pub deaths_since_check: Vec<u64>,
+    /// Par lignee fondatrice : seq de la derniere mort d'un de ses membres. Un
+    /// `LineageExtinct` la cite comme cause.
+    #[serde(default)]
+    pub last_death_seq_by_lineage: BTreeMap<u16, u64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -134,6 +142,11 @@ pub struct WorldState {
 
     /// L'etat du RNG fait partie du World State (tranchee 5). Il est donc dans les instantanes.
     pub rng: Rng,
+
+    /// Prochain numero d'ordre d'evenement a attribuer. Les `seq` sont poses a la creation
+    /// dans `tick()`, plus a l'ecriture (0.0.2, tranche 3b).
+    #[serde(default)]
+    pub next_event_seq: u64,
 
     /// Matiere structurelle libre du monde (briques, 0.0.2). Le reste de la matiere totale
     /// est immobilise dans les corps vivants : `free_matter + population * body_matter` est
@@ -212,6 +225,7 @@ impl WorldState {
             cells: Vec::new(),
             next_cell_id: 0,
             rng,
+            next_event_seq: 0,
             // Matiere totale = matter_per_cell * cases ; deux corps fondateurs deja batis.
             free_matter: (cfg.bricks.matter_per_cell * (w as f32) * (h as f32)
                 - 2.0 * cfg.bricks.body_matter)
@@ -231,6 +245,8 @@ impl WorldState {
                 next_species_id: 0,
                 lineages: 2,
                 cell_pending: Vec::new(),
+                deaths_since_check: Vec::new(),
+                last_death_seq_by_lineage: BTreeMap::new(),
             },
         }
     }

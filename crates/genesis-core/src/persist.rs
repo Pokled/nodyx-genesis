@@ -101,7 +101,9 @@ impl WorldDir {
 
     // -- journal
 
-    pub fn append_events(&self, events: &mut [Event], next_seq: &mut u64) -> std::io::Result<()> {
+    /// Ecrit les evenements en fin de journal, un JSON par ligne. Depuis 0.0.2 (tranche 3b)
+    /// le `seq` est attribue a la creation dans `tick()`, plus ici.
+    pub fn append_events(&self, events: &[Event]) -> std::io::Result<()> {
         if events.is_empty() {
             return Ok(());
         }
@@ -109,9 +111,7 @@ impl WorldDir {
             .create(true)
             .append(true)
             .open(self.root.join("events.jsonl"))?;
-        for e in events.iter_mut() {
-            e.seq = *next_seq;
-            *next_seq += 1;
+        for e in events.iter() {
             let line = serde_json::to_string(e).map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string()))?;
             writeln!(f, "{}", line)?;
         }

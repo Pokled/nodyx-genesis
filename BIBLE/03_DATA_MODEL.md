@@ -54,13 +54,19 @@ struct WorldState {
     next_entity_id:  EntityId,      // monotone : un nouveau-né a toujours l'id le plus haut
 
     rng:             DeterministicRng,   // l'état du RNG fait partie de l'état du monde
-    last_event_seq:  u64,
+    next_event_seq:  u64,   // (schema v6) prochain seq d'événement, incrémenté à la création dans tick()
 
     free_matter:              f32,   // (0.0.2) matière structurelle libre, voir Matière ci-dessous
     repro_blocked_materials:  u64,   // (0.0.2) divisions calées faute de matière, cumulé
 
     cells:            Vec<Cell>,     // (0.0.2, tranche 2) cellules vivantes, triées par id
     next_cell_id:     u32,
+}
+
+struct Watch {                       // état des veilleurs (phase 8b), voir 07_EVENTS.md
+    // ... paliers, historique de population, lignées, séries d'espèces, cell_pending ...
+    deaths_since_check:          Vec<u64>,          // (v6) seq des EntityDied depuis le dernier contrôle, plafonné à 128
+    last_death_seq_by_lineage:   BTreeMap<u16,u64>, // (v6) dernière mort connue par lignée fondatrice
 }
 
 struct Cell {                        // un amas cohérent de parents, reconnu comme unité
@@ -181,12 +187,12 @@ Journal append-only. Un événement validé est immuable. Une correction est un 
 
 ```
 struct Event {
-    seq:            u64,          // clé d'ordre, monotone par monde
+    seq:            u64,          // clé d'ordre, monotone par monde. Attribué à la création dans tick() (schema v6), plus à l'écriture
     tick:           u64,
     kind:           EventKind,    // enum à données, pas de payload séparé en 0.0.1
     salience:       u8,           // 0 bruit .. 255 genèse. base_salience(kind), peut monter
-    causes:         Vec<u64>,     // seq des événements causes
-    cascade_depth:  u16,
+    causes:         Vec<u64>,     // seq des événements causes. Peuplé (0.0.2) pour PopulationCrash et LineageExtinct ; vide ailleurs jusqu'à 0.0.6
+    cascade_depth:  u16,          // reste 0 jusqu'à 0.0.6 ; le garde-fou actif est max_events_per_tick
 }
 
 enum EventKind {
@@ -211,6 +217,14 @@ Décision de longévité (tranchée 17) : le mouvement n'est **pas** un événem
 déplacement de chaque entité à chaque tick ferait exploser le journal. La position est de
 l'état courant, reconstructible depuis les instantanés. Le journal ne porte que le squelette
 causal : naissance, repas, reproduction, mort.
+
+Traçabilité causale (0.0.2, tranche 3b) : les `seq` sont attribués à la création (dans
+`tick()`, via `WorldState.next_event_seq`), pas à l'écriture, pour qu'un événement de veille
+puisse citer les événements qui l'ont causé. Deux liens sûrs et bon marché sont câblés :
+`PopulationCrash` cite la vague de `EntityDied` sur la fenêtre (`Watch.deaths_since_check`),
+`LineageExtinct` cite la dernière mort d'un membre de cette lignée
+(`Watch.last_death_seq_by_lineage`). Les autres `EventKind` gardent `causes` vide : le graphe
+causal complet, l'autopsie « trois candidats de bascule », c'est 0.0.6 (tranchée 15).
 
 ## Persistance
 
