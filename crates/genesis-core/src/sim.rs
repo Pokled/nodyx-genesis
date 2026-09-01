@@ -16,7 +16,7 @@
 
 use rayon::prelude::*;
 
-use crate::cognition::{Memory, Mind};
+use crate::cognition::{BehaviorMode, Memory, Mind, Needs};
 use crate::config::SimConfig;
 use crate::entity::{Action, Entity, EntityId, Position};
 use crate::event::{DeathCause, Event, EventKind, ReplicationFail};
@@ -163,9 +163,8 @@ pub fn tick(world: &mut WorldState, cfg: &SimConfig) -> Vec<Event> {
     let cog_fear_gain = cfg.cognition.fear_gain;
     let cog_social_pull = cfg.cognition.social_pull;
     let cog_heritable = cfg.cognition.heritable_personality;
-    let edge_margin = cfg.world.edge_margin.max(0.0);
-    let edge_push = cfg.world.edge_push.max(0.0);
-    let plans: Vec<Option<(Position, f32)>> = entities_ref
+    // (target, colony_support, mode) ; mode = 255 pour une entite sans esprit.
+    let plans: Vec<Option<(Position, f32, u8)>> = entities_ref
         .par_iter()
         .enumerate()
         .zip(wander_seeds.par_iter())
@@ -203,7 +202,9 @@ pub fn tick(world: &mut WorldState, cfg: &SimConfig) -> Vec<Event> {
             support = support.min(coh_ref.support_cap);
 
             let radius = 2.0 + e.genome.traits.perception * 6.0;
-            let forage = match forage_target(resources_ref, space_ref, pos, radius) {
+            let food = forage_target(resources_ref, space_ref, pos, radius);
+            let has_food = food.is_some();
+            let forage = match food {
                 Some(cp) => cp,
                 None => {
                     let mut r = crate::rng::Rng::from_seed(wander_seed);
@@ -215,114 +216,62 @@ pub fn tick(world: &mut WorldState, cfg: &SimConfig) -> Vec<Event> {
                     }
                 }
             };
-            let target = if wsum > 0.0 && e.genome.traits.cohesion > 0.0 && coh_ref.pull_max > 0.0 {
-                let sated = ((e.energy / repro_threshold - 0.8) / 0.4).clamp(0.0, 1.0);
-                let gate = coh_ref.hunger_damp + (1.0 - coh_ref.hunger_damp) * sated;
-                let w = (e.genome.traits.cohesion * coh_ref.pull_max * gate).clamp(0.0, 1.0);
-                Position {
-                    x: forage.x + (cx / wsum - forage.x) * w,
-                    y: forage.y + (cy / wsum - forage.y) * w,
-                }
-            } else {
-                forage
-            };
-
-            // Biais memoire et besoins (agents seulement). Sans besoins (`needs_weight` = 0)
-            // le calcul est celui de la tranche 3 : la faim (via l'energie) baisse le poids,
-            // les souvenirs aversifs repoussent, les aubaines attirent.
-            let target = match e.mind.as_deref() {
-                Some(mind) if !mind.episodic.is_empty() => {
-                    let nw = cog_needs_weight;
-                    let n = &mind.needs;
-                    // Envie d'explorer : haute quand rassasie. Avec les besoins, c'est
-                    // `1 - faim` (memoire ratchetee) ; sans, l'ancien indicateur d'energie.
-                    let drive = if nw > 0.0 {
-                        (1.0 - n.hunger).clamp(0.0, 1.0)
+            // Comportement de l'agent. `caution` / `curiosity` : traits herites (tranche 5)
+            // ou, si `heritable_personality` est faux, formules derivees des tranches 1-4.
+            let (target, mode) = match e.mind.as_deref() {
+                Some(mind) => {
+                    let (caution, curiosity) = if cog_heritable {
+                        (
+                            0.25 + 0.7 * e.genome.traits.caution,
+                            0.3 + 0.7 * e.genome.traits.curiosity,
+                        )
                     } else {
-                        ((e.energy / repro_threshold - 0.5) / 0.5).clamp(0.0, 1.0)
+                        (
+                            0.3 + 0.5 * e.genome.traits.lifespan,
+                            0.4 + 0.6 * e.genome.traits.perception,
+                        )
                     };
-                    let fear = n.fear * nw;
-                    // Un agent effraye evite le danger meme affame : le gate aversif est le
-                    // max de l'envie d'explorer et de la peur.
-                    let gate_av = drive.max(fear);
-                    if drive <= 0.0 && gate_av <= 0.0 {
-                        target
-                    } else {
-                        // Personnalite : deux traits herites (0.0.3, tranche 5), ou, si
-                        // `heritable_personality` est faux, les anciennes formules derivees.
-                        let (caution, curiosity) = if cog_heritable {
-                            (
-                                0.25 + 0.7 * e.genome.traits.caution,
-                                0.3 + 0.7 * e.genome.traits.curiosity,
-                            )
+                    let ctx = Decide {
+                        pos,
+                        forage,
+                        has_food,
+                        kin: if wsum > 0.0 {
+                            Some(Position { x: cx / wsum, y: cy / wsum })
                         } else {
-                            (
-                                0.3 + 0.5 * e.genome.traits.lifespan,
-                                0.4 + 0.6 * e.genome.traits.perception,
-                            )
-                        };
-                        let av_amp = 1.0 + fear * cog_fear_gain;
-                        let inv2s2 = 1.0 / (2.0 * cog_radius * cog_radius);
-                        let (mut vx, mut vy) = (0.0f32, 0.0f32);
-                        for m in mind.episodic.iter() {
-                            let dx = pos.x - m.place.x;
-                            let dy = pos.y - m.place.y;
-                            let d2 = dx * dx + dy * dy;
-                            let d = d2.sqrt().max(1e-3);
-                            let k = m.strength * (-d2 * inv2s2).exp();
-                            let scale = if m.kind.is_aversive() {
-                                caution * av_amp * if nw > 0.0 { gate_av } else { 1.0 }
-                            } else {
-                                -curiosity * if nw > 0.0 { drive } else { 1.0 }
-                            };
-                            vx += scale * k * dx / d;
-                            vy += scale * k * dy / d;
-                        }
-                        let mag = (vx * vx + vy * vy).sqrt();
-                        let cw = space_ref.width as f32 - 0.001;
-                        let ch = space_ref.height as f32 - 0.001;
-                        let mut tgt = if mag < 1e-4 {
-                            target
-                        } else {
-                            let base = if nw > 0.0 {
-                                mag.clamp(0.0, 1.0)
-                            } else {
-                                // Chemin tranche 3 exact : clamp puis * drive.
-                                mag.clamp(0.0, 1.0) * drive
-                            };
-                            let w = (cog_weight * base).clamp(0.0, 0.9);
-                            let shift = cog_radius * w;
-                            Position {
-                                x: (target.x + vx / mag * shift).clamp(0.0, cw),
-                                y: (target.y + vy / mag * shift).clamp(0.0, ch),
-                            }
-                        };
-                        // Solitude : un agent isole glisse vers le centre de masse des siens.
-                        if nw > 0.0 && wsum > 0.0 && n.solitude > 0.0 {
-                            let w_soc =
-                                (n.solitude * cog_social_pull * nw).clamp(0.0, 0.8);
-                            tgt = Position {
-                                x: (tgt.x + (cx / wsum - tgt.x) * w_soc).clamp(0.0, cw),
-                                y: (tgt.y + (cy / wsum - tgt.y) * w_soc).clamp(0.0, ch),
-                            };
-                        }
-                        tgt
-                    }
+                            None
+                        },
+                        energy_frac: e.energy / repro_threshold,
+                        caution,
+                        curiosity,
+                        needs: mind.needs,
+                        nw: cog_needs_weight,
+                        fear_gain: cog_fear_gain,
+                        social_pull: cog_social_pull,
+                        mem_weight: cog_weight,
+                        mem_radius: cog_radius,
+                        sw: space_ref.width as f32,
+                        sh: space_ref.height as f32,
+                        episodic: &mind.episodic,
+                    };
+                    let (tgt, m) = blend_target(&ctx);
+                    (tgt, m as u8)
                 }
-                _ => target,
+                None => (forage, 255),
             };
-            // Repulsion douce des bords : le bord du monde est un cul-de-sac. Sans ca, la
-            // chimiotaxie plus la memoire entassent le troupeau contre la paroi.
-            let target = edge_correct(target, pos, space_ref, edge_margin, edge_push);
-            Some((target, support))
+            Some((target, support, mode))
         })
         .collect();
 
     // Application : les plans sont alignes sur l'ordre de `entities`, aucune recherche.
     for (e, plan) in world.entities.iter_mut().zip(plans) {
-        if let Some((target, support)) = plan {
+        if let Some((target, support, mode)) = plan {
             e.target = Some(target);
             e.colony_support = support;
+            if mode != 255 {
+                if let Some(mind) = e.mind.as_deref_mut() {
+                    mind.mode = MODE_FROM_CODE[mode as usize];
+                }
+            }
         }
     }
 
@@ -1199,32 +1148,129 @@ fn cognition_phase(world: &mut WorldState, cfg: &SimConfig, t: u64, events: &mut
     }
 }
 
-/// Repulsion douce des bords. Decale la cible vers l'interieur quand l'entite est dans la
-/// bande `margin` d'un bord, proportionnellement a la penetration. `push = 0` : identite,
-/// aucun tirage RNG : `edge_push = 0` rend le monde byte-identique. Symetrique sur les 4
-/// bords : ce n'est pas une direction privilegiee.
-fn edge_correct(t: Position, pos: Position, space: &Space, margin: f32, push: f32) -> Position {
-    if push <= 0.0 || margin <= 0.0 {
-        return t;
+/// Ordre des modes, pour recoder un `u8` en `BehaviorMode` a l'application.
+const MODE_FROM_CODE: [BehaviorMode; 5] = [
+    BehaviorMode::Forage,
+    BehaviorMode::Flee,
+    BehaviorMode::Join,
+    BehaviorMode::SeekBounty,
+    BehaviorMode::Wander,
+];
+
+/// Contexte de decision d'un agent, monte dans la closure de la phase 2/3, lu par
+/// `blend_target`. Tout est deja resolu (personnalite, besoins).
+struct Decide<'a> {
+    pos: Position,
+    /// Cible de chimiotaxie (ou pas au hasard si rien de mieux qu'ici).
+    forage: Position,
+    /// `true` si la chimiotaxie a trouve mieux qu'ici (sinon `forage` est un pas au hasard).
+    has_food: bool,
+    /// Centre de masse des siens proches, si l'agent en a autour.
+    kin: Option<Position>,
+    /// Energie / seuil de reproduction.
+    energy_frac: f32,
+    caution: f32,
+    curiosity: f32,
+    needs: Needs,
+    /// `needs_weight` : met a l'echelle l'effet de la peur et de la solitude.
+    nw: f32,
+    fear_gain: f32,
+    social_pull: f32,
+    mem_weight: f32,
+    mem_radius: f32,
+    sw: f32,
+    sh: f32,
+    episodic: &'a [Memory],
+}
+
+impl Decide<'_> {
+    fn clamp(&self, p: Position) -> Position {
+        Position {
+            x: p.x.clamp(0.0, self.sw - 0.001),
+            y: p.y.clamp(0.0, self.sh - 0.001),
+        }
     }
-    let w = space.width as f32;
-    let h = space.height as f32;
-    let mut x = t.x;
-    let mut y = t.y;
-    if pos.x < margin {
-        x += push * (margin - pos.x);
-    } else if pos.x > w - margin {
-        x -= push * (pos.x - (w - margin));
+}
+
+/// Comportement d'un agent : un melange de forces (chimiotaxie, memoire aversive qui
+/// repousse, aubaine qui attire, glissement vers les siens si isole). Renvoie la cible ET
+/// le mode qui a **domine** la decision (0.0.3, tranche 6 : lecture, pas un changement de
+/// comportement). Le mode rend la biographie lisible : « a fui plutot que de manger ».
+fn blend_target(c: &Decide) -> (Position, BehaviorMode) {
+    let base = c.forage;
+    let default_mode = if c.has_food { BehaviorMode::Forage } else { BehaviorMode::Wander };
+    if c.episodic.is_empty() {
+        return (base, default_mode);
     }
-    if pos.y < margin {
-        y += push * (margin - pos.y);
-    } else if pos.y > h - margin {
-        y -= push * (pos.y - (h - margin));
+    let nw = c.nw;
+    let drive = if nw > 0.0 {
+        (1.0 - c.needs.hunger).clamp(0.0, 1.0)
+    } else {
+        ((c.energy_frac - 0.5) / 0.5).clamp(0.0, 1.0)
+    };
+    let fear = c.needs.fear * nw;
+    let gate_av = drive.max(fear);
+    if drive <= 0.0 && gate_av <= 0.0 {
+        return (base, default_mode);
     }
-    Position {
-        x: x.clamp(0.0, w - 0.001),
-        y: y.clamp(0.0, h - 0.001),
+    let av_amp = 1.0 + fear * c.fear_gain;
+    let inv2s2 = 1.0 / (2.0 * c.mem_radius * c.mem_radius);
+    // Contributions separees, pour lire ensuite laquelle a pese.
+    let (mut avx, mut avy) = (0.0f32, 0.0f32); // aversif (repousse)
+    let (mut bx, mut by) = (0.0f32, 0.0f32); // aubaine (attire)
+    for m in c.episodic.iter() {
+        let dx = c.pos.x - m.place.x;
+        let dy = c.pos.y - m.place.y;
+        let d2 = dx * dx + dy * dy;
+        let d = d2.sqrt().max(1e-3);
+        let k = m.strength * (-d2 * inv2s2).exp();
+        if m.kind.is_aversive() {
+            let s = c.caution * av_amp * if nw > 0.0 { gate_av } else { 1.0 };
+            avx += s * k * dx / d;
+            avy += s * k * dy / d;
+        } else {
+            let s = c.curiosity * if nw > 0.0 { drive } else { 1.0 };
+            bx += -s * k * dx / d;
+            by += -s * k * dy / d;
+        }
     }
+    let (vx, vy) = (avx + bx, avy + by);
+    let mag = (vx * vx + vy * vy).sqrt();
+    let mut tgt = if mag < 1e-4 {
+        base
+    } else {
+        let b = if nw > 0.0 { mag.clamp(0.0, 1.0) } else { mag.clamp(0.0, 1.0) * drive };
+        let w = (c.mem_weight * b).clamp(0.0, 0.9);
+        let shift = c.mem_radius * w;
+        c.clamp(Position { x: base.x + vx / mag * shift, y: base.y + vy / mag * shift })
+    };
+    // Glissement vers les siens si isole.
+    let mut soc_disp = 0.0f32;
+    if nw > 0.0 && c.needs.solitude > 0.0 {
+        if let Some(kin) = c.kin {
+            let w_soc = (c.needs.solitude * c.social_pull * nw).clamp(0.0, 0.8);
+            let before = tgt;
+            tgt = c.clamp(Position {
+                x: tgt.x + (kin.x - tgt.x) * w_soc,
+                y: tgt.y + (kin.y - tgt.y) * w_soc,
+            });
+            soc_disp = before.dist2(&tgt).sqrt();
+        }
+    }
+    // Lecture du mode : la force qui a le plus deplace la cible loin de la nourriture.
+    let av_m = (avx * avx + avy * avy).sqrt();
+    let bo_m = (bx * bx + by * by).sqrt();
+    let mem_shift = if mag < 1e-4 { 0.0 } else { c.mem_radius * (c.mem_weight * mag.clamp(0.0, 1.0)).clamp(0.0, 0.9) };
+    let mode = if soc_disp > 1.0 && soc_disp >= mem_shift {
+        BehaviorMode::Join
+    } else if mem_shift > 1.0 && av_m > bo_m {
+        BehaviorMode::Flee
+    } else if mem_shift > 1.0 && bo_m > av_m {
+        BehaviorMode::SeekBounty
+    } else {
+        default_mode
+    };
+    (tgt, mode)
 }
 
 /// Distance L1 entre deux traits, en unites de trait (un cran = 0.25).

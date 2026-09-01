@@ -1,10 +1,11 @@
 # 05. Cognition
 
-Statut : TRANCHES 1 A 5 FAITES (le premier souvenir, la biographie, les souvenirs ancrés,
-les besoins, la personnalité héritée). La mémoire épisodique tourne, se lit dans
-`lives.html`, un souvenir de mort vue pointe le fait objectif, l'agent a un état interne
-(faim, peur, solitude) et une personnalité (prudence, curiosité) transmise avec mutation.
-L'architecture détaillée (Context Builder, Model Router, RAG) attend 0.0.5.
+Statut : TRANCHES 1 A 6 FAITES (le premier souvenir, la biographie, les souvenirs ancrés,
+les besoins, la personnalité héritée, le mode de comportement lisible). La mémoire
+épisodique tourne, se lit dans `lives.html`, un souvenir de mort vue pointe le fait
+objectif, l'agent a un état interne (faim, peur, solitude), une personnalité (prudence,
+curiosité) transmise avec mutation, et sa biographie dit quelle force a dominé chaque
+décision. L'architecture détaillée (Context Builder, Model Router, RAG) attend 0.0.5.
 
 **Monde de référence : `worlds/w2` = graine 1 depuis le schéma v10.** Le passage à 9 traits
 a décalé le flux RNG ; la graine 3 (référence des tranches 1 à 4) s'éteint désormais tôt.
@@ -232,10 +233,11 @@ Le brin d'ADN du lecteur passe à 9 barreaux, `series.html` trace 9 courbes de t
 
 ---
 
-## État consolidé de la cognition (schéma v10, graine 1)
+## État consolidé de la cognition (schéma v11, graine 1)
 
 A/B graine 1, 60000 ticks : cognition complète (mémoire + ancré + besoins + personnalité)
-contre `mem_weight = 0` (aucune cognition, comportement 0.0.2).
+contre `mem_weight = 0` (aucune cognition, comportement 0.0.2). Chiffres revérifiés au
+schéma v11 (le mode de comportement de la tranche 6 ne change pas la trajectoire).
 
 | | cognition complète | aucune cognition |
 |---|---|---|
@@ -252,9 +254,30 @@ stabilise à 0,75, parce que la mémoire porte la survie et que percevoir loin d
 vital. Le monde sans cognition tourne plus de générations (mortalité forte = renouvellement
 rapide).
 
-**Ce qui reste (tranche 6 et après).** Modèle de comportement complet et lisible (choix
-explicite fuir / manger / suivre / errer, tracé dans la biographie), dé-simulation de la
-biologie sous l'agent, souvenirs sociaux (reconnaître un autre agent).
+## Tranche 6 : le mode de comportement lisible (fait, 2026-09-01)
+
+Le comportement d'un agent est un mélange de forces (chimiotaxie vers la nourriture, mémoire
+aversive qui repousse, aubaine qui attire, glissement vers les siens si isolé). Utile, mais
+opaque : on ne pouvait pas dire *ce qu'il a choisi*.
+
+Schéma v11. `Mind.mode: BehaviorMode` (`forage | flee | join | seek_bounty | wander`).
+`blend_target` renvoie maintenant la cible **et** le mode qui a le plus pesé sur la
+décision : magnitude du déplacement dû à la mémoire aversive (fuir), à l'aubaine (chercher),
+au glissement social (suivre), sinon manger (ou errer si aucune nourriture perçue).
+**C'est une lecture, pas un changement de comportement** : la trajectoire est byte-identique
+à la tranche 5 (vérifié, mêmes morts par famine à l'unité). Coût zéro, légèreté totale.
+
+`lives.html` : une quatrième figure par chapitre (bandes colorées du mode dans le temps) et
+une phrase « Côté décisions : 84 % du temps à chercher à manger, le reste à fuir 16 % ». Le
+critère du jalon (« on doit pouvoir dire *pourquoi* ») devient littéral.
+
+Approche essayée puis abandonnée : un vrai modèle d'utilité (l'agent évalue chaque mode et
+prend le meilleur). Il était lisible mais moins efficace que le mélange (deux fois plus de
+morts par famine) : le choix discret abandonne les autres pulsions. La lecture-du-mélange
+garde la performance ET la légèreté.
+
+**Ce qui reste (tranche 7 et après).** Souvenirs sociaux (reconnaître un autre agent),
+dé-simulation de la biologie sous l'agent.
 
 ---
 

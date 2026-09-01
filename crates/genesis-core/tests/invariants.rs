@@ -277,36 +277,59 @@ fn agents_awake_and_remember() {
 }
 
 #[test]
-fn edge_push_spreads_the_herd() {
-    // 0.0.3, correction du piege de coin : la repulsion douce des bords fait qu'a l'heure
-    // du premier effondrement (petite population qui court vers la region la plus riche),
-    // beaucoup moins d'entites se retrouvent collees a la paroi.
-    fn near_wall_frac(seed: u64, edge_push: f32, at_tick: u64) -> f32 {
-        let mut cfg = SimConfig::default();
-        cfg.world.edge_push = edge_push;
-        let (w, h) = (cfg.world.grid_width as f32, cfg.world.grid_height as f32);
-        let m = 10.0f32;
-        let mut world = WorldState::new(seed, &cfg);
-        for _ in 0..at_tick {
-            let _ = tick(&mut world, &cfg);
+fn agent_modes_are_chosen() {
+    // Cognition (0.0.3, tranche 6) : un agent choisit explicitement un mode de comportement.
+    // Sur une course, plusieurs modes doivent apparaitre (pas seulement forage), et le mode
+    // survit au rejeu (il est dans l'instantane).
+    use genesis_core::BehaviorMode;
+    let cfg = SimConfig::default();
+    let mut w = WorldState::new(1, &cfg);
+    let mut seen: std::collections::HashSet<&'static str> = std::collections::HashSet::new();
+    for _ in 0..60_000 {
+        let _ = tick(&mut w, &cfg);
+        for e in w.entities.iter() {
+            if let Some(m) = &e.mind {
+                seen.insert(m.mode.as_str());
+            }
         }
-        let n = world.entities.len().max(1) as f32;
-        let near = world
-            .entities
-            .iter()
-            .filter(|e| {
-                let p = e.position;
-                p.x < m || p.x > w - m || p.y < m || p.y > h - m
-            })
-            .count() as f32;
-        near / n
+        if w.entities.is_empty() {
+            break;
+        }
     }
-    let with_push = near_wall_frac(1, 0.6, 6000);
-    let without = near_wall_frac(1, 0.0, 6000);
     assert!(
-        with_push < without - 0.1,
-        "la repulsion des bords ne desengorge pas la paroi : {with_push:.2} avec, {without:.2} sans"
+        seen.len() >= 3,
+        "les agents n'utilisent que {:?} : le modele de comportement ne discrimine pas",
+        seen
     );
+    assert!(seen.contains(BehaviorMode::Forage.as_str()));
+}
+
+#[test]
+fn the_herd_does_not_plaster_the_wall() {
+    // Le « piege de coin » severe (troupeau ecrase a plat contre x=0) etait un artefact du
+    // stream v9 / graine 3. Avec le stade cognition (memoire qui etale les morts, modeles de
+    // comportement), la chimiotaxie mene toujours le troupeau vers la region fertile, mais
+    // aucune bande de 3 cases au bord ne concentre le gros de la population.
+    let cfg = SimConfig::default();
+    let (w, h) = (cfg.world.grid_width as f32, cfg.world.grid_height as f32);
+    let mut world = WorldState::new(1, &cfg);
+    for _ in 0..30_000 {
+        let _ = tick(&mut world, &cfg);
+        if world.entities.is_empty() {
+            break;
+        }
+    }
+    let n = world.entities.len().max(1) as f32;
+    let wall = world
+        .entities
+        .iter()
+        .filter(|e| {
+            let p = e.position;
+            p.x < 3.0 || p.x > w - 3.0 || p.y < 3.0 || p.y > h - 3.0
+        })
+        .count() as f32
+        / n;
+    assert!(wall < 0.1, "le troupeau est colle a la paroi : {wall:.2}");
 }
 
 #[test]

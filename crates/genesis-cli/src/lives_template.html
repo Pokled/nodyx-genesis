@@ -67,9 +67,10 @@
 longtemps, et a garde un souvenir. Sa memoire est faite de lieux, chacun marque peril (une
 famine frolee), mort vue (un des siens qui meurt, souvenir ancre sur l'evenement) ou aubaine
 (un repas rare), avec une force qui s'efface avec le temps. Trois jauges internes, la faim,
-la peur et la solitude, montent et descendent selon ce qu'il vit et ponderent ses choix :
-affame il fonce manger, effraye il fuit ses lieux de danger, isole il derive vers les siens.
-Voici quelques vies, et ce qu'on peut en lire sans jamais rien leur demander.</p>
+la peur et la solitude, montent et descendent selon ce qu'il vit. A chaque decision il
+choisit explicitement un mode, celui de plus grande utilite : manger, fuir un lieu de
+danger, suivre les siens, retourner a une aubaine, ou errer. Voici quelques vies, et ce
+qu'on peut en lire sans jamais rien leur demander.</p>
 
 <div class="legend" id="legend"></div>
 <div id="overview"></div>
@@ -232,6 +233,40 @@ function needAvg(life, gi) {
   return b.length ? b.reduce((s, x) => s + x.n[gi], 0) / b.length : 0;
 }
 
+// -- Mode de comportement : ce que l'agent a explicitement choisi, dans le temps. --
+const MODE_FR = { forage: 'manger', flee: 'fuir', join: 'suivre les siens', seek_bounty: 'chercher une aubaine', wander: 'errer' };
+function modeColor(md) {
+  return ({ forage: css('--bounty'), flee: css('--peril'), join: css('--path'), seek_bounty: css('--faim'), wander: css('--muted') })[md] || css('--muted');
+}
+function drawModes(life) {
+  const W = CHART_W, H = 76, m = { l: 34, r: 10, t: 10, b: 22 };
+  const iw = W - m.l - m.r, bh = 22;
+  const b = (life.beats || []).filter(x => x.md);
+  const t0 = life.awoke_tick, t1 = (life.ended_tick == null ? META.ticks_played : life.ended_tick);
+  const X = t => m.l + (t1 === t0 ? 0 : (t - t0) / (t1 - t0)) * iw;
+  let s = '';
+  for (let i = 0; i < b.length; i++) {
+    const x0 = X(b[i].tick);
+    const x1 = i + 1 < b.length ? X(b[i + 1].tick) : m.l + iw;
+    s += `<rect x="${x0.toFixed(1)}" y="${m.t}" width="${Math.max(1, x1 - x0).toFixed(1)}" height="${bh}" fill="${modeColor(b[i].md)}" fill-opacity="0.8"><title>${MODE_FR[b[i].md] || b[i].md}, tick ${num(b[i].tick)}</title></rect>`;
+  }
+  // legende
+  const used = [...new Set(b.map(x => x.md))];
+  let lx = m.l;
+  used.forEach(md => {
+    s += `<rect x="${lx}" y="${m.t + bh + 6}" width="10" height="10" fill="${modeColor(md)}" fill-opacity="0.8"/>`;
+    s += `<text x="${lx + 14}" y="${m.t + bh + 15}" font-size="11" font-family="ui-monospace,monospace" fill="${css('--muted')}">${MODE_FR[md] || md}</text>`;
+    lx += 14 + (MODE_FR[md] || md).length * 7 + 16;
+  });
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="mode de comportement dans le temps">${s}</svg>`;
+}
+function modeCounts(life) {
+  const b = (life.beats || []).filter(x => x.md);
+  const c = {};
+  b.forEach(x => { c[x.md] = (c[x.md] || 0) + 1; });
+  return { c, total: b.length };
+}
+
 // -- Prose : gabarits, aucun LLM. --
 function prose(life) {
   const b = life.beats || [], places = memPlaces(life);
@@ -301,6 +336,22 @@ function prose(life) {
   if (so > 60) temper.push('a l\'ecart des siens'); else if (so < 25) temper.push('au milieu des siens');
   if (temper.length) parts.push(`Il a vecu surtout ${temper.join(', ')} (faim ${(hn / 100).toFixed(2)}, peur ${(fr / 100).toFixed(2)}, solitude ${(so / 100).toFixed(2)} de moyenne).`);
 
+  // Modes de comportement : ce qu'il a explicitement choisi.
+  const mc = modeCounts(life);
+  if (mc.total > 0) {
+    const pct = md => Math.round((mc.c[md] || 0) / mc.total * 100);
+    const bits = ['flee', 'join', 'seek_bounty', 'wander']
+      .filter(md => mc.c[md])
+      .map(md => `${MODE_FR[md]} ${pct(md)} %`);
+    let ph = `Cote decisions : ${pct('forage')} % du temps a chercher a manger`;
+    if (bits.length) ph += `, le reste a ${bits.join(', ')}`;
+    ph += '.';
+    parts.push(ph);
+    // Un moment ou il a choisi de fuir alors qu'il avait faim.
+    const dilemma = (life.beats || []).find(x => x.md === 'flee' && x.n && x.n[0] > 45);
+    if (dilemma) parts.push(`Au tick ${num(dilemma.tick)}, affame (faim ${(dilemma.n[0] / 100).toFixed(2)}) et effraye, il a quand meme choisi de fuir plutot que de manger.`);
+  }
+
   const divisions = (life.events || []).filter(e => e[1] === 'division').length;
   if (divisions > 0) parts.push(`Il s'est divise ${divisions} fois durant sa vie d'agent.`);
   parts.push('Il ' + endText(life) + '.');
@@ -353,6 +404,7 @@ renderLegend(document.getElementById('legend'), [
         `<figure><div class="t">carte memoire</div>${drawMap(life)}</figure>` +
         `<figure><div class="t">energie et souvenirs, 0 a 100</div>${drawEnergy(life)}</figure>` +
         `<figure><div class="t">besoins, 0 a 100</div>${drawNeeds(life)}</figure>` +
+        `<figure><div class="t">mode de comportement choisi</div>${drawModes(life)}</figure>` +
       `</div>` +
       `<p>${prose(life)}</p>`;
     box.appendChild(sec);

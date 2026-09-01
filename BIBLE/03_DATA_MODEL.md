@@ -120,11 +120,9 @@ Non spatial en 0.0.2 (une géographie de la matière viendra avec les biomes). C
 En 0.0.1, une grille bornée : des bords, pas de repli toroïdal. Un monde a des limites,
 et la géographie des ressources compte (les coins, le centre).
 
-Depuis 0.0.3, une **répulsion douce des bords** (`sim.rs::edge_correct`, config `[world]`
-`edge_margin` / `edge_push`) décale la cible de déplacement vers l'intérieur près d'une
-paroi : sans elle, la chimiotaxie et la mémoire entassent le troupeau contre le bord le plus
-riche. C'est symétrique sur les 4 bords (aucune direction privilégiée) et sans RNG
-(`edge_push = 0` = monde inchangé).
+Le troupeau tend à se concentrer là où la fertilité est la plus riche (souvent un bord,
+selon la géographie propre à la graine). Une répulsion des bords (`edge_correct`) a été
+essayée en 0.0.3 puis retirée : elle faussait la capacité de charge. Voir `00_INDEX.md`.
 
 ```
 struct Space { width: u32, height: u32 }
@@ -173,6 +171,7 @@ struct Mind {
     awoke_tick: u64,
     episodic:   Vec<Memory>,   // borné à max_memories, le plus faible cède la place
     needs:      Needs,         // (0.0.3 tranche 4) faim, peur, solitude ; pondèrent le comportement
+    mode:       BehaviorMode,  // (0.0.3 tranche 6) forage | flee | join | seek_bounty | wander
 }
 
 struct Needs { hunger: f32, fear: f32, solitude: f32 }   // chacune dans [0, 1]
@@ -196,8 +195,10 @@ vue, vers les lieux d'aubaine). En tranche 3, un agent témoin d'un `EntityDied`
 membre de sa lignée) en garde un souvenir `Witnessed` ancré sur ce `seq` : c'est le premier
 souvenir vérifiable au sens fort. En tranche 4, les trois besoins (mis à jour en phase 5c)
 pondèrent cette même cible : la faim pousse à foncer manger, la peur fait fuir le danger
-même affamé, la solitude fait dériver vers les siens. Personnalité héritée et modèle de
-comportement complet sont des tranches suivantes.
+même affamé, la solitude fait dériver vers les siens. En tranche 6, `Mind.mode` retient
+laquelle de ces forces a **dominé** la décision (une lecture, pas un changement de
+comportement) : la biographie peut alors dire « elle a fui plutôt que de manger ».
+La dé-simulation de la biologie sous l'agent est une tranche suivante.
 
 ## Génome
 

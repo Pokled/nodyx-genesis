@@ -7,11 +7,6 @@
 grid_width  = 128
 grid_height = 128
 bounded     = true          # des bords, pas de repli toroïdal
-# Répulsion douce des bords (0.0.3). Le bord est un cul-de-sac : sans ça, la chimiotaxie
-# plus la mémoire entassent le troupeau contre la paroi. Symétrique sur les 4 bords, ce
-# n'est pas une direction privilégiée. edge_push = 0 désactive (monde byte-identique).
-edge_margin = 10.0          # bande, en cases, où la répulsion agit
-edge_push   = 0.6           # force du décalage de la cible vers l'intérieur
 
 [planet]
 # Constantes du monde, fixées à la création. En 0.0.1 elles sont seulement affichées

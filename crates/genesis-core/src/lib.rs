@@ -21,7 +21,7 @@ pub mod sim;
 pub mod spatial;
 pub mod world;
 
-pub use cognition::{Memory, MemoryKind, Mind, Needs, Shock};
+pub use cognition::{BehaviorMode, Memory, MemoryKind, Mind, Needs, Shock};
 pub use config::SimConfig;
 pub use entity::{Action, Entity, EntityId, Position};
 pub use event::{DeathCause, Event, EventKind};
@@ -49,4 +49,6 @@ pub const ENGINE_VERSION: &str = env!("CARGO_PKG_VERSION");
 ///      pondere ses choix, plus seulement un reflexe.
 /// v10 : genome a 9 traits (`caution`, `curiosity`) : la personnalite est heritee et
 ///       selectionnee, plus derivee des traits de corps.
-pub const SCHEMA_VERSION: u32 = 10;
+/// v11 : modele de comportement lisible (`Mind.mode` : l'agent choisit explicitement entre
+///       manger, fuir, suivre, chercher une aubaine, errer).
+pub const SCHEMA_VERSION: u32 = 11;

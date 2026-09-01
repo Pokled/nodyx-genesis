@@ -89,6 +89,37 @@ impl Needs {
     }
 }
 
+/// Mode de comportement choisi par un agent (0.0.3, tranche 6). A chaque replanification,
+/// l'agent evalue chaque option et prend celle de plus grande utilite. Le mode retenu rend
+/// la decision lisible : « au tick T elle a choisi de fuir plutot que de manger ».
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum BehaviorMode {
+    /// Aller a la nourriture percue.
+    #[default]
+    Forage,
+    /// S'eloigner du lieu de peril ou de mort vue le plus proche et le plus fort.
+    Flee,
+    /// Rejoindre le centre de masse des siens.
+    Join,
+    /// Retourner a un lieu d'abondance memorise.
+    SeekBounty,
+    /// Petit pas au hasard (rien de mieux a faire).
+    Wander,
+}
+
+impl BehaviorMode {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            BehaviorMode::Forage => "forage",
+            BehaviorMode::Flee => "flee",
+            BehaviorMode::Join => "join",
+            BehaviorMode::SeekBounty => "seek_bounty",
+            BehaviorMode::Wander => "wander",
+        }
+    }
+}
+
 /// L'esprit d'un agent. Attache a l'entite quand elle s'eveille, retire si elle retombe.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Mind {
@@ -99,11 +130,19 @@ pub struct Mind {
     /// Jauges internes (0.0.3, tranche 4).
     #[serde(default)]
     pub needs: Needs,
+    /// Dernier mode de comportement choisi (0.0.3, tranche 6).
+    #[serde(default)]
+    pub mode: BehaviorMode,
 }
 
 impl Mind {
     pub fn new(awoke_tick: u64, first: Memory) -> Self {
-        Mind { awoke_tick, episodic: vec![first], needs: Needs::default() }
+        Mind {
+            awoke_tick,
+            episodic: vec![first],
+            needs: Needs::default(),
+            mode: BehaviorMode::Forage,
+        }
     }
 
     /// Fait decroitre chaque souvenir et retire ceux qui sont passes sous le seuil.

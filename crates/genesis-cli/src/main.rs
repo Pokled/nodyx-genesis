@@ -55,6 +55,8 @@ struct LifeBeat {
     energy: u8,
     /// jauges en pourcents : [faim, peur, solitude].
     n: [u8; 3],
+    /// mode de comportement choisi : forage | flee | join | seek_bounty | wander.
+    md: &'static str,
     /// la memoire episodique a cet instant (vide un temps sur deux, pour borner le poids).
     #[serde(skip_serializing_if = "Vec::is_empty")]
     mem: Vec<MemSnap>,
@@ -313,14 +315,18 @@ fn cmd_run(flags: &HashMap<String, String>) -> std::io::Result<()> {
                             .collect()
                     });
                     let pct = |v: f32| (v.clamp(0.0, 1.0) * 100.0) as u8;
-                    let n = x.mind.as_deref().map_or([0, 0, 0], |m| {
-                        [pct(m.needs.hunger), pct(m.needs.fear), pct(m.needs.solitude)]
+                    let (n, md) = x.mind.as_deref().map_or(([0, 0, 0], "forage"), |m| {
+                        (
+                            [pct(m.needs.hunger), pct(m.needs.fear), pct(m.needs.solitude)],
+                            m.mode.as_str(),
+                        )
                     });
                     l.beats.push(LifeBeat {
                         tick: world.tick,
                         pos: [x.position.x, x.position.y],
                         energy: ((x.energy / ceiling).clamp(0.0, 1.0) * 100.0) as u8,
                         n,
+                        md,
                         mem: if with_mem { snap } else { Vec::new() },
                     });
                     if l.beats.len() > BIO_MAX_BEATS {
