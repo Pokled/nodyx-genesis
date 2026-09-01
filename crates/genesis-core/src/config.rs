@@ -69,10 +69,22 @@ pub struct WorldCfg {
     pub grid_width: u32,
     pub grid_height: u32,
     pub bounded: bool,
+    /// Repulsion douce des bords (0.0.3). Le bord du monde est un cul-de-sac : sans ca, la
+    /// chimiotaxie plus la memoire y entassent le troupeau. `edge_margin` : bande, en cases,
+    /// ou la repulsion agit. `edge_push` : force ; `0` desactive (aucun effet, aucun tirage
+    /// RNG). Ce n'est pas une force codee « vers le bas » : c'est symetrique sur les 4 bords.
+    pub edge_margin: f32,
+    pub edge_push: f32,
 }
 impl Default for WorldCfg {
     fn default() -> Self {
-        WorldCfg { grid_width: 128, grid_height: 128, bounded: true }
+        WorldCfg {
+            grid_width: 128,
+            grid_height: 128,
+            bounded: true,
+            edge_margin: 10.0,
+            edge_push: 0.6,
+        }
     }
 }
 

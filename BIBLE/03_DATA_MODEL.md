@@ -120,6 +120,12 @@ Non spatial en 0.0.2 (une géographie de la matière viendra avec les biomes). C
 En 0.0.1, une grille bornée : des bords, pas de repli toroïdal. Un monde a des limites,
 et la géographie des ressources compte (les coins, le centre).
 
+Depuis 0.0.3, une **répulsion douce des bords** (`sim.rs::edge_correct`, config `[world]`
+`edge_margin` / `edge_push`) décale la cible de déplacement vers l'intérieur près d'une
+paroi : sans elle, la chimiotaxie et la mémoire entassent le troupeau contre le bord le plus
+riche. C'est symétrique sur les 4 bords (aucune direction privilégiée) et sans RNG
+(`edge_push = 0` = monde inchangé).
+
 ```
 struct Space { width: u32, height: u32 }
 

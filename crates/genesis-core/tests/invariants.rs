@@ -277,6 +277,39 @@ fn agents_awake_and_remember() {
 }
 
 #[test]
+fn edge_push_spreads_the_herd() {
+    // 0.0.3, correction du piege de coin : la repulsion douce des bords fait qu'a l'heure
+    // du premier effondrement (petite population qui court vers la region la plus riche),
+    // beaucoup moins d'entites se retrouvent collees a la paroi.
+    fn near_wall_frac(seed: u64, edge_push: f32, at_tick: u64) -> f32 {
+        let mut cfg = SimConfig::default();
+        cfg.world.edge_push = edge_push;
+        let (w, h) = (cfg.world.grid_width as f32, cfg.world.grid_height as f32);
+        let m = 10.0f32;
+        let mut world = WorldState::new(seed, &cfg);
+        for _ in 0..at_tick {
+            let _ = tick(&mut world, &cfg);
+        }
+        let n = world.entities.len().max(1) as f32;
+        let near = world
+            .entities
+            .iter()
+            .filter(|e| {
+                let p = e.position;
+                p.x < m || p.x > w - m || p.y < m || p.y > h - m
+            })
+            .count() as f32;
+        near / n
+    }
+    let with_push = near_wall_frac(1, 0.6, 6000);
+    let without = near_wall_frac(1, 0.0, 6000);
+    assert!(
+        with_push < without - 0.1,
+        "la repulsion des bords ne desengorge pas la paroi : {with_push:.2} avec, {without:.2} sans"
+    );
+}
+
+#[test]
 fn personality_evolves() {
     // Cognition (0.0.3, tranche 5) : `caution` et `curiosity` sont des traits herites. Sur
     // une longue course, leur moyenne doit s'ecarter nettement de sa valeur de depart

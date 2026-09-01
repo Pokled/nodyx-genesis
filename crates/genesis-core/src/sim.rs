@@ -163,6 +163,8 @@ pub fn tick(world: &mut WorldState, cfg: &SimConfig) -> Vec<Event> {
     let cog_fear_gain = cfg.cognition.fear_gain;
     let cog_social_pull = cfg.cognition.social_pull;
     let cog_heritable = cfg.cognition.heritable_personality;
+    let edge_margin = cfg.world.edge_margin.max(0.0);
+    let edge_push = cfg.world.edge_push.max(0.0);
     let plans: Vec<Option<(Position, f32)>> = entities_ref
         .par_iter()
         .enumerate()
@@ -309,6 +311,9 @@ pub fn tick(world: &mut WorldState, cfg: &SimConfig) -> Vec<Event> {
                 }
                 _ => target,
             };
+            // Repulsion douce des bords : le bord du monde est un cul-de-sac. Sans ca, la
+            // chimiotaxie plus la memoire entassent le troupeau contre la paroi.
+            let target = edge_correct(target, pos, space_ref, edge_margin, edge_push);
             Some((target, support))
         })
         .collect();
@@ -1191,6 +1196,34 @@ fn cognition_phase(world: &mut WorldState, cfg: &SimConfig, t: u64, events: &mut
             )));
             emit(events, &mut world.next_event_seq, t, EventKind::AgentAwoke { entity: id });
         }
+    }
+}
+
+/// Repulsion douce des bords. Decale la cible vers l'interieur quand l'entite est dans la
+/// bande `margin` d'un bord, proportionnellement a la penetration. `push = 0` : identite,
+/// aucun tirage RNG : `edge_push = 0` rend le monde byte-identique. Symetrique sur les 4
+/// bords : ce n'est pas une direction privilegiee.
+fn edge_correct(t: Position, pos: Position, space: &Space, margin: f32, push: f32) -> Position {
+    if push <= 0.0 || margin <= 0.0 {
+        return t;
+    }
+    let w = space.width as f32;
+    let h = space.height as f32;
+    let mut x = t.x;
+    let mut y = t.y;
+    if pos.x < margin {
+        x += push * (margin - pos.x);
+    } else if pos.x > w - margin {
+        x -= push * (pos.x - (w - margin));
+    }
+    if pos.y < margin {
+        y += push * (margin - pos.y);
+    } else if pos.y > h - margin {
+        y -= push * (pos.y - (h - margin));
+    }
+    Position {
+        x: x.clamp(0.0, w - 0.001),
+        y: y.clamp(0.0, h - 0.001),
     }
 }
 
