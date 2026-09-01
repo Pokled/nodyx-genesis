@@ -9,6 +9,7 @@
 //! `replay` rejoue le monde depuis sa graine et verifie qu'il retombe exactement sur le
 //! meme etat final. C'est le moment public de 0.0.1.
 
+mod lives_html;
 mod series_html;
 mod view_html;
 
@@ -21,20 +22,93 @@ use genesis_core::{tick, EntityId, Memory, SimConfig, WorldDir, WorldState};
 use genesis_core::persist::WorldMeta;
 use genesis_view::{project, series_row, SeriesRow, ViewFrame};
 
-/// Vie resumee d'un agent (0.0.3, tranche 1). Une ligne de `lives.jsonl` : quand il s'est
-/// eveille, comment sa vie d'agent s'est terminee (mort, retombee, ou toujours vivant), et
-/// sa memoire episodique de fin (pour les agents encore vivants au terme du run).
+/// Un souvenir compact, tel qu'il etait a un instant de la vie de l'agent.
+#[derive(serde::Serialize, Clone)]
+struct MemSnap {
+    x: f32,
+    y: f32,
+    /// `true` = peril, `false` = aubaine.
+    p: bool,
+    /// force du souvenir, (0, 1].
+    s: f32,
+}
+
+/// Un temps de vie d'agent (0.0.3, tranche 2) : sa position, son energie et sa memoire,
+/// echantillonnes toutes les `BIO_SAMPLE` ticks. Le materiau des cartes de la page
+/// biographie.
+#[derive(serde::Serialize, Clone)]
+struct LifeBeat {
+    tick: u64,
+    pos: [f32; 2],
+    /// energie en pourcents du plafond, 0..100.
+    energy: u8,
+    /// la memoire episodique a cet instant (vide un temps sur deux, pour borner le poids).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    mem: Vec<MemSnap>,
+}
+
+/// Vie d'un agent (0.0.3). Une ligne de `lives.jsonl` : quand il s'est eveille, comment sa
+/// vie d'agent s'est terminee, sa memoire de fin, sa trajectoire (`beats`) et les evenements
+/// du monde qui le nomment. Les `beats` et `events` ne sont gardes en detail que pour les
+/// vies mises en vedette (voir `BIO_KEEP_DETAIL`).
 #[derive(serde::Serialize)]
 struct AgentLife {
     id: EntityId,
     lineage: u16,
     generation: u32,
     perception: f32,
+    lifespan_trait: f32,
+    speed_trait: f32,
     awoke_tick: u64,
+    awoke_place: [f32; 2],
     ended_tick: Option<u64>,
     /// "vivant" | "mort" | "sommeil"
     ended: &'static str,
     memories: Vec<Memory>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    beats: Vec<LifeBeat>,
+    /// (tick, genre) des evenements objectifs qui nomment cet agent.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    events: Vec<(u64, &'static str)>,
+}
+
+/// Toutes les `BIO_SAMPLE` ticks, on note un temps de vie pour chaque agent suivi.
+const BIO_SAMPLE: u64 = 150;
+/// Anneau borne de temps de vie par agent (les plus recents).
+const BIO_MAX_BEATS: usize = 64;
+/// Nombre de vies gardees avec leur trajectoire complete (les plus longues, plus celles qui
+/// ont le plus retenu). Les autres gardent la ligne resumee.
+const BIO_KEEP_DETAIL: usize = 80;
+/// Nombre de vies embarquees dans `lives.html` (les plus longues ; le reste ne sert qu'aux
+/// totaux). Borne le poids de la page.
+const BIO_EMBED: usize = 300;
+/// Nombre de vies mises en chapitre dans `lives.html`.
+const BIO_FEATURE: usize = 24;
+
+/// Ajoute un evenement objectif a une vie d'agent (borne a 16).
+fn push_life_event(l: &mut AgentLife, tick: u64, kind: &'static str) {
+    if l.events.len() < 16 {
+        l.events.push((tick, kind));
+    }
+}
+
+/// Amorce une vie d'agent depuis l'entite au moment de l'eveil.
+fn new_life(e: &genesis_core::Entity, awoke_tick: u64) -> AgentLife {
+    AgentLife {
+        id: e.id,
+        lineage: e.genome.lineage,
+        generation: e.genome.generation,
+        perception: e.genome.traits.perception,
+        lifespan_trait: e.genome.traits.lifespan,
+        speed_trait: e.genome.traits.speed,
+        awoke_tick,
+        awoke_place: [e.position.x, e.position.y],
+        ended_tick: None,
+        ended: "vivant",
+        memories: Vec::new(),
+        beats: Vec::new(),
+        events: Vec::new(),
+    }
 }
 
 fn main() -> ExitCode {
@@ -166,22 +240,9 @@ fn cmd_run(flags: &HashMap<String, String>) -> std::io::Result<()> {
         for e in ev.iter() {
             match &e.kind {
                 EventKind::AgentAwoke { entity } => {
-                    let (lin, gen, per) = world
-                        .get(*entity)
-                        .map(|x| {
-                            (x.genome.lineage, x.genome.generation, x.genome.traits.perception)
-                        })
-                        .unwrap_or((0, 0, 0.0));
-                    lives.entry(*entity).or_insert(AgentLife {
-                        id: *entity,
-                        lineage: lin,
-                        generation: gen,
-                        perception: per,
-                        awoke_tick: world.tick,
-                        ended_tick: None,
-                        ended: "vivant",
-                        memories: Vec::new(),
-                    });
+                    if let Some(x) = world.get(*entity) {
+                        lives.entry(*entity).or_insert_with(|| new_life(x, world.tick));
+                    }
                 }
                 EventKind::AgentLapsed { entity } => {
                     if let Some(l) = lives.get_mut(entity) {
@@ -193,13 +254,63 @@ fn cmd_run(flags: &HashMap<String, String>) -> std::io::Result<()> {
                 }
                 EventKind::EntityDied { entity, .. } => {
                     if let Some(l) = lives.get_mut(entity) {
+                        push_life_event(l, world.tick, "mort");
                         if l.ended_tick.is_none() {
                             l.ended_tick = Some(world.tick);
                             l.ended = "mort";
                         }
                     }
                 }
+                EventKind::EntitySpawned { entity } => {
+                    if let Some(l) = lives.get_mut(entity) {
+                        push_life_event(l, world.tick, "naissance");
+                    }
+                }
+                EventKind::EntityDivided { parent, child } => {
+                    if let Some(l) = lives.get_mut(parent) {
+                        push_life_event(l, world.tick, "division");
+                    }
+                    if let Some(l) = lives.get_mut(child) {
+                        push_life_event(l, world.tick, "naissance");
+                    }
+                }
                 _ => {}
+            }
+        }
+
+        // Echantillon de vie : position, energie, memoire de chaque agent suivi.
+        if world.tick % BIO_SAMPLE == 0 {
+            let ceiling = cfg.reproduction.energy_threshold * 2.0;
+            let with_mem = (world.tick / BIO_SAMPLE) % 2 == 0;
+            for l in lives.values_mut() {
+                if l.ended_tick.is_some() {
+                    continue;
+                }
+                if let Some(x) = world.get(l.id) {
+                    let snap: Vec<MemSnap> = x.mind.as_deref().map_or_else(Vec::new, |m| {
+                        m.episodic
+                            .iter()
+                            .map(|s| MemSnap {
+                                x: s.place.x,
+                                y: s.place.y,
+                                p: matches!(s.kind, genesis_core::MemoryKind::Peril),
+                                s: s.strength,
+                            })
+                            .collect()
+                    });
+                    l.beats.push(LifeBeat {
+                        tick: world.tick,
+                        pos: [x.position.x, x.position.y],
+                        energy: ((x.energy / ceiling).clamp(0.0, 1.0) * 100.0) as u8,
+                        mem: if with_mem { snap } else { Vec::new() },
+                    });
+                    if l.beats.len() > BIO_MAX_BEATS {
+                        l.beats.remove(0);
+                    }
+                    if let Some(m) = x.mind.as_deref() {
+                        l.memories = m.episodic.clone();
+                    }
+                }
             }
         }
 
@@ -230,21 +341,35 @@ fn cmd_run(flags: &HashMap<String, String>) -> std::io::Result<()> {
     // Agents encore vivants au terme : on capture leur memoire de fin.
     for e in world.entities.iter() {
         if let Some(m) = &e.mind {
-            let l = lives.entry(e.id).or_insert(AgentLife {
-                id: e.id,
-                lineage: e.genome.lineage,
-                generation: e.genome.generation,
-                perception: e.genome.traits.perception,
-                awoke_tick: m.awoke_tick,
-                ended_tick: None,
-                ended: "vivant",
-                memories: Vec::new(),
-            });
+            let l = lives.entry(e.id).or_insert_with(|| new_life(e, m.awoke_tick));
             l.memories = m.episodic.clone();
         }
     }
+    // Duree comme agent, pour trier les vies : les plus longues d'abord.
+    let agent_span = |l: &AgentLife| l.ended_tick.unwrap_or(world.tick).saturating_sub(l.awoke_tick);
     let mut lives_vec: Vec<AgentLife> = lives.into_values().collect();
-    lives_vec.sort_by_key(|l| (l.awoke_tick, l.id));
+    lives_vec.sort_by(|a, b| {
+        agent_span(b)
+            .cmp(&agent_span(a))
+            .then(b.memories.len().cmp(&a.memories.len()))
+            .then(a.id.cmp(&b.id))
+    });
+    // Au-dela des vies gardees en detail, on ne conserve que la ligne resumee.
+    for l in lives_vec.iter_mut().skip(BIO_KEEP_DETAIL) {
+        l.beats.clear();
+        l.events.clear();
+    }
+    // Pour les chapitres, on remonte en tete les vies dont la memoire a le plus pese : plus
+    // grande memoire atteinte, puis memoire de fin, puis duree d'agent. Le reste garde
+    // l'ordre par duree.
+    let peak_mem = |l: &AgentLife| l.beats.iter().map(|b| b.mem.len()).max().unwrap_or(0);
+    let head = lives_vec.len().min(BIO_KEEP_DETAIL);
+    lives_vec[..head].sort_by(|a, b| {
+        peak_mem(b)
+            .cmp(&peak_mem(a))
+            .then(b.memories.len().cmp(&a.memories.len()))
+            .then(agent_span(b).cmp(&agent_span(a)))
+    });
 
     let meta = WorldMeta {
         seed,
@@ -263,6 +388,8 @@ fn cmd_run(flags: &HashMap<String, String>) -> std::io::Result<()> {
     std::fs::write(wdir.root.join("view.html"), html)?;
     let series_html = series_html::render(&meta, &cfg, &series);
     std::fs::write(wdir.root.join("series.html"), series_html)?;
+    let lives_html = lives_html::render(&meta, &cfg, &lives_vec, BIO_EMBED, BIO_FEATURE);
+    std::fs::write(wdir.root.join("lives.html"), lives_html)?;
 
     println!("Monde w{seed}");
     println!("  ticks joues       {}", world.tick);
@@ -285,6 +412,7 @@ fn cmd_run(flags: &HashMap<String, String>) -> std::io::Result<()> {
     println!();
     println!("Ouvre {}", wdir.root.join("view.html").display());
     println!("      {}", wdir.root.join("series.html").display());
+    println!("      {}", wdir.root.join("lives.html").display());
     genesis_core::profile_dump();
     Ok(())
 }

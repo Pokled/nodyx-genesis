@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Monde w__SEED__, vies d'agents</title>
+<style>
+  :root { color-scheme:light;
+    --ground:#f3f2ee; --raised:#fff; --ink:#1b1a17; --ink-soft:#4a463e; --muted:#7d7869;
+    --line:#ddd8cc; --grid:#ebe8df;
+    --peril:#9a3b3b; --bounty:#3b6f4e; --path:#3b6f9a; --wake:#8a7fc0; }
+  @media (prefers-color-scheme:dark) { :root { color-scheme:dark;
+    --ground:#14150f; --raised:#1c1d16; --ink:#e9e6da; --ink-soft:#b7b2a2; --muted:#867f6d;
+    --line:#2c2d22; --grid:#22231b;
+    --peril:#d98a8a; --bounty:#8fbfa0; --path:#8ab0d0; --wake:#b0a6de; } }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--ground); color:var(--ink); font:16px/1.6 Georgia, "Times New Roman", serif; }
+  .wrap { max-width:900px; margin:0 auto; padding:44px 24px 96px; }
+  h1 { font-size:1.6rem; margin:0 0 .3rem; }
+  h2 { font-size:1.15rem; margin:2.6rem 0 .1rem; }
+  .sub { color:var(--muted); font-family:ui-monospace, monospace; font-size:.74rem;
+    letter-spacing:.09em; text-transform:uppercase; margin-bottom:1.6rem; }
+  p { max-width:66ch; color:var(--ink-soft); }
+  .chip { font-family:ui-monospace, monospace; font-size:.7rem; color:var(--muted);
+    text-transform:uppercase; letter-spacing:.06em; margin:.1rem 0 .7rem; }
+  .life { border-top:1px solid var(--line); padding-top:.6rem; margin-top:1.4rem; }
+  .panels { display:grid; grid-template-columns:1fr 1fr; gap:.8rem; margin:.7rem 0 0; }
+  @media (max-width:640px) { .panels { grid-template-columns:1fr; } }
+  figure { margin:0; background:var(--raised); border:1px solid var(--line);
+    border-radius:8px; padding:.7rem .8rem .8rem; }
+  figure .t { font-family:ui-monospace, monospace; font-size:.64rem; text-transform:uppercase;
+    letter-spacing:.06em; color:var(--muted); margin-bottom:.35rem; }
+  .chart { width:100%; height:auto; display:block; }
+  table { border-collapse:collapse; width:100%; font-family:ui-monospace, monospace; font-size:.74rem;
+    background:var(--raised); border:1px solid var(--line); border-radius:8px; overflow:hidden; margin:1rem 0 0; }
+  th,td { text-align:right; padding:.42rem .6rem; border-bottom:1px solid var(--line); }
+  th:first-child, td:first-child { text-align:left; }
+  th { background:var(--ground); text-transform:uppercase; font-size:.58rem; letter-spacing:.05em; color:var(--muted); }
+  tr:last-child td { border-bottom:none; }
+  .foot { color:var(--muted); font-size:.86rem; margin-top:2.4rem; border-top:1px solid var(--line); padding-top:1rem; }
+</style></head><body><div class="wrap">
+
+<h1>Monde w__SEED__, vies d'agents</h1>
+<div class="sub">graine __SEED__ &nbsp; moteur __ENGINE__ &nbsp; __TICKS__ ticks &nbsp; __AWOKE__ eveils</div>
+
+<p>Un agent est une entite qui s'est eveillee : elle percoit assez bien, a vecu assez
+longtemps, et a garde un souvenir. Sa memoire est faite de lieux, chacun marque peril (une
+famine frolee) ou aubaine (un repas rare), avec une force qui s'efface avec le temps. Ce
+souvenir tire son deplacement : il evite les lieux de peril, il revient aux lieux d'aubaine.
+Voici les individus qui ont le plus longtemps porte une memoire, et ce qu'on peut lire de
+leur vie sans jamais leur demander.</p>
+
+<div id="overview"></div>
+<div id="lives"></div>
+
+<h2>Toutes les vies</h2>
+<table id="all"><thead><tr>
+  <th>individu</th><th>lignee</th><th>gen</th><th>eveil</th><th>duree agent</th><th>issue</th><th>souvenirs</th>
+</tr></thead><tbody></tbody></table>
+
+<div class="foot" id="foot"></div>
+
+<script id="bio-meta" type="application/json">__META__</script>
+<script id="bio-lives" type="application/json">__LIVES__</script>
+<script>
+"use strict";
+const META = JSON.parse(document.getElementById('bio-meta').textContent);
+const L = JSON.parse(document.getElementById('bio-lives').textContent);
+const NS = 'http://www.w3.org/2000/svg';
+const GW = META.grid[0], GH = META.grid[1];
+const TSEC = META.tick_seconds || 3600;
+
+function css(v) { return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+function yearOf(tick) { return Math.floor((tick * TSEC) / 3600 / 24 / 365); }
+function num(n) { return n.toLocaleString('fr'); }
+function span(l) { return (l.ended_tick == null ? META.ticks_played : l.ended_tick) - l.awoke_tick; }
+function endText(l) {
+  const y = yearOf(l.ended_tick == null ? META.ticks_played : l.ended_tick);
+  if (l.ended === 'mort') return "est mort de faim l'an " + y;
+  if (l.ended === 'sommeil') return "a fini par oublier, l'an " + y + ", et est redevenu une entite de fond";
+  return "vivait encore a la fin du monde, l'an " + y;
+}
+
+function dist2(a, bx, by) { const dx = a[0] - bx, dy = a[1] - by; return dx * dx + dy * dy; }
+
+// -- Tous les lieux de memoire d'une vie : l'union des souvenirs vus a chaque temps de vie
+//    plus la memoire de fin, regroupes par case (2x2) et par valence. --
+function memPlaces(life) {
+  const map = new Map();
+  const add = (x, y, peril, str, tick) => {
+    const k = Math.round(x / 2) + ',' + Math.round(y / 2) + ',' + (peril ? 'p' : 'b');
+    let o = map.get(k);
+    if (!o) { o = { x, y, peril, maxs: 0, first: tick, series: [] }; map.set(k, o); }
+    o.maxs = Math.max(o.maxs, str);
+    o.first = Math.min(o.first, tick);
+    o.series.push({ tick, s: str });
+  };
+  (life.beats || []).forEach(bt => (bt.mem || []).forEach(m => add(m.x, m.y, m.p, m.s, bt.tick)));
+  (life.memories || []).forEach(m => add(m.place.x, m.place.y, m.kind === 'peril', m.strength, m.formed_tick));
+  const list = [...map.values()];
+  list.forEach(o => o.series.sort((a, b) => a.tick - b.tick));
+  list.sort((a, b) => b.maxs - a.maxs);
+  return list;
+}
+
+// -- Carte memoire : la grille du monde, le chemin de l'agent, tous ses lieux de memoire. --
+function drawMap(life) {
+  const W = 300, H = Math.round(300 * GH / GW);
+  const X = px => (px / GW) * W, Y = py => (py / GH) * H;
+  const gc = css('--grid'), lc = css('--line');
+  let s = `<rect x="0" y="0" width="${W}" height="${H}" fill="${css('--ground')}" stroke="${lc}"/>`;
+  for (let i = 1; i < 4; i++) {
+    s += `<line x1="${(W*i/4).toFixed(1)}" y1="0" x2="${(W*i/4).toFixed(1)}" y2="${H}" stroke="${gc}"/>`;
+    s += `<line x1="0" y1="${(H*i/4).toFixed(1)}" x2="${W}" y2="${(H*i/4).toFixed(1)}" stroke="${gc}"/>`;
+  }
+  const b = life.beats || [];
+  if (b.length > 1) {
+    let d = '';
+    for (let i = 0; i < b.length; i++) d += (i ? 'L' : 'M') + X(b[i].pos[0]).toFixed(1) + ',' + Y(b[i].pos[1]).toFixed(1) + ' ';
+    s += `<path d="${d}" fill="none" stroke="${css('--path')}" stroke-width="1.4" stroke-opacity="0.8"/>`;
+    const last = b[b.length - 1];
+    s += `<circle cx="${X(last.pos[0]).toFixed(1)}" cy="${Y(last.pos[1]).toFixed(1)}" r="2.6" fill="${css('--path')}"/>`;
+  }
+  s += `<circle cx="${X(life.awoke_place[0]).toFixed(1)}" cy="${Y(life.awoke_place[1]).toFixed(1)}" r="3.4" fill="none" stroke="${css('--wake')}" stroke-width="1.6"/>`;
+  memPlaces(life).forEach(m => {
+    const x = X(m.x), y = Y(m.y), r = 2 + m.maxs * 5;
+    if (m.peril) {
+      const c = css('--peril');
+      s += `<line x1="${(x-r).toFixed(1)}" y1="${(y-r).toFixed(1)}" x2="${(x+r).toFixed(1)}" y2="${(y+r).toFixed(1)}" stroke="${c}" stroke-width="1.7"/>`;
+      s += `<line x1="${(x-r).toFixed(1)}" y1="${(y+r).toFixed(1)}" x2="${(x+r).toFixed(1)}" y2="${(y-r).toFixed(1)}" stroke="${c}" stroke-width="1.7"/>`;
+    } else {
+      s += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r.toFixed(1)}" fill="${css('--bounty')}" fill-opacity="0.7"/>`;
+    }
+  });
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="carte memoire">${s}</svg>`;
+}
+
+// -- Frise : l'energie de l'agent, et la force de ses souvenirs les plus marquants. --
+function drawEnergy(life) {
+  const W = 300, H = 120, m = { l: 26, r: 8, t: 8, b: 16 };
+  const iw = W - m.l - m.r, ih = H - m.t - m.b;
+  const b = life.beats || [];
+  const t0 = life.awoke_tick, t1 = (life.ended_tick == null ? META.ticks_played : life.ended_tick);
+  const X = t => m.l + (t1 === t0 ? 0 : (t - t0) / (t1 - t0)) * iw;
+  const Y = e => m.t + ih - (e / 100) * ih;
+  const gc = css('--grid'), mc = css('--muted');
+  let s = '';
+  for (let i = 0; i <= 2; i++) {
+    const y = m.t + ih * i / 2;
+    s += `<line x1="${m.l}" y1="${y.toFixed(1)}" x2="${W - m.r}" y2="${y.toFixed(1)}" stroke="${gc}"/>`;
+    s += `<text x="${m.l - 4}" y="${(y + 3).toFixed(1)}" text-anchor="end" font-size="8" font-family="ui-monospace,monospace" fill="${mc}">${100 - i * 50}</text>`;
+  }
+  (life.events || []).forEach(ev => {
+    if (ev[1] !== 'division' || ev[0] < t0 || ev[0] > t1) return;
+    s += `<circle cx="${X(ev[0]).toFixed(1)}" cy="${(m.t + ih).toFixed(1)}" r="1.8" fill="${css('--path')}"/>`;
+  });
+  // force des 3 souvenirs les plus marquants, dans le temps
+  memPlaces(life).slice(0, 3).forEach(p => {
+    if (p.series.length < 2) return;
+    let d = '';
+    p.series.forEach((pt, i) => { d += (i ? 'L' : 'M') + X(pt.tick).toFixed(1) + ',' + Y(pt.s * 100).toFixed(1) + ' '; });
+    s += `<path d="${d}" fill="none" stroke="${p.peril ? css('--peril') : css('--bounty')}" stroke-width="1" stroke-opacity="0.7"/>`;
+  });
+  if (b.length > 1) {
+    let d = '';
+    for (let i = 0; i < b.length; i++) d += (i ? 'L' : 'M') + X(b[i].tick).toFixed(1) + ',' + Y(b[i].energy).toFixed(1) + ' ';
+    s += `<path d="${d}" fill="none" stroke="${css('--ink-soft')}" stroke-width="1.5"/>`;
+    let lo = b[0];
+    for (const bb of b) if (bb.energy < lo.energy) lo = bb;
+    s += `<circle cx="${X(lo.tick).toFixed(1)}" cy="${Y(lo.energy).toFixed(1)}" r="2.4" fill="${css('--peril')}"/>`;
+  }
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="energie et force des souvenirs">${s}</svg>`;
+}
+
+// -- Prose : gabarits, aucun LLM. --
+function prose(life) {
+  const b = life.beats || [], places = memPlaces(life);
+  const peakMem = Math.max(0, ...(b.map(x => (x.mem || []).length)));
+  const parts = [];
+  parts.push(`Eveille l'an ${yearOf(life.awoke_tick)} (tick ${num(life.awoke_tick)}) pres de (${life.awoke_place[0].toFixed(0)}, ${life.awoke_place[1].toFixed(0)}), a la ${life.generation}e generation de la lignee ${life.lineage}.`);
+
+  if (places.length === 0) {
+    parts.push("Aucun souvenir lisible : il n'a jamais garde de lieu assez longtemps.");
+  } else {
+    const perils = places.filter(p => p.peril), bounties = places.filter(p => !p.peril);
+    parts.push(`Au fil de sa vie il a retenu ${perils.length} lieu${perils.length > 1 ? 'x' : ''} de peril et ${bounties.length} d'abondance` +
+      (peakMem > 1 ? `, jusqu'a ${peakMem} en memoire a la fois` : '') + '.');
+
+    const strong = places[0];
+    const win = b.filter(x => Math.abs(x.tick - strong.first) <= 400);
+    const loE = win.length ? Math.min(...win.map(x => x.energy)) : null;
+    parts.push(`Le plus marquant : un ${strong.peril ? 'peril' : 'lieu d\'abondance'} pres de (${strong.x.toFixed(0)}, ${strong.y.toFixed(0)}), rencontre vers le tick ${num(strong.first)}` +
+      (strong.peril && loE != null && loE < 30 ? `, quand son energie etait tombee a ${loE} %` : '') + '.');
+
+    // Divergence : un lieu de peril rencontre assez tot, avec de la vie apres.
+    const cand = places
+      .filter(p => p.peril && p.maxs > 0.25)
+      .map(p => ({ p, after: b.filter(x => x.tick > p.first + 200) }))
+      .filter(o => o.after.length >= 5)
+      .sort((x, y) => y.after.length - x.after.length)[0];
+    if (cand) {
+      const p = cand.p;
+      const before = b.filter(x => x.tick <= p.first);
+      const mb = before.length ? Math.sqrt(before.reduce((s, x) => s + dist2(x.pos, p.x, p.y), 0) / before.length) : 0;
+      const ma = Math.sqrt(cand.after.reduce((s, x) => s + dist2(x.pos, p.x, p.y), 0) / cand.after.length);
+      const loc = `(${p.x.toFixed(0)}, ${p.y.toFixed(0)})`;
+      if (ma > mb + 2) parts.push(`Apres le peril de ${loc}, son chemin s'en est tenu a distance : ${mb.toFixed(0)} cases de moyenne avant, ${ma.toFixed(0)} apres.`);
+      else if (ma < mb - 2) parts.push(`Il est pourtant retourne vers ${loc} malgre le peril qu'il y avait connu (${mb.toFixed(0)} cases avant, ${ma.toFixed(0)} apres) : la faim l'a emporte.`);
+      else parts.push(`Sa distance au peril de ${loc} a peu bouge (${mb.toFixed(0)} puis ${ma.toFixed(0)} cases).`);
+    }
+  }
+
+  const divisions = (life.events || []).filter(e => e[1] === 'division').length;
+  if (divisions > 0) parts.push(`Il s'est divise ${divisions} fois durant sa vie d'agent.`);
+  parts.push('Il ' + endText(life) + '.');
+  return parts.join(' ');
+}
+
+// -- Vue d'ensemble --
+(function () {
+  const feat = L.slice(0, META.feature).filter(l => (l.beats || []).length > 0);
+  const outcomes = META.outcomes || { mort: 0, sommeil: 0, vivant: 0 };
+  const longest = META.longest_span || 0;
+  document.getElementById('overview').innerHTML =
+    `<p>${num(META.awoke_total)} individus se sont eveilles sur toute la duree du monde. ` +
+    `${outcomes.mort} sont morts de faim, ${outcomes.sommeil} ont fini par oublier, ${outcomes.vivant} vivaient encore a la fin. ` +
+    `La plus longue vie d'agent a dure ${num(longest)} ticks. Les ${feat.length} chapitres ci-dessous sont les vies dont la memoire a le plus pese, parmi celles dont on a garde la trajectoire.</p>`;
+
+  const box = document.getElementById('lives');
+  feat.forEach(life => {
+    const peak = Math.max(0, ...(life.beats || []).map(b => (b.mem || []).length));
+    const sec = document.createElement('section');
+    sec.className = 'life';
+    sec.innerHTML =
+      `<h2>Individu ${life.id}</h2>` +
+      `<div class="chip">lignee ${life.lineage} &nbsp; generation ${life.generation} &nbsp; perception ${life.perception.toFixed(2)} &nbsp; ` +
+      `duree agent ${num(span(life))} ticks &nbsp; ${peak} souvenirs au plus &nbsp; ${life.ended}</div>` +
+      `<div class="panels">` +
+        `<figure><div class="t">carte memoire</div>${drawMap(life)}</figure>` +
+        `<figure><div class="t">energie dans le temps</div>${drawEnergy(life)}</figure>` +
+      `</div>` +
+      `<p>${prose(life)}</p>`;
+    box.appendChild(sec);
+  });
+
+  const tb = document.querySelector('#all tbody');
+  tb.innerHTML = L.slice(0, 200).map(l =>
+    `<tr><td>${l.id}</td><td>${l.lineage}</td><td>${l.generation}</td><td>an ${yearOf(l.awoke_tick)}</td>` +
+    `<td>${num(span(l))}</td><td>${l.ended}</td><td>${(l.memories || []).length}</td></tr>`
+  ).join('');
+
+  document.getElementById('foot').textContent =
+    "Les souvenirs de peril sont subjectifs : la propre faim de l'agent, sans evenement du monde a citer. " +
+    "Les souvenirs ancres sur un fait objectif (la mort d'un proche, vue) et le lien vers l'evenement d'origine arrivent a la tranche suivante. " +
+    "Rien ici n'est ecrit par un modele de langage : la prose est faite de gabarits sur les donnees de la simulation.";
+})();
+</script>
+</div></body></html>

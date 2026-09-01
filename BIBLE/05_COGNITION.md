@@ -1,9 +1,9 @@
 # 05. Cognition
 
-Statut : TRANCHE 1 FAITE (le premier souvenir). Le pont Entity vers Agent et la question
-semé ou cultivé sont posés ; la mémoire épisodique minimale est construite et tourne.
-L'architecture détaillée (Context Builder, Model Router, RAG) attend 0.0.5 et sera reprise
-ici à ce moment.
+Statut : TRANCHES 1 ET 2 FAITES (le premier souvenir, puis la page biographie). Le pont
+Entity vers Agent et la question semé ou cultivé sont posés ; la mémoire épisodique minimale
+est construite, tourne, et se lit dans `lives.html`. L'architecture détaillée (Context
+Builder, Model Router, RAG) attend 0.0.5 et sera reprise ici à ce moment.
 
 Dernière révision : 2026-09-01.
 
@@ -114,10 +114,31 @@ les défauts, l'éveil devient courant en cours de partie (quelques centaines d'
 sur ~2300 entités). Rendre l'éveil plus rare ou le lier à une capacité plus discriminante
 est un chantier de tranche 2.
 
-**Ce qui reste (tranche 2 et après).** Besoins (jauges), personnalité héritée (paramètres
-au génome, pas dérivés), souvenirs ancrés sur un événement (mort d'un proche vue), modèle
-de comportement complet, page biographie `lives.html` (la tranche 1 écrit `lives.jsonl`),
-dé-simulation de la biologie sous l'agent.
+## Tranche 2 : la page biographie (fait, 2026-09-01)
+
+`lives.html` : la première biographie auto-générée, le livrable du jalon. Style éditorial
+SVG comme `series.html`, généré en local. Aucun changement moteur ni de schéma : la CLI
+échantillonne la vie de chaque agent (position, énergie, mémoire) toutes les 150 ticks
+(`lives.jsonl` enrichi), garde la trajectoire complète pour les 80 vies les plus notables,
+en met 24 en chapitre.
+
+Chaque chapitre : une carte mémoire (la grille du monde, le chemin de l'agent, tous ses
+lieux de péril et d'aubaine), une frise énergie plus force des souvenirs dans le temps, et
+une prose de gabarits (aucun LLM) tirée des données : « Éveillé l'an 3 près de (67, 121)...
+Au fil de sa vie il a retenu 5 lieux de péril... Après le péril de (113, 121), son chemin
+s'en est tenu à distance : 2 cases de moyenne avant, 16 après. » C'est là que la dépendance
+mémoire vers comportement se lit, agent par agent.
+
+Observé sur `worlds/w2` : les vies notables retiennent 3 à 6 lieux de péril (jusqu'à 3 en
+mémoire à la fois), presque aucune aubaine (l'aubaine, un gros gain en un tick, est rare) ;
+beaucoup meurent de faim, aucune ne retombe (elles meurent avant d'oublier). Un coin de la
+grille (~120, 122) revient souvent comme lieu de péril partagé : les agents repoussés des
+zones centrales s'y échouent.
+
+**Ce qui reste (tranche 3 et après).** Besoins (jauges), personnalité héritée (paramètres
+au génome, pas dérivés), souvenirs ancrés sur un événement (mort d'un proche vue) avec le
+lien `event_seq` vers le fait objectif, modèle de comportement complet, dé-simulation de la
+biologie sous l'agent.
 
 ---
 
