@@ -297,10 +297,12 @@ const ctx = cv.getContext('2d');
 const dnaCv = document.getElementById('dna');
 const dctx = dnaCv.getContext('2d');
 const DPR = Math.min(window.devicePixelRatio || 1, 2);
+let sceneBg = null, dnaGrad = null;
 function resize() {
   cv.width = cv.clientWidth * DPR; cv.height = cv.clientHeight * DPR;
   dnaCv.width = dnaCv.clientWidth * DPR; dnaCv.height = dnaCv.clientHeight * DPR;
   dctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  sceneBg = null; dnaGrad = null;
 }
 window.addEventListener('resize', resize); resize();
 
@@ -366,14 +368,23 @@ function bio(h, l, a) {
   let d = ((h - 188) % 360 + 540) % 360 - 180;
   return 'hsla(' + (188 + d * 0.6).toFixed(0) + ',78%,' + l + '%,' + a + ')';
 }
-function drawScene() {
+// Deux canvas anime : on plafonne a ~32 images/s pour rester fluide sur une machine
+// modeste (le monde n'avance pas assez vite pour qu'on voie la difference).
+let sceneLast = 0;
+function drawScene(now) {
+  requestAnimationFrame(drawScene);
+  if (now - sceneLast < 30) return;
+  sceneLast = now;
   const S = SCENE;
   const W = cv.width, H = cv.height;
   ctx.clearRect(0, 0, W, H);
-  const hg = ctx.createRadialGradient(W / 2, H * 0.4, 0, W / 2, H * 0.4, Math.max(W, H) * 0.6);
-  hg.addColorStop(0, 'rgba(18,38,52,.5)'); hg.addColorStop(1, 'rgba(4,6,11,0)');
-  ctx.fillStyle = hg; ctx.fillRect(0, 0, W, H);
-  if (!S || !S.grid) { requestAnimationFrame(drawScene); return; }
+  if (!sceneBg) {
+    sceneBg = ctx.createRadialGradient(W / 2, H * 0.4, 0, W / 2, H * 0.4, Math.max(W, H) * 0.6);
+    sceneBg.addColorStop(0, 'rgba(18,38,52,.5)'); sceneBg.addColorStop(1, 'rgba(4,6,11,0)');
+  }
+  ctx.fillStyle = sceneBg;
+  ctx.fillRect(0, 0, W, H);
+  if (!S || !S.grid) { return; }
   const gw = S.grid[0], gh = S.grid[1];
   // Centre sur la vie : la scene suit le centre de masse de la population.
   let sx = 0, sy = 0, sw = 0;
@@ -411,37 +422,38 @@ function drawScene() {
     g.addColorStop(1, bio(c.hue, 60, 0));
     ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.fill();
   }
-  // cellules : membrane pleine tres douce, jonc net, epaisseur selon l'effectif, noyau
+  // cellules : membrane a jonc pointille, un halo simple, un noyau. Pas de gradient par
+  // cellule (trop lourd a 30 cellules par image) : un disque translucide suffit.
+  ctx.setLineDash([1.5, 3.5]); ctx.lineDashOffset = -tsec * 5;
   for (const c of (S.cells || [])) {
     const x = ox + (c.pos[0] / PS) * s, y = oy + (c.pos[1] / PS) * s;
-    const br = Math.sin(tsec * 1.0 + c.pos[0] * 0.03) * 0.025;
-    const r = Math.max(7, (c.radius / PS) * s) * (1 + br);
+    const r = Math.max(7, (c.radius / PS) * s);
     let d = ((c.hue - 188) % 360 + 540) % 360 - 180; const h = (188 + d * 0.6).toFixed(0);
     const big = Math.min(1, (c.count || 12) / 120);
-    const g = ctx.createRadialGradient(x, y, r * 0.15, x, y, r);
-    g.addColorStop(0, 'hsla(' + h + ',70%,62%,' + (0.035 + big * 0.06).toFixed(3) + ')');
-    g.addColorStop(0.7, 'hsla(' + h + ',68%,55%,' + (0.02 + big * 0.035).toFixed(3) + ')');
-    g.addColorStop(1, 'hsla(' + h + ',68%,55%,0)');
-    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.fill();
+    ctx.fillStyle = 'hsla(' + h + ',68%,58%,' + (0.03 + big * 0.05).toFixed(3) + ')';
+    ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.fill();
     ctx.strokeStyle = 'hsla(' + h + ',74%,' + (72 + big * 8).toFixed(0) + '%,' + (0.5 + big * 0.38).toFixed(2) + ')';
     ctx.lineWidth = 1.1 + big * 1.7;
-    ctx.setLineDash([1.5, 3.5]); ctx.lineDashOffset = -tsec * 5;
-    ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.stroke(); ctx.setLineDash([]);
+    ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.stroke();
     ctx.fillStyle = 'hsla(' + h + ',82%,82%,' + (0.22 + big * 0.4).toFixed(2) + ')';
     ctx.beginPath(); ctx.arc(x, y, 1.5 + big * 2.2, 0, 6.2832); ctx.fill();
   }
-  const fnow = performance.now();
+  ctx.setLineDash([]);
+  const fnow = now;
   fx = fx.filter(f => fnow - f.t0 < 2400);
-  // entites
+  // entites : pas de shadowBlur (mortel a plusieurs centaines par image). Le halo est un
+  // second disque plus large et tres translucide, quasi gratuit.
   for (const en of (S.entities || [])) {
     const x = ox + (en.pos[0] / PS) * s, y = oy + (en.pos[1] / PS) * s;
     const ep = (en.energy || 50) / 100;
     const rr = (1.4 + ep * 3.4) * Math.max(0.7, s / 5);
-    ctx.beginPath();
-    ctx.fillStyle = bio(en.hue, 64, 0.5 + ep * 0.4);
-    if (ep > 0.3) { ctx.shadowBlur = 8; ctx.shadowColor = bio(en.hue, 66, .9); }
-    ctx.arc(x, y, rr, 0, 6.2832); ctx.fill(); ctx.shadowBlur = 0;
-    if (en.agent) { ctx.strokeStyle = 'rgba(185,160,255,.6)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(x, y, rr + 2.5, 0, 6.2832); ctx.stroke(); }
+    if (ep > 0.3) {
+      ctx.fillStyle = bio(en.hue, 66, 0.14 + ep * 0.12);
+      ctx.beginPath(); ctx.arc(x, y, rr * 2.1, 0, 6.2832); ctx.fill();
+    }
+    ctx.fillStyle = bio(en.hue, 64, 0.55 + ep * 0.4);
+    ctx.beginPath(); ctx.arc(x, y, rr, 0, 6.2832); ctx.fill();
+    if (en.agent) { ctx.strokeStyle = 'rgba(185,160,255,.55)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(x, y, rr + 2.5, 0, 6.2832); ctx.stroke(); }
   }
   // alarmes
   for (const sg of (S.signals || [])) {
@@ -495,7 +507,6 @@ function drawScene() {
     }
     ctx.globalAlpha = 1;
   }
-  requestAnimationFrame(drawScene);
 }
 
 // --- application d'un etat live ---
@@ -712,81 +723,89 @@ function drawSpark(id, arr, col) {
 const DNA_TRAITS = ['metabolisme', 'vitesse', 'perception', 'efficacite', 'fecondite', 'longevite', 'cohesion', 'prudence', 'curiosite'];
 const DNA_HUE = [14, 42, 190, 96, 330, 262, 150, 208, 52];
 let dnaGeno = [1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5]; // valeurs lissees affichees
-function drawDna() {
+let dnaLast = 0;
+function drawDna(now) {
+  requestAnimationFrame(drawDna);
+  if (now - dnaLast < 40) return;   // ~24 images/s, largement assez pour une helice
+  dnaLast = now;
   const W = dnaCv.clientWidth, H = dnaCv.clientHeight;
   dctx.clearRect(0, 0, W, H);
-  if (W < 40 || H < 40) { requestAnimationFrame(drawDna); return; }
+  if (W < 40 || H < 40) return;
   const st = (SCENE && SCENE.stats) || {};
-  const gq = st.dominant_genome || [];              // 0..3 par trait
-  const gm = st.trait_mean || [];                   // 0..1 par trait
+  const gq = st.dominant_genome || [];
+  const gm = st.trait_mean || [];
   const n = DNA_TRAITS.length;
-  const t = performance.now() / 1000;
+  const t = now / 1000;
 
-  const labelW = 168;
-  const cx = Math.min((W - labelW) * 0.52, W * 0.42);
+  const cx = Math.min((W - 168) * 0.52, W * 0.42);
   const amp = Math.min(cx * 0.82, H * 0.34);
   const top = H * 0.10, span = H * 0.80;
-  const turns = 2.35, rot = t * 0.55;
+  const turns = 2.35, rot = t * 0.5;
   const angAt = f => f * turns * Math.PI * 2 + rot;
 
-  // valeurs cibles : melange du quantifie (net) et de la moyenne (fin), lissees
   for (let i = 0; i < n; i++) {
     const target = gm[i] != null ? gm[i] * 3 : (gq[i] != null ? gq[i] : 1.5);
     dnaGeno[i] += (target - dnaGeno[i]) * 0.08;
   }
 
-  // 1. les deux brins du squelette
+  if (!dnaGrad) {
+    dnaGrad = [0, 1].map(side => {
+      const g = dctx.createLinearGradient(0, top, 0, top + span);
+      const c = side ? '126,240,166' : '82,230,223';
+      g.addColorStop(0, 'rgba(' + c + ',.3)');
+      g.addColorStop(0.5, 'rgba(' + c + ',.85)');
+      g.addColorStop(1, 'rgba(' + c + ',.3)');
+      return g;
+    });
+  }
+
+  // 1. les deux brins : un trace large translucide (le halo) puis un trace net
+  const fine = 44;
   for (const side of [0, 1]) {
     dctx.beginPath();
-    const fine = 90;
     for (let k = 0; k <= fine; k++) {
       const f = k / fine, y = top + f * span;
       const x = cx + Math.cos(angAt(f) + (side ? Math.PI : 0)) * amp;
       k ? dctx.lineTo(x, y) : dctx.moveTo(x, y);
     }
-    const grad = dctx.createLinearGradient(0, top, 0, top + span);
-    grad.addColorStop(0, side ? 'rgba(126,240,166,.35)' : 'rgba(82,230,223,.5)');
-    grad.addColorStop(0.5, side ? 'rgba(126,240,166,.75)' : 'rgba(82,230,223,.85)');
-    grad.addColorStop(1, side ? 'rgba(126,240,166,.35)' : 'rgba(82,230,223,.5)');
-    dctx.strokeStyle = grad; dctx.lineWidth = 2.6; dctx.lineCap = 'round';
-    dctx.shadowBlur = 8; dctx.shadowColor = side ? 'rgba(126,240,166,.4)' : 'rgba(82,230,223,.5)';
-    dctx.stroke(); dctx.shadowBlur = 0;
+    dctx.lineCap = 'round';
+    dctx.strokeStyle = side ? 'rgba(126,240,166,.12)' : 'rgba(82,230,223,.16)';
+    dctx.lineWidth = 7; dctx.stroke();
+    dctx.strokeStyle = dnaGrad[side];
+    dctx.lineWidth = 2.4; dctx.stroke();
   }
 
-  // 2. les barreaux (une paire de bases par trait), du plus lointain au plus proche
+  // 2. les barreaux, du plus lointain au plus proche
   const rungs = [];
   for (let i = 0; i < n; i++) {
-    const f = n === 1 ? 0.5 : i / (n - 1);
-    const a = angAt(f);
+    const f = i / (n - 1), a = angAt(f);
     rungs.push({ i, y: top + f * span, a, z: Math.sin(a) });
   }
   rungs.sort((p, q) => p.z - q.z);
   for (const p of rungs) {
     const x1 = cx + Math.cos(p.a) * amp, x2 = cx + Math.cos(p.a + Math.PI) * amp;
     const depth = 0.5 + (p.z + 1) / 2 * 0.5;
-    const v = dnaGeno[p.i] / 3;                       // 0..1
+    const v = dnaGeno[p.i] / 3;
     const hue = DNA_HUE[p.i];
     dctx.strokeStyle = 'hsla(' + hue + ',78%,' + (52 + v * 18).toFixed(0) + '%,' + (0.3 + depth * 0.5).toFixed(2) + ')';
     dctx.lineWidth = (1.2 + v * 3.6) * depth;
     dctx.beginPath(); dctx.moveTo(x1, p.y); dctx.lineTo(x2, p.y); dctx.stroke();
     for (const bx of [x1, x2]) {
-      dctx.beginPath();
-      dctx.fillStyle = 'hsla(' + hue + ',85%,72%,' + (0.45 + depth * 0.45).toFixed(2) + ')';
-      dctx.shadowBlur = 9 * depth; dctx.shadowColor = 'hsla(' + hue + ',85%,60%,.85)';
-      dctx.arc(bx, p.y, (2.2 + v * 3.2) * depth, 0, 6.2832); dctx.fill();
+      const rr = (2.2 + v * 3.2) * depth;
+      dctx.fillStyle = 'hsla(' + hue + ',85%,66%,' + (0.16 * depth).toFixed(2) + ')';
+      dctx.beginPath(); dctx.arc(bx, p.y, rr * 2, 0, 6.2832); dctx.fill();
+      dctx.fillStyle = 'hsla(' + hue + ',85%,74%,' + (0.5 + depth * 0.4).toFixed(2) + ')';
+      dctx.beginPath(); dctx.arc(bx, p.y, rr, 0, 6.2832); dctx.fill();
     }
-    dctx.shadowBlur = 0;
   }
 
-  // 3. les etiquettes des traits + barre de valeur, a droite
+  // 3. etiquettes + barre de valeur
   const lx = cx + amp + 22;
   dctx.textBaseline = 'middle';
+  dctx.font = '600 10px "IBM Plex Mono", monospace';
   for (let i = 0; i < n; i++) {
-    const f = n === 1 ? 0.5 : i / (n - 1);
-    const y = top + f * span;
-    const v = dnaGeno[i] / 3;
-    const hue = DNA_HUE[i];
-    dctx.font = '600 10px "IBM Plex Mono", monospace';
+    const y = top + i / (n - 1) * span;
+    const v = dnaGeno[i] / 3, hue = DNA_HUE[i];
     dctx.fillStyle = 'hsla(' + hue + ',55%,78%,.95)';
     dctx.fillText(DNA_TRAITS[i].toUpperCase(), lx, y - 5);
     dctx.fillStyle = 'rgba(126,158,214,.14)';
@@ -794,7 +813,6 @@ function drawDna() {
     dctx.fillStyle = 'hsla(' + hue + ',72%,62%,.95)';
     dctx.fillRect(lx, y + 3, Math.max(1, v * 120), 3);
   }
-  requestAnimationFrame(drawDna);
 }
 
 let cardTimer = 0;
