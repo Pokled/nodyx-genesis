@@ -79,6 +79,8 @@ pub struct LiveState {
     pub agents_awoke_total: u64,
     pub mean_memories: f32,
     pub cells_alive: u32,
+    /// Fusions de cellules depuis le debut du monde (schema v15).
+    pub cells_merged: u64,
 
     // -- Pouls
     pub pulse: Pulse,
@@ -231,6 +233,16 @@ fn chronicle(e: &Event) -> Option<(&'static str, String, EventCard)> {
                 head: format!("{level} individus"),
                 sub: "la population n'avait jamais ete aussi nombreuse".into(),
                 tone: "palier",
+            },
+        ),
+        EventKind::CellsMerged { size, .. } => (
+            "fusion",
+            format!("deux cellules fusionnent, {size} membres"),
+            EventCard {
+                badge: "FUSION CELLULAIRE",
+                head: "Deux membranes n'en font plus qu'une".into(),
+                sub: format!("{size} organismes sous une seule membrane, un genome remanie"),
+                tone: "fusion",
             },
         ),
         _ => return None,
@@ -436,6 +448,7 @@ pub fn write_live(
         agents_awoke_total: awoke_total,
         mean_memories: mean_mem,
         cells_alive: st.cells_alive,
+        cells_merged: world.cells_merged_total,
         pulse,
         events,
         last_birth_tick: last_birth,

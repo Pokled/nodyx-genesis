@@ -664,6 +664,9 @@ fn event_view(e: &Event) -> Option<EventView> {
         EventKind::CellDissolved { cell } => {
             ("cellule_dissoute", vec![], format!("cellule {}", cell))
         }
+        EventKind::CellsMerged { cell, size, .. } => {
+            ("cellule_fusion", vec![], format!("cellule {}, {} membres", cell, size))
+        }
         EventKind::AgentAwoke { entity } => ("agent_eveille", vec![*entity], String::new()),
         EventKind::AgentLapsed { entity } => ("agent_endormi", vec![*entity], String::new()),
         // EntityAte et SnapshotTaken sont trop bruyants, on ne les remonte pas.

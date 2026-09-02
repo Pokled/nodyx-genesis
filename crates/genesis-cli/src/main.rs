@@ -350,6 +350,7 @@ fn is_chronicle_event(kind: &EventKind) -> bool {
             | EventKind::LineageExtinct { .. }
             | EventKind::PopulationCrash { .. }
             | EventKind::PopulationMilestone { .. }
+            | EventKind::CellsMerged { .. }
     )
 }
 

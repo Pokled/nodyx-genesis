@@ -409,6 +409,17 @@ pub struct CellsCfg {
     pub energy_share: f32,
     /// Part d'echec de division en moins pour un membre de cellule (reproduction protegee).
     pub cell_birth_relief: f32,
+
+    /// Fusion : deux cellules stables dont les membranes se chevauchent et dont les genomes
+    /// moyens se ressemblent n'en font plus qu'une. La plus grosse garde son identite et son
+    /// histoire ; la petite est absorbee. `false` desactive (bouton d'A/B).
+    pub fuse: bool,
+    /// Chevauchement exige : `distance(centres) < (r1 + r2) * fuse_overlap`. Plus bas = il
+    /// faut vraiment que les membranes s'interpenetrent.
+    pub fuse_overlap: f32,
+    /// ... et distance L1 des genomes moyens des deux cellules sous ce seuil. Plus lache que
+    /// `kin_dist` : ce sont deja des groupes organises, la parente se juge au niveau cellule.
+    pub fuse_kin: f32,
 }
 impl Default for CellsCfg {
     fn default() -> Self {
@@ -426,6 +437,9 @@ impl Default for CellsCfg {
             leave_factor: 1.9,
             energy_share: 0.15,
             cell_birth_relief: 0.4,
+            fuse: true,
+            fuse_overlap: 0.5,
+            fuse_kin: 0.9,
         }
     }
 }

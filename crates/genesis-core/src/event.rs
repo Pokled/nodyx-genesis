@@ -73,6 +73,9 @@ pub enum EventKind {
     CellFormed { cell: u32, size: u32 },
     /// Une cellule s'est dissoute : dispersion ou perte de ses membres. Bascule reversible.
     CellDissolved { cell: u32 },
+    /// Deux cellules stables aux membranes chevauchantes et aux genomes proches ont fusionne :
+    /// `absorbed` disparait dans `cell`, qui garde son identite. `size` = effectif combine.
+    CellsMerged { cell: u32, absorbed: u32, size: u32 },
     /// Une entite s'est eveillee en agent : elle percoit assez, a vecu assez, et vient de
     /// subir un choc. Elle gagne une memoire (0.0.3, tranche 1).
     AgentAwoke { entity: EntityId },
@@ -88,6 +91,7 @@ impl EventKind {
         match self {
             EventKind::WorldCreated => 255,
             EventKind::SpeciesEmerged { .. } => 235,
+            EventKind::CellsMerged { .. } => 232,
             EventKind::CellFormed { .. } => 230,
             EventKind::LineageExtinct { .. } => 225,
             EventKind::AgentAwoke { .. } => 215,

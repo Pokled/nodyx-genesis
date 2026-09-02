@@ -558,3 +558,54 @@ fn a_world_knows_which_engine_made_it() {
     assert_eq!(w.engine_version, genesis_core::ENGINE_VERSION);
     assert_eq!(w.schema_version, genesis_core::SCHEMA_VERSION);
 }
+
+#[test]
+fn cells_merge_when_membranes_overlap() {
+    // Fusion de cellules (schema v15) : deux membranes stables qui se chevauchent et se
+    // ressemblent fusionnent. Il s'en produit reellement (graine 1) ; le compteur cumule
+    // colle au nombre d'evenements ; l'invariant d'effectif tient aussi les ticks de fusion ;
+    // et `fuse = false` en produit zero.
+    use genesis_core::event::EventKind;
+
+    let cfg = SimConfig::default();
+    let mut w = WorldState::new(1, &cfg);
+    let mut merges = 0u64;
+    for _ in 0..30_000 {
+        let ev = tick(&mut w, &cfg);
+        for e in &ev {
+            if let EventKind::CellsMerged { cell, absorbed, size } = e.kind {
+                merges += 1;
+                assert_ne!(cell, absorbed, "une cellule fusionne avec elle-meme");
+                assert!(!w.cells.iter().any(|c| c.id == absorbed), "cellule absorbee encore la");
+                assert!(size >= cfg.cells.min_members, "fusion sous la taille minimale");
+            }
+        }
+        // Invariant d'effectif : la somme des effectifs de cellule egale les entites taguees,
+        // meme les ticks ou une fusion vient d'avoir lieu.
+        let tagged = w.entities.iter().filter(|e| e.cell_id.is_some()).count() as u32;
+        let members: u32 = w.cells.iter().map(|c| c.member_count).sum();
+        assert_eq!(members, tagged, "effectifs incoherents au tick {}", w.tick);
+        if w.entities.is_empty() {
+            break;
+        }
+    }
+    assert!(merges > 0, "aucune fusion de cellule en 30000 ticks (graine 1)");
+    assert_eq!(merges, w.cells_merged_total, "compteur de fusion desynchronise");
+
+    // fuse = false : plus aucune fusion.
+    let mut off = cfg.clone();
+    off.cells.fuse = false;
+    let mut w2 = WorldState::new(1, &off);
+    for _ in 0..30_000 {
+        let ev = tick(&mut w2, &off);
+        assert!(
+            !ev.iter().any(|e| matches!(e.kind, EventKind::CellsMerged { .. })),
+            "fusion alors que fuse = false, tick {}",
+            w2.tick
+        );
+        if w2.entities.is_empty() {
+            break;
+        }
+    }
+    assert_eq!(w2.cells_merged_total, 0);
+}

@@ -938,6 +938,78 @@ fn cell_phase(
         }
     }
 
+    // -- 3b. Fusion : deux membranes stables qui se chevauchent et dont les genomes moyens se
+    //    ressemblent n'en font plus qu'une. La plus grosse garde son identite et son histoire ;
+    //    la petite y disparait. Rien ne declenche ca a la main : c'est une condition
+    //    geometrique et genetique que le monde franchit tout seul quand deux cellules parentes
+    //    derivent l'une dans l'autre (T-7). Ordre stable (cells triees par id), une fusion par
+    //    cellule et par tick, decisions d'abord puis application.
+    if cc.fuse && world.cells.len() >= 2 {
+        let n = world.cells.len();
+        let mut taken: Vec<bool> = vec![false; n];
+        let mut pairs: Vec<(u32, u32)> = Vec::new();
+        for a in 0..n {
+            if taken[a] {
+                continue;
+            }
+            for b in (a + 1)..n {
+                if taken[b] {
+                    continue;
+                }
+                let (ca, cb) = (&world.cells[a], &world.cells[b]);
+                if t.saturating_sub(ca.formed_tick) < cc.grace_ticks
+                    || t.saturating_sub(cb.formed_tick) < cc.grace_ticks
+                {
+                    continue;
+                }
+                let d2 = (ca.position.x - cb.position.x).powi(2)
+                    + (ca.position.y - cb.position.y).powi(2);
+                let reach = (ca.radius + cb.radius) * cc.fuse_overlap;
+                if d2 > reach * reach {
+                    continue;
+                }
+                if trait_l1(&ca.mean_traits, &cb.mean_traits) > cc.fuse_kin {
+                    continue;
+                }
+                // le plus gros garde son id (a effectif egal, le plus ancien = le plus petit id)
+                let (keep, gone) = if ca.member_count >= cb.member_count {
+                    (ca.id, cb.id)
+                } else {
+                    (cb.id, ca.id)
+                };
+                taken[a] = true;
+                taken[b] = true;
+                pairs.push((keep, gone));
+                break;
+            }
+        }
+        for (keep, gone) in pairs {
+            let gone_count = world
+                .cells
+                .iter()
+                .find(|c| c.id == gone)
+                .map(|c| c.member_count)
+                .unwrap_or(0);
+            for e in world.entities.iter_mut() {
+                if e.cell_id == Some(gone) {
+                    e.cell_id = Some(keep);
+                }
+            }
+            world.cells.retain(|c| c.id != gone);
+            let size = world.cell_mut(keep).map_or(0, |c| {
+                c.member_count += gone_count;
+                c.member_count
+            });
+            world.cells_merged_total += 1;
+            emit(
+                events,
+                &mut world.next_event_seq,
+                t,
+                EventKind::CellsMerged { cell: keep, absorbed: gone, size },
+            );
+        }
+    }
+
     // -- 4. Detection de nouvelles cellules, tous les `check_every` ticks.
     if cc.check_every == 0 || t % cc.check_every != 0 {
         return;

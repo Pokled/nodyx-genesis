@@ -134,7 +134,8 @@
   .fe.espece .b { color:var(--green); }
   .fe.effondrement .b { color:var(--rose); }
   .fe.extinction .b { color:var(--violet); }
-  .fe.genese .t, .fe.palier .t, .fe.espece .t, .fe.effondrement .t, .fe.extinction .t { color:var(--amber); }
+  .fe.fusion .b { color:var(--cyan); }
+  .fe.genese .t, .fe.palier .t, .fe.espece .t, .fe.effondrement .t, .fe.extinction .t, .fe.fusion .t { color:var(--amber); }
 
   /* --- bottom right : history + records --- */
   .foot-r { grid-area:foot-r; border-top:1px solid var(--line); border-left:1px solid var(--line);
@@ -177,6 +178,8 @@
   #card.effondrement .rule { background:var(--rose); } #card.effondrement .badge { color:var(--rose); }
   #card.extinction .rule { background:var(--violet); } #card.extinction .badge { color:var(--violet); }
   #card.genese .rule { background:var(--amber); } #card.genese .badge { color:var(--amber); }
+  #card.fusion .rule { background:var(--cyan); } #card.fusion .badge { color:var(--cyan); }
+  #card.fusion { border-color:rgba(82,230,223,.4); box-shadow:0 30px 90px rgba(0,0,0,.65), 0 0 60px rgba(82,230,223,.15); }
 
   /* --- banniere record --- */
   #record {
@@ -468,6 +471,7 @@ function applyLive(L) {
       statRow('cases epuisees', L.depleted_pct.toFixed(1) + ' %') +
       statRow('cases occupees', fr(L.occupied_cells)) +
       statRow('cellules vivantes', fr(L.cells_alive)) +
+      statRow('fusions de cellules', fr(L.cells_merged || 0), 'wide') +
     '</div>' +
     '<div class="h2">Cognition et voix</div><div class="rows">' +
       statRow('agents vivants', fr(L.agents_alive)) +

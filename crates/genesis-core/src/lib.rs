@@ -61,4 +61,7 @@ pub const ENGINE_VERSION: &str = env!("CARGO_PKG_VERSION");
 ///       tot de vieillesse.
 /// v14 : la Voix (`WorldState.signals`) : jalon 0.0.4 tranche 1. Un agent sous le choc d'une
 ///       famine emet une alarme ; les agents proches ont un sursaut de peur. Aucun lexique.
-pub const SCHEMA_VERSION: u32 = 14;
+/// v15 : fusion de cellules (`WorldState.cells_merged_total`, `EventKind::CellsMerged`). Deux
+///       membranes stables, chevauchantes et parentes n'en font plus qu'une ; la plus grosse
+///       garde son identite. Emergent (condition geometrique et genetique), pas scripte.
+pub const SCHEMA_VERSION: u32 = 15;

@@ -162,11 +162,13 @@ pub struct WorldState {
     /// Rend visible quand la matiere est le facteur limitant.
     #[serde(default)]
     pub repro_blocked_materials: u64,
-    /// Cellules formees et dissoutes depuis le debut du monde. Cumule.
+    /// Cellules formees, dissoutes et fusionnees depuis le debut du monde. Cumule.
     #[serde(default)]
     pub cells_formed_total: u64,
     #[serde(default)]
     pub cells_dissolved_total: u64,
+    #[serde(default)]
+    pub cells_merged_total: u64,
 
     /// La Voix (0.0.4) : les signaux vivants du monde. Vides la plupart du temps ; en famine,
     /// une nuee d'alarmes. Bornes en nombre et en duree (voir `[voice]`).
@@ -245,6 +247,7 @@ impl WorldState {
             repro_blocked_materials: 0,
             cells_formed_total: 0,
             cells_dissolved_total: 0,
+            cells_merged_total: 0,
             signals: Vec::new(),
             watch: Watch {
                 pop_history: Vec::new(),

@@ -134,6 +134,17 @@ persist_checks    = 4      # contrôles consécutifs où le candidat doit tenir 
 leave_factor      = 1.9    # un membre à plus de rayon * ce facteur du centre quitte la cellule
 energy_share      = 0.15   # fraction de l'écart à la moyenne d'énergie de la cellule corrigée par tick
 cell_birth_relief = 0.4    # part d'échec de division en moins pour un membre de cellule
+# Fusion (schéma v15) : deux cellules stables dont les membranes se chevauchent et dont les
+# génomes moyens se ressemblent n'en font plus qu'une. La plus grosse garde son identité et
+# son histoire, la petite y disparaît. Émergent : aucune règle ne la déclenche, c'est une
+# condition géométrique et génétique que le monde franchit quand deux cellules parentes
+# dérivent l'une dans l'autre. A/B graine 1, 60k ticks, contre `fuse = false` : dissolutions
+# de cellule -36 % (les petites cellules en peine fusionnent au lieu de mourir), diversité
+# génétique finale -12 % (0,059 -> 0,052 ; la fusion consolide), famine +11 %, naissances
+# +5 %. La cellule devient un niveau d'organisation qui s'agrège.
+fuse         = true
+fuse_overlap = 0.5     # chevauchement exigé : distance(centres) < (r1 + r2) * ce facteur
+fuse_kin     = 0.9     # ... et distance L1 des génomes moyens des deux cellules sous ce seuil
 
 [cognition]
 # Cognition (0.0.3, tranche 1 « le premier souvenir »). Une entité qui perçoit assez bien
