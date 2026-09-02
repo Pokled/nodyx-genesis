@@ -168,6 +168,11 @@ pub struct WorldState {
     #[serde(default)]
     pub cells_dissolved_total: u64,
 
+    /// La Voix (0.0.4) : les signaux vivants du monde. Vides la plupart du temps ; en famine,
+    /// une nuee d'alarmes. Bornes en nombre et en duree (voir `[voice]`).
+    #[serde(default)]
+    pub signals: Vec<crate::voice::Signal>,
+
     pub watch: Watch,
 }
 
@@ -240,6 +245,7 @@ impl WorldState {
             repro_blocked_materials: 0,
             cells_formed_total: 0,
             cells_dissolved_total: 0,
+            signals: Vec::new(),
             watch: Watch {
                 pop_history: Vec::new(),
                 milestone_hi: 0,

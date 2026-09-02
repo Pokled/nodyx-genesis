@@ -307,6 +307,41 @@ fn social_ties_form() {
 }
 
 #[test]
+fn alarms_are_emitted_and_bounded() {
+    // La Voix (0.0.4, tranche 1) : les agents affames crient. Les signaux restent bornes en
+    // nombre et en duree, leurs positions sont dans la grille, et il s'en emet reellement.
+    let cfg = SimConfig::default();
+    let ttl = cfg.voice.signal_ttl;
+    let cap = cfg.voice.max_signals;
+    let (w, h) = (cfg.world.grid_width as f32, cfg.world.grid_height as f32);
+    let mut ws = WorldState::new(1, &cfg);
+    let mut ever = false;
+    for _ in 0..40_000 {
+        let _ = tick(&mut ws, &cfg);
+        assert!(ws.signals.len() <= cap, "trop de signaux : {}", ws.signals.len());
+        for s in ws.signals.iter() {
+            assert!(
+                ws.tick.saturating_sub(s.born) < ttl,
+                "signal trop vieux au tick {}",
+                ws.tick
+            );
+            assert!(
+                s.pos.x >= 0.0 && s.pos.x < w && s.pos.y >= 0.0 && s.pos.y < h,
+                "signal hors grille : {:?}",
+                s.pos
+            );
+        }
+        if !ws.signals.is_empty() {
+            ever = true;
+        }
+        if ws.entities.is_empty() {
+            break;
+        }
+    }
+    assert!(ever, "aucune alarme emise en 40000 ticks");
+}
+
+#[test]
 fn health_stays_bounded() {
     // Biologie de fond (0.0.3, tranche 8) : `Entity.health` reste dans [0, 1] a chaque tick.
     // Un corps vieux et eprouve descend sous 0.9 ; un corps jeune et rassasie tient au-dessus

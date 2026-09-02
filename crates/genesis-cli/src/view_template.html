@@ -367,6 +367,7 @@
     <h2>Agents</h2>
     <div class="stat"><span class="tip" data-tip="Entites eveillees : elles portent une memoire episodique. Un agent evite les lieux ou il a failli mourir. Anneau violet sur la scene.">agents vivants</span><b id="s-agents">0</b></div>
     <div class="stat"><span class="tip" data-tip="Nombre moyen de souvenirs episodiques que portent les agents.">souvenirs (moyenne)</span><b id="s-agmem">0</b></div>
+    <div class="stat"><span class="tip" data-tip="La Voix (0.0.4) : alarmes vivantes a cet instant. Un agent affame crie ; les agents proches ont un sursaut de peur, sans former de souvenir. Anneaux roses sur la scene.">alarmes vives</span><b id="s-alarms">0</b></div>
     <p style="color:var(--muted);font-size:.72rem;margin:14px 0 0;line-height:1.5;">Cliquez un point sur la scene pour rencontrer l'individu : sa lignee, son age, et s'il se souvient, ses souvenirs et ses relations. En periode peuplee, seuls les anciens restent des points distincts parmi les amas.</p>
   </div>
 </aside>
@@ -985,6 +986,21 @@ function draw(p) {
   const cs = A.cells || [];
   for (let k = 0; k < cs.length; k++) paintCell(cs[k], tsec);
 
+  // La Voix : les alarmes vivantes, un anneau rose qui s'ecarte. La panique se voit.
+  const sig = A.signals || [];
+  if (sig.length) {
+    const gs2 = geoScale();
+    for (let k = 0; k < sig.length; k++) {
+      const sx = geoOx + (sig[k][0] / PS) * geoS, sy = geoOy + (sig[k][1] / PS) * geoS;
+      const a = Math.min(1, sig[k][2] / 4);            // age 0..1 sur la duree de vie
+      ctx.globalAlpha = (1 - a) * 0.5;
+      ctx.strokeStyle = 'rgba(255,143,160,0.95)';
+      ctx.lineWidth = 1.3;
+      ctx.beginPath(); ctx.arc(sx, sy, (2 + a * 9) * gs2, 0, 6.2832); ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+  }
+
   // Individu selectionne : un anneau clair qui pulse, et un viseur discret si on le suit.
   if (selScreen) {
     const pr = 6 + Math.sin(tsec * 3) * 1.6;
@@ -1155,6 +1171,7 @@ function updatePanels(i) {
   set('s-cellfd', (st.cells_formed_total || 0).toLocaleString('fr') + ' / ' + (st.cells_dissolved_total || 0).toLocaleString('fr'));
   set('s-agents', (st.agents_alive || 0).toLocaleString('fr'));
   set('s-agmem', (st.mean_memories || 0).toFixed(1));
+  set('s-alarms', ((f.signals && f.signals.length) || 0).toLocaleString('fr'));
 
   for (let k = 0; k < TRAITS.length; k++) {
     const v = st.trait_mean[k];

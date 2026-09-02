@@ -326,6 +326,9 @@ pub fn tick(world: &mut WorldState, cfg: &SimConfig) -> Vec<Event> {
     let peril_energy = cfg.cognition.peril_frac * repro_threshold;
     let bounty_abs = cfg.cognition.bounty_abs;
     let shock_interval = cfg.cognition.shock_interval;
+    // La Voix (0.0.4) : les agents qui prennent un choc de famine ce tick crient. On
+    // collecte pendant la boucle (emprunt exclusif de `entities[i]`), on pousse apres.
+    let mut new_alarms: Vec<Position> = Vec::new();
     for i in 0..world.entities.len() {
         let (pos, burn, want0, restraint) = {
             let e = &world.entities[i];
@@ -358,10 +361,26 @@ pub fn tick(world: &mut WorldState, cfg: &SimConfig) -> Vec<Event> {
         if !recent {
             if e.energy < peril_energy {
                 e.last_shock = Some(crate::cognition::Shock { tick: t, place: e.position, peril: true });
+                // Un agent qui frole la mort crie : il emet une alarme a sa position.
+                if e.mind.is_some() {
+                    new_alarms.push(e.position);
+                }
             } else if gain > bounty_abs {
                 e.last_shock = Some(crate::cognition::Shock { tick: t, place: e.position, peril: false });
             }
         }
+    }
+
+    // -- Voix : on efface les vieux signaux, on ajoute les alarmes du tick, on borne.
+    let voice_ttl = cfg.voice.signal_ttl.max(1);
+    world.signals.retain(|s| t.saturating_sub(s.born) < voice_ttl);
+    for pos in new_alarms {
+        world.signals.push(crate::voice::Signal { pos, born: t });
+    }
+    let max_sig = cfg.voice.max_signals.max(1);
+    if world.signals.len() > max_sig {
+        let drop = world.signals.len() - max_sig;
+        world.signals.drain(0..drop);
     }
 
     drop(_sp.take()); _sp = prof::Span::start(4);
@@ -1113,6 +1132,10 @@ fn cognition_phase(
     // Le controle social est couteux (une requete spatiale par agent) : tous les N ticks.
     let social_tick = cg.social_check_every.max(1);
     let do_social = t % social_tick == 0;
+    // Voix (0.0.4) : perception des alarmes. Balayage lineaire, `signals` est borne.
+    let alarm_r2 = cfg.voice.signal_radius.max(0.1) * cfg.voice.signal_radius.max(0.1);
+    let alarm_fear = cfg.voice.alarm_fear;
+    let hear_alarms = alarm_fear > 0.0 && !world.signals.is_empty();
 
     for i in 0..world.entities.len() {
         // Age attendu de l'entite, pour le seuil de maturite cognitive.
@@ -1124,6 +1147,16 @@ fn cognition_phase(
             let e = &world.entities[i];
             (e.position, e.energy, e.colony_support)
         };
+
+        // Une alarme a portee ? (avant le `&mut mind`). On ignore la sienne : `born == t` et
+        // meme position exacte serait un cas limite, mais l'alarme d'un autre a la meme case
+        // compte, c'est voulu (la panique se partage).
+        let near_alarm = hear_alarms
+            && world.entities[i].mind.is_some()
+            && world
+                .signals
+                .iter()
+                .any(|s| epos.dist2(&s.pos) <= alarm_r2 && !(s.born == t && s.pos == epos));
 
         // Agents proches : collectes avant le `&mut mind` (conflit de borrow sinon).
         let mut near_agents: Vec<EntityId> = Vec::new();
@@ -1179,6 +1212,11 @@ fn cognition_phase(
                 shock_peril_recent,
                 solitude,
             );
+            // Voix : entendre une alarme fait sursauter la peur, sans former de souvenir.
+            // Transitoire : elle redescend ensuite via `fear_relief`.
+            if near_alarm {
+                mind.needs.fear = mind.needs.fear.max(alarm_fear);
+            }
 
             // Souvenirs sociaux : qui etait la, et l'agent se sentait-il bien (tous les N ticks).
             if do_social {

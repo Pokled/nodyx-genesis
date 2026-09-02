@@ -207,6 +207,17 @@ même affamé, la solitude fait dériver vers les siens. En tranche 6, `Mind.mod
 laquelle de ces forces a **dominé** la décision (une lecture, pas un changement de
 comportement) : la biographie peut alors dire « elle a fui plutôt que de manger ».
 
+## La Voix, le premier signal (0.0.4, tranche 1)
+
+`WorldState.signals: Vec<Signal>` (schema v14). `Signal { pos: Position, born: u64 }`. En
+0.0.4 tranche 1 tous les signaux sont des **alarmes** : un agent qui subit le choc d'une
+famine (`Entity.last_shock` posé, `peril = true`, phase 5) crie à sa position. En phase 5c,
+tout agent à moins de `voice.signal_radius` d'un signal voit sa peur monter au moins à
+`voice.alarm_fear`, **sans former de souvenir** : contagion brève, la peur redescend ensuite.
+Un signal vit `voice.signal_ttl` ticks ; la liste est bornée à `voice.max_signals` (les plus
+récents). Aucun lexique : c'est le premier étage vers le langage émergent (`06_EMERGENCE.md`
+reste à écrire). `ViewFrame.signals` porte `[x, y, age]` pour l'affichage.
+
 ## Santé, la biologie de fond (0.0.3, tranche 8)
 
 `Entity.health` dans [0, 1] (schema v13) consolide la condition biologique en un seul

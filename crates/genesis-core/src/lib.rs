@@ -20,9 +20,11 @@ pub mod persist;
 pub mod rng;
 pub mod sim;
 pub mod spatial;
+pub mod voice;
 pub mod world;
 
 pub use cognition::{BehaviorMode, Memory, MemoryKind, Mind, Needs, Shock, SocialTie};
+pub use voice::Signal;
 pub use config::SimConfig;
 pub use entity::{Action, Entity, EntityId, Position};
 pub use event::{DeathCause, Event, EventKind};
@@ -57,4 +59,6 @@ pub const ENGINE_VERSION: &str = env!("CARGO_PKG_VERSION");
 /// v13 : sante (`Entity.health`) : la biologie devient un etat de fond consolide (famines
 ///       repetees, vieillesse) que la cognition lit ; un corps use se traine et meurt plus
 ///       tot de vieillesse.
-pub const SCHEMA_VERSION: u32 = 13;
+/// v14 : la Voix (`WorldState.signals`) : jalon 0.0.4 tranche 1. Un agent sous le choc d'une
+///       famine emet une alarme ; les agents proches ont un sursaut de peur. Aucun lexique.
+pub const SCHEMA_VERSION: u32 = 14;

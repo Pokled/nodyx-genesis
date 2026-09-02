@@ -23,6 +23,7 @@ pub struct SimConfig {
     pub cohesion: CohesionCfg,
     pub cells: CellsCfg,
     pub cognition: CognitionCfg,
+    pub voice: VoiceCfg,
     pub watch: WatchCfg,
     pub view: ViewCfg,
     pub persistence: PersistenceCfg,
@@ -45,6 +46,7 @@ impl Default for SimConfig {
             cohesion: CohesionCfg::default(),
             cells: CellsCfg::default(),
             cognition: CognitionCfg::default(),
+            voice: VoiceCfg::default(),
             watch: WatchCfg::default(),
             view: ViewCfg::default(),
             persistence: PersistenceCfg::default(),
@@ -542,6 +544,31 @@ impl Default for CognitionCfg {
             social_eps: 0.03,
             friend_pull: 0.5,
         }
+    }
+}
+
+/// La Voix (jalon 0.0.4, tranche 1). Un agent qui subit le choc d'une famine emet une
+/// alarme a sa position. Les agents a moins de `signal_radius` la percoivent : leur peur
+/// monte au moins a `alarm_fear`, sans qu'aucun souvenir ne se forme (contagion breve, la
+/// peur redescend ensuite via `fear_relief`). Un signal vit `signal_ttl` ticks. Aucun
+/// lexique : c'est le premier etage vers le langage emergent (`06_EMERGENCE.md`).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct VoiceCfg {
+    /// Portee de perception d'un signal, en cases.
+    pub signal_radius: f32,
+    /// Duree de vie d'un signal, en ticks.
+    pub signal_ttl: u64,
+    /// Plancher de peur impose a un agent qui percoit une alarme. `0` desactive l'effet
+    /// (pour l'A/B) : les alarmes sont alors emises et visibles mais sans consequence.
+    pub alarm_fear: f32,
+    /// Nombre maximal de signaux vivants a la fois. En famine generale, on n'en garde que
+    /// les plus recents : de quoi peindre la panique sans balayer des millions de paires.
+    pub max_signals: usize,
+}
+impl Default for VoiceCfg {
+    fn default() -> Self {
+        VoiceCfg { signal_radius: 5.0, signal_ttl: 4, alarm_fear: 0.5, max_signals: 128 }
     }
 }
 
