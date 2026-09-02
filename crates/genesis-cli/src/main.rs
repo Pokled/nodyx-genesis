@@ -9,6 +9,7 @@
 //! `replay` rejoue le monde depuis sa graine et verifie qu'il retombe exactement sur le
 //! meme etat final. C'est le moment public de 0.0.1.
 
+mod gallery_html;
 mod index_html;
 mod lives_html;
 mod series_html;
@@ -151,6 +152,7 @@ fn main() -> ExitCode {
     let result = match cmd {
         "run" => cmd_run(&flags),
         "replay" => cmd_replay(&flags, args.get(1).cloned()),
+        "gallery" => cmd_gallery(args.get(1).cloned().unwrap_or_else(|| "worlds".to_string())),
         "-h" | "--help" | "help" => {
             println!("{}", USAGE);
             Ok(())
@@ -179,6 +181,10 @@ genesis, Nodyx Genesis 0.0.1
 
   genesis replay <dossier-monde>
       Rejoue le monde depuis sa graine et verifie l'etat final. Deterministe : OK ou DIFF.
+
+  genesis gallery [dossier]
+      Reconstruit <dossier>/index.html : la grille de tous les mondes du dossier
+      (defaut : worlds). Reconstruite aussi a chaque run.
 ";
 
 // ---------------------------------------------------------------------------
@@ -521,6 +527,14 @@ fn cmd_run(flags: &HashMap<String, String>) -> std::io::Result<()> {
         std::fs::write(wdir.root.join("index.html"), index_html::render(&digest))?;
     }
 
+    // La bibliotheque : on reconstruit la page de garde du dossier parent (sans faille
+    // fatale si ca echoue).
+    if let Some(parent) = wdir.root.parent() {
+        if let Err(e) = build_gallery(parent) {
+            eprintln!("note : la bibliotheque n'a pas pu etre reconstruite ({e})");
+        }
+    }
+
     println!("Monde w{seed}");
     println!("  ticks joues       {}", world.tick);
     println!("  population finale  {}", world.population());
@@ -611,6 +625,81 @@ fn cmd_replay(_flags: &HashMap<String, String>, positional: Option<String>) -> s
 }
 
 // ---------------------------------------------------------------------------
+
+/// `genesis gallery [dossier]` : reconstruit la page de garde de la bibliotheque.
+fn cmd_gallery(dir: String) -> std::io::Result<()> {
+    let path = Path::new(&dir);
+    build_gallery(path)?;
+    println!("Bibliotheque : {}", path.join("index.html").display());
+    Ok(())
+}
+
+/// Scanne un dossier de mondes et ecrit `<dossier>/index.html`, la grille de tous les mondes.
+fn build_gallery(dir: &Path) -> std::io::Result<()> {
+    let mut cards: Vec<gallery_html::Card> = Vec::new();
+    for entry in std::fs::read_dir(dir)? {
+        let entry = entry?;
+        if !entry.file_type()?.is_dir() {
+            continue;
+        }
+        let root = entry.path();
+        let meta_path = root.join("meta.json");
+        if !meta_path.exists() {
+            continue;
+        }
+        let name = root
+            .file_name()
+            .map(|s| s.to_string_lossy().into_owned())
+            .unwrap_or_default();
+        let meta: WorldMeta = match std::fs::read_to_string(&meta_path)
+            .ok()
+            .and_then(|t| serde_json::from_str(&t).ok())
+        {
+            Some(m) => m,
+            None => continue,
+        };
+        let sec_year = SimConfig::load(&root.join("config.toml"))
+            .map(|c| c.time.tick_duration_seconds)
+            .unwrap_or(3600) as f64;
+        let years = (meta.ticks_played as f64 * sec_year / (3600.0 * 24.0 * 365.0)) as u64;
+
+        // Serie temporelle : toutes les lignes pour la mini-courbe, la derniere pour l'etat.
+        let series_txt = std::fs::read_to_string(root.join("series.jsonl")).unwrap_or_default();
+        let rows: Vec<serde_json::Value> = series_txt
+            .lines()
+            .filter(|l| !l.trim().is_empty())
+            .filter_map(|l| serde_json::from_str(l).ok())
+            .collect();
+        let last = rows.last().cloned().unwrap_or(serde_json::json!({}));
+        let num = |v: &serde_json::Value, k: &str| v.get(k).and_then(|x| x.as_f64()).unwrap_or(0.0);
+        let pop = num(&last, "population") as u32;
+        let dom_lin = num(&last, "dominant_lineage") as u16;
+        let pop_series: Vec<u32> = rows.iter().map(|r| num(r, "population") as u32).collect();
+
+        let agents_awoke = std::fs::read_to_string(root.join("lives.jsonl"))
+            .map(|t| t.lines().filter(|l| !l.trim().is_empty()).count())
+            .unwrap_or(0);
+
+        cards.push(gallery_html::Card {
+            name,
+            seed: meta.seed,
+            schema: meta.schema_version,
+            ticks: meta.ticks_played,
+            years,
+            pop,
+            carrying: num(&last, "carrying_capacity") as u32,
+            generations: num(&last, "max_generation") as u32,
+            diversity: num(&last, "genetic_diversity") as f32,
+            agents_alive: num(&last, "agents_alive") as u32,
+            agents_awoke,
+            dominant: genesis_core::names::lineage_name(dom_lin),
+            pop_series,
+            extinct: pop == 0,
+        });
+    }
+    cards.sort_by(|a, b| a.name.cmp(&b.name));
+    std::fs::write(dir.join("index.html"), gallery_html::render(&cards))
+}
 
 fn write_frames_jsonl(root: &Path, frames: &[ViewFrame]) -> std::io::Result<()> {
     write_jsonl(&root.join("frames.jsonl"), frames)

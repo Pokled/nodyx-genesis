@@ -257,6 +257,8 @@ pub struct SeriesRow {
     pub generation_spread: f32,
     pub max_generation: u32,
     pub genetic_diversity: f32,
+    /// Indice de la lignee fondatrice la plus repandue (le lecteur en tire un nom).
+    pub dominant_lineage: u16,
     pub cells_alive: u32,
     pub entities_in_cells: u32,
     /// Agents vivants (0.0.3, tranche 1).
@@ -292,6 +294,7 @@ pub fn series_row(world: &WorldState, cfg: &SimConfig) -> SeriesRow {
         generation_spread,
         max_generation,
         genetic_diversity: world.genetic_diversity(),
+        dominant_lineage: world.dominant_lineage(),
         cells_alive,
         entities_in_cells,
         agents_alive,
