@@ -172,9 +172,16 @@ struct Mind {
     episodic:   Vec<Memory>,   // borné à max_memories, le plus faible cède la place
     needs:      Needs,         // (0.0.3 tranche 4) faim, peur, solitude ; pondèrent le comportement
     mode:       BehaviorMode,  // (0.0.3 tranche 6) forage | flee | join | seek_bounty | wander
+    social:     Vec<SocialTie>,// (0.0.3 tranche 7) relations vers d'autres agents, borné à 8
 }
 
 struct Needs { hunger: f32, fear: f32, solitude: f32 }   // chacune dans [0, 1]
+
+struct SocialTie {
+    other:       EntityId,
+    familiarity: f32,   // (0, 1] : monte quand l'agent est proche de `other`, décroît lentement
+    valence:     f32,   // [-1, 1] : + si l'agent se sentait bien près de `other`, - sinon
+}
 
 struct Memory {
     formed_tick: u64,

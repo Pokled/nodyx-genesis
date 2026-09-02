@@ -80,6 +80,9 @@ struct AgentLife {
     /// "vivant" | "mort" | "sommeil"
     ended: &'static str,
     memories: Vec<Memory>,
+    /// Les relations sociales de fin de vie : (id de l'autre, familiarite, valence).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    ties: Vec<(EntityId, f32, f32)>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     beats: Vec<LifeBeat>,
     /// (tick, genre) des evenements objectifs qui nomment cet agent.
@@ -121,6 +124,7 @@ fn new_life(e: &genesis_core::Entity, awoke_tick: u64) -> AgentLife {
         ended_tick: None,
         ended: "vivant",
         memories: Vec::new(),
+        ties: Vec::new(),
         beats: Vec::new(),
         events: Vec::new(),
     }
@@ -334,6 +338,11 @@ fn cmd_run(flags: &HashMap<String, String>) -> std::io::Result<()> {
                     }
                     if let Some(m) = x.mind.as_deref() {
                         l.memories = m.episodic.clone();
+                        l.ties = m
+                            .social
+                            .iter()
+                            .map(|s| (s.other, s.familiarity, s.valence))
+                            .collect();
                     }
                 }
             }
@@ -368,6 +377,11 @@ fn cmd_run(flags: &HashMap<String, String>) -> std::io::Result<()> {
         if let Some(m) = &e.mind {
             let l = lives.entry(e.id).or_insert_with(|| new_life(e, m.awoke_tick));
             l.memories = m.episodic.clone();
+            l.ties = m
+                .social
+                .iter()
+                .map(|s| (s.other, s.familiarity, s.valence))
+                .collect();
         }
     }
     // Duree comme agent, pour trier les vies : les plus longues d'abord.

@@ -69,8 +69,9 @@ famine frolee), mort vue (un des siens qui meurt, souvenir ancre sur l'evenement
 (un repas rare), avec une force qui s'efface avec le temps. Trois jauges internes, la faim,
 la peur et la solitude, montent et descendent selon ce qu'il vit. A chaque decision il
 choisit explicitement un mode, celui de plus grande utilite : manger, fuir un lieu de
-danger, suivre les siens, retourner a une aubaine, ou errer. Voici quelques vies, et ce
-qu'on peut en lire sans jamais rien leur demander.</p>
+danger, suivre les siens, retourner a une aubaine, ou errer. Il reconnait aussi les autres
+agents qu'il croise souvent : une memoire de personnes. Voici quelques vies, et ce qu'on
+peut en lire sans jamais rien leur demander.</p>
 
 <div class="legend" id="legend"></div>
 <div id="overview"></div>
@@ -350,6 +351,17 @@ function prose(life) {
     // Un moment ou il a choisi de fuir alors qu'il avait faim.
     const dilemma = (life.beats || []).find(x => x.md === 'flee' && x.n && x.n[0] > 45);
     if (dilemma) parts.push(`Au tick ${num(dilemma.tick)}, affame (faim ${(dilemma.n[0] / 100).toFixed(2)}) et effraye, il a quand meme choisi de fuir plutot que de manger.`);
+  }
+
+  // Relations : les agents qu'il a le plus cotoyes.
+  const ties = (life.ties || []).slice().sort((a, b) => b[1] - a[1]);
+  if (ties.length) {
+    const top = ties[0];
+    const feel = top[2] > 0.15 ? ', qu\'il appreciait' : (top[2] < -0.15 ? ', qu\'il tenait a distance' : '');
+    let r = `Cote relations : il a surtout cotoye l'individu ${top[0]} (familiarite ${top[1].toFixed(2)}${feel})`;
+    const avoided = ties.filter(x => x[2] < -0.15).sort((a, b) => a[2] - b[2])[0];
+    if (avoided && avoided[0] !== top[0]) r += ` ; il gardait ses distances avec le ${avoided[0]}`;
+    parts.push(r + '.');
   }
 
   const divisions = (life.events || []).filter(e => e[1] === 'division').length;

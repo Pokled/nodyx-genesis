@@ -1,11 +1,12 @@
 # 05. Cognition
 
-Statut : TRANCHES 1 A 6 FAITES (le premier souvenir, la biographie, les souvenirs ancrés,
-les besoins, la personnalité héritée, le mode de comportement lisible). La mémoire
-épisodique tourne, se lit dans `lives.html`, un souvenir de mort vue pointe le fait
-objectif, l'agent a un état interne (faim, peur, solitude), une personnalité (prudence,
-curiosité) transmise avec mutation, et sa biographie dit quelle force a dominé chaque
-décision. L'architecture détaillée (Context Builder, Model Router, RAG) attend 0.0.5.
+Statut : TRANCHES 1 A 7 FAITES (le premier souvenir, la biographie, les souvenirs ancrés,
+les besoins, la personnalité héritée, le mode de comportement lisible, les souvenirs
+sociaux). La mémoire épisodique tourne, se lit dans `lives.html`, un souvenir de mort vue
+pointe le fait objectif, l'agent a un état interne, une personnalité transmise avec
+mutation, sa biographie dit quelle force a dominé chaque décision, et il reconnaît les
+autres agents qu'il croise souvent. L'architecture détaillée (Context Builder, Model
+Router, RAG) attend 0.0.5.
 
 **Monde de référence : `worlds/w2` = graine 1 depuis le schéma v10.** Le passage à 9 traits
 a décalé le flux RNG ; la graine 3 (référence des tranches 1 à 4) s'éteint désormais tôt.
@@ -276,8 +277,33 @@ prend le meilleur). Il était lisible mais moins efficace que le mélange (deux 
 morts par famine) : le choix discret abandonne les autres pulsions. La lecture-du-mélange
 garde la performance ET la légèreté.
 
-**Ce qui reste (tranche 7 et après).** Souvenirs sociaux (reconnaître un autre agent),
-dé-simulation de la biologie sous l'agent.
+## Tranche 7 : les souvenirs sociaux (fait, 2026-09-02)
+
+Un agent ne connaissait que des lieux. Maintenant il connaît des **personnes**. Schéma v12.
+`Mind.social: Vec<SocialTie>` (borné à `MAX_TIES` = 8). `SocialTie { other: EntityId,
+familiarity, valence }` :
+- `familiarity` (0, 1] : monte quand l'agent est proche de `other` (contrôle spatial tous
+  les `social_check_every` = 8 ticks, coûteux : une requête par agent), décroît lentement.
+  Une rencontre isolée s'efface ; ~64 ticks côte à côte donnent un lien fort.
+- `valence` [-1, 1] : glisse vers l'humeur de l'agent au moment du contact (`+1` si peu de
+  faim et peu de peur, `-1` si peur vive). « Qui était là quand ça allait. »
+
+Effet de comportement (léger) : quand un agent isolé glisse vers les siens (mode `join`),
+`friend_pull` (0,5) de ce glissement vise son ami le plus familier de valence positive
+plutôt que le centre de masse. `friend_pull = 0` = comportement de la tranche 6.
+
+`lives.html` : phrase « Côté relations : il a surtout côtoyé l'individu 5128 (familiarité
+1.00, qu'il appréciait) ; il gardait ses distances avec le 4927. » `lives.jsonl` porte les
+relations de fin de vie.
+
+**Résultat (graine 1, 60000 ticks).** 3900 des ~4000 agents nouent des relations, ~7 en
+mémoire, familiarité moyenne 0,47. Valences surtout positives (la peur est rare dans une
+population dense et nourrie), quelques négatives. Effet de survie de `friend_pull` : faible
+(les agents sont rarement isolés). Déterministe byte-identique 1 vs 8 threads. Test
+`social_ties_form`. C'est le premier pas vers les groupes et le jalon 0.0.4 « Voix ».
+
+**Ce qui reste (0.0.3).** Dé-simulation de la biologie sous l'agent (marche de l'escalier).
+Ensuite : jalon 0.0.4, ou le modèle de temps à deux horloges (`04_SIMULATION.md`).
 
 ---
 

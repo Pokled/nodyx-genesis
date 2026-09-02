@@ -163,6 +163,7 @@ pub fn tick(world: &mut WorldState, cfg: &SimConfig) -> Vec<Event> {
     let cog_fear_gain = cfg.cognition.fear_gain;
     let cog_social_pull = cfg.cognition.social_pull;
     let cog_heritable = cfg.cognition.heritable_personality;
+    let cog_friend_pull = cfg.cognition.friend_pull;
     // (target, colony_support, mode) ; mode = 255 pour une entite sans esprit.
     let plans: Vec<Option<(Position, f32, u8)>> = entities_ref
         .par_iter()
@@ -231,6 +232,13 @@ pub fn tick(world: &mut WorldState, cfg: &SimConfig) -> Vec<Event> {
                             0.4 + 0.6 * e.genome.traits.perception,
                         )
                     };
+                    // Ami : l'agent le plus familier de valence positive, s'il est trouve.
+                    let friend = mind.top_friend().and_then(|fid| {
+                        entities_ref
+                            .binary_search_by_key(&fid, |x| x.id)
+                            .ok()
+                            .map(|fi| entities_ref[fi].position)
+                    });
                     let ctx = Decide {
                         pos,
                         forage,
@@ -240,6 +248,8 @@ pub fn tick(world: &mut WorldState, cfg: &SimConfig) -> Vec<Event> {
                         } else {
                             None
                         },
+                        friend,
+                        friend_pull: cog_friend_pull,
                         energy_frac: e.energy / repro_threshold,
                         caution,
                         curiosity,
@@ -363,7 +373,7 @@ pub fn tick(world: &mut WorldState, cfg: &SimConfig) -> Vec<Event> {
     //    ont vecu assez ; entretien de la memoire des agents (decroissance, nouveaux
     //    souvenirs) ; retombee des agents sans souvenir depuis longtemps. Sequentiel, sans
     //    RNG, avant la mort pour qu'un frole-la-mort non fatal soit memorise.
-    cognition_phase(world, cfg, t, &mut events);
+    cognition_phase(world, cfg, t, &index, &mut events);
 
     drop(_sp.take()); _sp = prof::Span::start(6);
     // -- Phase 6, cycle de vie : vieillissement, mort par famine ou par age. Sequentiel :
@@ -1055,13 +1065,24 @@ fn cell_detect(
 ///   retombe entite de fond (`AgentLapsed`).
 /// - Une entite non agent qui percoit assez, a vecu assez et vient de subir un choc
 ///   s'eveille (`AgentAwoke`) : elle gagne un `Mind` avec un premier souvenir.
-fn cognition_phase(world: &mut WorldState, cfg: &SimConfig, t: u64, events: &mut Vec<Event>) {
+fn cognition_phase(
+    world: &mut WorldState,
+    cfg: &SimConfig,
+    t: u64,
+    index: &SpatialHash,
+    events: &mut Vec<Event>,
+) {
     let cg = &cfg.cognition;
     let lifespan_mean = cfg.lifecycle.lifespan_ticks_mean as f32;
     let max_mem = cg.max_memories as usize;
     let repro_threshold = cfg.reproduction.energy_threshold.max(0.01);
     let support_cap = cfg.cohesion.support_cap.max(0.001);
     let fear_inv2s2 = 1.0 / (2.0 * cg.fear_radius.max(0.5) * cg.fear_radius.max(0.5));
+    let social_r = cg.social_radius.max(0.5);
+    let social_r2 = social_r * social_r;
+    // Le controle social est couteux (une requete spatiale par agent) : tous les N ticks.
+    let social_tick = cg.social_check_every.max(1);
+    let do_social = t % social_tick == 0;
 
     for i in 0..world.entities.len() {
         // Age attendu de l'entite, pour le seuil de maturite cognitive.
@@ -1073,6 +1094,21 @@ fn cognition_phase(world: &mut WorldState, cfg: &SimConfig, t: u64, events: &mut
             let e = &world.entities[i];
             (e.position, e.energy, e.colony_support)
         };
+
+        // Agents proches : collectes avant le `&mut mind` (conflit de borrow sinon).
+        let mut near_agents: Vec<EntityId> = Vec::new();
+        if do_social && world.entities[i].mind.is_some() {
+            index.for_each_neighbor(epos, social_r, |nidx| {
+                let j = nidx as usize;
+                if j == i {
+                    return;
+                }
+                let nb = &world.entities[j];
+                if nb.mind.is_some() && epos.dist2(&nb.position) <= social_r2 {
+                    near_agents.push(nb.id);
+                }
+            });
+        }
 
         if let Some(mind) = world.entities[i].mind.as_deref_mut() {
             mind.decay_and_prune(cg.memory_decay, cg.memory_eps);
@@ -1113,6 +1149,23 @@ fn cognition_phase(world: &mut WorldState, cfg: &SimConfig, t: u64, events: &mut
                 shock_peril_recent,
                 solitude,
             );
+
+            // Souvenirs sociaux : qui etait la, et l'agent se sentait-il bien (tous les N ticks).
+            if do_social {
+                mind.decay_social(cg.social_decay, cg.social_eps);
+                if !near_agents.is_empty() {
+                    let mood = if mind.needs.fear > 0.5 {
+                        -1.0
+                    } else if mind.needs.fear < 0.2 && mind.needs.hunger < 0.4 {
+                        1.0
+                    } else {
+                        0.0
+                    };
+                    for &oid in &near_agents {
+                        mind.touch_tie(oid, cg.social_fam_gain, mood);
+                    }
+                }
+            }
 
             // Retombee : plus aucun souvenir, et l'agent a passe le delai de grace et de latence.
             let since_awoke = t.saturating_sub(mind.awoke_tick);
@@ -1167,6 +1220,10 @@ struct Decide<'a> {
     has_food: bool,
     /// Centre de masse des siens proches, si l'agent en a autour.
     kin: Option<Position>,
+    /// Position de l'ami le plus familier (0.0.3, tranche 7), si trouve.
+    friend: Option<Position>,
+    /// Part du glissement de solitude qui vise l'ami plutot que le centre des siens.
+    friend_pull: f32,
     /// Energie / seuil de reproduction.
     energy_frac: f32,
     caution: f32,
@@ -1244,15 +1301,22 @@ fn blend_target(c: &Decide) -> (Position, BehaviorMode) {
         let shift = c.mem_radius * w;
         c.clamp(Position { x: base.x + vx / mag * shift, y: base.y + vy / mag * shift })
     };
-    // Glissement vers les siens si isole.
+    // Glissement vers les siens si isole ; en partie vers l'ami familier si l'agent en a un.
     let mut soc_disp = 0.0f32;
     if nw > 0.0 && c.needs.solitude > 0.0 {
         if let Some(kin) = c.kin {
+            let anchor = match c.friend {
+                Some(f) => Position {
+                    x: kin.x + (f.x - kin.x) * c.friend_pull.clamp(0.0, 1.0),
+                    y: kin.y + (f.y - kin.y) * c.friend_pull.clamp(0.0, 1.0),
+                },
+                None => kin,
+            };
             let w_soc = (c.needs.solitude * c.social_pull * nw).clamp(0.0, 0.8);
             let before = tgt;
             tgt = c.clamp(Position {
-                x: tgt.x + (kin.x - tgt.x) * w_soc,
-                y: tgt.y + (kin.y - tgt.y) * w_soc,
+                x: tgt.x + (anchor.x - tgt.x) * w_soc,
+                y: tgt.y + (anchor.y - tgt.y) * w_soc,
             });
             soc_disp = before.dist2(&tgt).sqrt();
         }

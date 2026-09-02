@@ -451,6 +451,21 @@ pub struct CognitionCfg {
     /// `perception` (comportement des tranches 1 a 4). Le genome porte les deux traits dans
     /// les deux cas : le flux RNG est identique, l'A/B est propre.
     pub heritable_personality: bool,
+
+    // -- Souvenirs sociaux (0.0.3, tranche 7). Un agent reconnait les autres agents proches.
+    /// Deux agents a moins de N cases se « voient » (renforcent leur relation).
+    pub social_radius: f32,
+    /// Controle de proximite (couteux) tous les N ticks seulement.
+    pub social_check_every: u64,
+    /// Gain de familiarite par controle ou l'autre agent est proche.
+    pub social_fam_gain: f32,
+    /// Relachement de la familiarite par controle.
+    pub social_decay: f32,
+    /// Une relation sous cette familiarite est oubliee.
+    pub social_eps: f32,
+    /// Quand un agent isole glisse vers les siens, part du glissement qui vise son ami le
+    /// plus proche plutot que le centre de masse. `0` = comportement de la tranche 6.
+    pub friend_pull: f32,
 }
 impl Default for CognitionCfg {
     fn default() -> Self {
@@ -478,6 +493,12 @@ impl Default for CognitionCfg {
             social_pull: 0.3,
             needs_weight: 1.0,
             heritable_personality: true,
+            social_radius: 4.0,
+            social_check_every: 8,
+            social_fam_gain: 0.08,
+            social_decay: 0.985,
+            social_eps: 0.03,
+            friend_pull: 0.5,
         }
     }
 }

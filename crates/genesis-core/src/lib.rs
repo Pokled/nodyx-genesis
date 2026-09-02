@@ -21,7 +21,7 @@ pub mod sim;
 pub mod spatial;
 pub mod world;
 
-pub use cognition::{BehaviorMode, Memory, MemoryKind, Mind, Needs, Shock};
+pub use cognition::{BehaviorMode, Memory, MemoryKind, Mind, Needs, Shock, SocialTie};
 pub use config::SimConfig;
 pub use entity::{Action, Entity, EntityId, Position};
 pub use event::{DeathCause, Event, EventKind};
@@ -51,4 +51,6 @@ pub const ENGINE_VERSION: &str = env!("CARGO_PKG_VERSION");
 ///       selectionnee, plus derivee des traits de corps.
 /// v11 : modele de comportement lisible (`Mind.mode` : l'agent choisit explicitement entre
 ///       manger, fuir, suivre, chercher une aubaine, errer).
-pub const SCHEMA_VERSION: u32 = 11;
+/// v12 : souvenirs sociaux (`Mind.social` : relations vers d'autres agents, familiarite et
+///       valence). Premier pas vers les groupes.
+pub const SCHEMA_VERSION: u32 = 12;

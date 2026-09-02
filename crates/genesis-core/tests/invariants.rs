@@ -277,6 +277,36 @@ fn agents_awake_and_remember() {
 }
 
 #[test]
+fn social_ties_form() {
+    // Cognition (0.0.3, tranche 7) : les agents accumulent des relations vers d'autres
+    // agents. Bornees, familiarite dans (0, 1], valence dans [-1, 1], `other` plausible.
+    let cfg = SimConfig::default();
+    let mut w = WorldState::new(1, &cfg);
+    let mut any_tie = false;
+    for _ in 0..40_000 {
+        let _ = tick(&mut w, &cfg);
+        for e in w.entities.iter() {
+            let Some(m) = &e.mind else { continue };
+            assert!(m.social.len() <= genesis_core::cognition::MAX_TIES);
+            for s in m.social.iter() {
+                assert!(
+                    s.familiarity > 0.0 && s.familiarity <= 1.0 + 1e-4,
+                    "familiarite hors bornes : {}",
+                    s.familiarity
+                );
+                assert!((-1.0..=1.0).contains(&s.valence), "valence hors bornes : {}", s.valence);
+                assert!(s.other < w.next_entity_id, "relation vers un id impossible");
+                any_tie = true;
+            }
+        }
+        if w.entities.is_empty() {
+            break;
+        }
+    }
+    assert!(any_tie, "aucun agent n'a noue de relation en 40000 ticks");
+}
+
+#[test]
 fn agent_modes_are_chosen() {
     // Cognition (0.0.3, tranche 6) : un agent choisit explicitement un mode de comportement.
     // Sur une course, plusieurs modes doivent apparaitre (pas seulement forage), et le mode

@@ -16,7 +16,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::entity::Position;
+use crate::entity::{EntityId, Position};
 
 /// Nature d'un souvenir episodique.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -120,6 +120,20 @@ impl BehaviorMode {
     }
 }
 
+/// Une relation memorisee vers un autre agent (0.0.3, tranche 7) : une memoire de personne,
+/// pas de lieu.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub struct SocialTie {
+    pub other: EntityId,
+    /// Combien l'agent connait `other` : monte quand ils sont proches, decroit lentement.
+    pub familiarity: f32,
+    /// Valence, dans [-1, 1] : + si l'agent se sentait bien pres de `other`, - sinon.
+    pub valence: f32,
+}
+
+/// Nombre maximal de relations gardees (la moins familiere cede la place).
+pub const MAX_TIES: usize = 8;
+
 /// L'esprit d'un agent. Attache a l'entite quand elle s'eveille, retire si elle retombe.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Mind {
@@ -133,6 +147,54 @@ pub struct Mind {
     /// Dernier mode de comportement choisi (0.0.3, tranche 6).
     #[serde(default)]
     pub mode: BehaviorMode,
+    /// Relations vers d'autres agents (0.0.3, tranche 7), bornees a `MAX_TIES`.
+    #[serde(default)]
+    pub social: Vec<SocialTie>,
+}
+
+impl Mind {
+    /// Relache la familiarite de chaque relation, retire celles passees sous `eps`.
+    pub fn decay_social(&mut self, decay: f32, eps: f32) {
+        for s in self.social.iter_mut() {
+            s.familiarity *= decay;
+        }
+        self.social.retain(|s| s.familiarity >= eps);
+    }
+
+    /// Renforce (ou cree) la relation vers `other` : `familiarity` monte de `gain`, la
+    /// valence glisse vers `mood`. Si la memoire sociale est pleine, la moins familiere
+    /// cede la place (a condition que la nouvelle soit plus familiere).
+    pub fn touch_tie(&mut self, other: EntityId, gain: f32, mood: f32) {
+        if let Some(s) = self.social.iter_mut().find(|s| s.other == other) {
+            s.familiarity = (s.familiarity + gain).min(1.0);
+            s.valence = (s.valence + (mood - s.valence) * 0.1).clamp(-1.0, 1.0);
+            return;
+        }
+        let fresh = SocialTie { other, familiarity: gain, valence: mood * 0.1 };
+        if self.social.len() < MAX_TIES {
+            self.social.push(fresh);
+            return;
+        }
+        if let Some((wi, weak)) = self
+            .social
+            .iter()
+            .enumerate()
+            .min_by(|a, b| a.1.familiarity.partial_cmp(&b.1.familiarity).unwrap_or(std::cmp::Ordering::Equal))
+        {
+            if fresh.familiarity > weak.familiarity {
+                self.social[wi] = fresh;
+            }
+        }
+    }
+
+    /// La relation la plus familiere de valence positive (l'« ami »), s'il y en a une.
+    pub fn top_friend(&self) -> Option<EntityId> {
+        self.social
+            .iter()
+            .filter(|s| s.valence > 0.0)
+            .max_by(|a, b| a.familiarity.partial_cmp(&b.familiarity).unwrap_or(std::cmp::Ordering::Equal))
+            .map(|s| s.other)
+    }
 }
 
 impl Mind {
@@ -142,6 +204,7 @@ impl Mind {
             episodic: vec![first],
             needs: Needs::default(),
             mode: BehaviorMode::Forage,
+            social: Vec::new(),
         }
     }
 

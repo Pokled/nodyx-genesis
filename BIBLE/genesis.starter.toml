@@ -151,6 +151,13 @@ fear_gain         = 1.2    # de combien la peur amplifie l'évitement des souven
 social_pull       = 0.3    # poids maxi du glissement vers le centre des siens quand l'agent est isolé
 needs_weight      = 1.0    # bouton maître des besoins ; 0 = comportement de la tranche 3
 heritable_personality = true  # (tranche 5) prudence/curiosité = traits du génome hérités ; false = dérivées de longévité/perception
+# Souvenirs sociaux (tranche 7) : un agent reconnaît les autres agents qu'il croise souvent.
+social_radius     = 4.0    # deux agents à moins de N cases renforcent leur relation
+social_check_every = 8     # contrôle de proximité (coûteux : une requête spatiale/agent) tous les N ticks
+social_fam_gain   = 0.08   # gain de familiarité par contrôle où l'autre est proche
+social_decay      = 0.985  # relâchement de la familiarité par contrôle
+social_eps        = 0.03   # une relation sous cette familiarité est oubliée
+friend_pull     = 0.5      # part du glissement de solitude qui vise l'ami plutôt que le centre des siens ; 0 = tranche 6
 
 [view]
 # Niveau de détail de la projection (genesis-view::project). Au delà du seuil, la frame
