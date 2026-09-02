@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Monde w__SEED__, Nodyx Genesis</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&display=swap">
+<style>
+  :root {
+    color-scheme: dark;
+    --abyss: #04060b; --deep: #0b1019;
+    --glass: rgba(11,16,26,0.6); --line: rgba(126,158,214,0.16);
+    --ink: #e9edf7; --soft: #9aa6be; --muted: #59637a;
+    --cyan: #52e6df; --green: #7ef0a6; --blue: #74a8ff; --rose: #ff8fa0;
+    --amber: #ffcf72; --violet: #b9a0ff;
+    --serif: "Fraunces", "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; color: var(--ink); font: 15px/1.65 var(--mono);
+    background:
+      radial-gradient(120% 90% at 50% 0%, #121826 0%, #070a11 55%, #04060b 100%) fixed;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 1000px; margin: 0 auto; padding: 72px 28px 120px; }
+
+  .hero { text-align: center; margin-bottom: 8px; }
+  .hero .kicker {
+    font-family: var(--mono); font-size: .74rem; letter-spacing: .22em;
+    text-transform: uppercase; color: var(--cyan); margin-bottom: 16px;
+  }
+  .hero h1 {
+    font-family: var(--serif); font-weight: 500; font-size: clamp(2.6rem, 7vw, 4.4rem);
+    line-height: 1.02; margin: 0; letter-spacing: .01em;
+  }
+  .hero .age { font-family: var(--serif); font-size: 1.25rem; color: var(--soft); margin-top: 10px; }
+  .chapeau {
+    max-width: 60ch; margin: 30px auto 0; color: var(--ink);
+    font-family: var(--serif); font-size: 1.16rem; line-height: 1.78; text-align: center;
+    text-wrap: balance;
+  }
+  .chapeau b { color: var(--cyan); font-weight: 500; }
+
+  .curve { margin: 52px 0 8px; }
+  .curve svg { width: 100%; height: auto; display: block; }
+  .curve .cap {
+    font-family: var(--mono); font-size: .72rem; color: var(--muted);
+    text-align: center; margin-top: 8px; letter-spacing: .03em;
+  }
+
+  .doors { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin: 48px 0 0; }
+  @media (max-width: 760px) { .doors { grid-template-columns: 1fr; } }
+  .door {
+    display: block; text-decoration: none; color: inherit;
+    background: var(--glass); border: 1px solid var(--line); border-radius: 16px;
+    padding: 22px 20px 20px; transition: border-color .18s, transform .18s, background .18s;
+  }
+  .door:hover { border-color: rgba(82,230,223,.55); transform: translateY(-3px); background: rgba(14,20,32,.8); }
+  .door .dn {
+    font-family: var(--serif); font-size: 1.3rem; font-weight: 500; color: var(--ink);
+    display: flex; align-items: center; gap: 9px;
+  }
+  .door .dn .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+  .door.view .dot { background: var(--cyan); box-shadow: 0 0 8px var(--cyan); }
+  .door.evo  .dot { background: var(--violet); box-shadow: 0 0 8px var(--violet); }
+  .door.lives .dot { background: var(--green); box-shadow: 0 0 8px var(--green); }
+  .door p { color: var(--soft); font-size: .84rem; margin: 8px 0 0; line-height: 1.6; }
+  .door .go { color: var(--cyan); font-size: .78rem; margin-top: 14px; letter-spacing: .04em; }
+
+  .grid {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px;
+    margin: 48px 0 0; background: var(--line); border: 1px solid var(--line);
+    border-radius: 14px; overflow: hidden;
+  }
+  @media (max-width: 620px) { .grid { grid-template-columns: repeat(2, 1fr); } }
+  .cell { background: var(--deep); padding: 16px 18px; }
+  .cell .k { font-size: .68rem; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+  .cell .v { font-family: var(--serif); font-size: 1.5rem; color: var(--ink); margin-top: 5px; font-variant-numeric: tabular-nums; }
+  .cell .v small { font-size: .8rem; color: var(--soft); font-family: var(--mono); }
+
+  h2 {
+    font-family: var(--serif); font-weight: 500; font-size: 1.5rem; margin: 56px 0 6px;
+    display: flex; align-items: baseline; gap: 12px;
+  }
+  h2::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, var(--line), transparent); align-self: center; }
+
+  .chron { list-style: none; margin: 14px 0 0; padding: 0; }
+  .chron li {
+    display: flex; gap: 16px; padding: 8px 0; border-bottom: 1px solid var(--line);
+    font-size: .9rem;
+  }
+  .chron li:last-child { border-bottom: none; }
+  .chron .t { color: var(--muted); font-variant-numeric: tabular-nums; min-width: 92px; flex: none; }
+  .chron .l { color: var(--ink); }
+  .chron .an { color: var(--muted); }
+
+  .foot { color: var(--muted); font-size: .8rem; margin-top: 64px; text-align: center; line-height: 1.7; }
+  .foot a { color: var(--soft); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="hero">
+    <div class="kicker">Nodyx Genesis &nbsp;&middot;&nbsp; une bibliotheque de mondes</div>
+    <h1 id="wname">Monde w__SEED__</h1>
+    <div class="age" id="wage"></div>
+    <p class="chapeau" id="chapeau"></p>
+  </div>
+
+  <div class="curve">
+    <svg id="pop" viewBox="0 0 1000 220" role="img" aria-label="population dans le temps"></svg>
+    <div class="cap">population sur toute la vie du monde ; la ligne pointillee est la capacite de charge ; les points ambres, les grands tournants</div>
+  </div>
+
+  <div class="doors">
+    <a class="door view" href="view.html">
+      <div class="dn"><span class="dot"></span>Regarder</div>
+      <p>Le monde en mouvement, image par image. Cliquez un individu pour le rencontrer : sa lignee, son age, ses souvenirs.</p>
+      <div class="go">ouvrir la scene &rarr;</div>
+    </a>
+    <a class="door evo" href="series.html">
+      <div class="dn"><span class="dot"></span>L'evolution</div>
+      <p>Ce que la selection a deplace : la derive des neuf traits, la distribution qui s'elargit ou se scinde, la population et la diversite.</p>
+      <div class="go">ouvrir les courbes &rarr;</div>
+    </a>
+    <a class="door lives" href="lives.html">
+      <div class="dn"><span class="dot"></span>Les vies</div>
+      <p>Des biographies auto-generees, aucun modele de langage : naissance, souvenirs traces, tempérament, relations, mort.</p>
+      <div class="go">ouvrir les biographies &rarr;</div>
+    </a>
+  </div>
+
+  <div class="grid" id="grid"></div>
+
+  <h2>La chronique</h2>
+  <ul class="chron" id="chron"></ul>
+
+  <div class="foot">
+    Graine <span id="fseed"></span> &middot; moteur <span id="feng"></span> &middot; meme graine, meme monde, jusqu'au dernier tick.<br>
+    Rien sur cette page n'est ecrit par un modele de langage : tout est engendre a partir des chiffres du monde.
+  </div>
+</div>
+
+<script id="d-digest" type="application/json">__DIGEST__</script>
+<script>
+const D = JSON.parse(document.getElementById('d-digest').textContent);
+const fr = n => (n == null ? '0' : Number(n).toLocaleString('fr'));
+const yearOf = t => {
+  const perYear = D.ticks && D.years ? D.ticks / Math.max(1, D.years) : 8760;
+  return Math.floor(t / perYear);
+};
+
+document.getElementById('wage').textContent =
+  D.years + (D.years > 1 ? ' ans' : ' an') + '  ·  ' + fr(D.agents_awoke) + ' individus eveilles  ·  ' + D.max_gen + ' generations';
+
+document.getElementById('fseed').textContent = D.seed;
+document.getElementById('feng').textContent = D.engine;
+
+// --- Chapeau : des gabarits, aucun LLM. ---
+(function () {
+  const p = [];
+  const famine = D.deaths_starv, age = D.deaths_age;
+  p.push(`Ce monde a vecu <b>${D.years} ${D.years > 1 ? 'annees' : 'annee'}</b>. `
+    + `<b>${fr(D.births)}</b> naissances, <b>${fr(D.pop_final)}</b> vivants a la fin, contre une capacite de charge de ${fr(D.carrying_capacity)}.`);
+  if (D.agents_awoke > 0) {
+    p.push(`<b>${fr(D.agents_awoke)}</b> individus s'y sont eveilles ` +
+      `(${fr(D.agents_alive)} encore vivants a la derniere image, ${D.mean_mem.toFixed(1)} souvenirs en moyenne). ` +
+      (D.longest_span > 0 ? `La plus longue vie d'agent a dure <b>${fr(D.longest_span)}</b> ticks, dans la lignee ${D.longest_lineage}.` : ''));
+  }
+  if (D.species && D.species.length) {
+    p.push(D.species.length === 1
+      ? `Une lignee distincte a emerge : <b>${D.species[0]}</b>.`
+      : `${D.species.length} lignees distinctes ont emerge : ${D.species.slice(0, 4).map(s => '<b>' + s + '</b>').join(', ')}${D.species.length > 4 ? '...' : ''}.`);
+  }
+  if (D.extinct && D.extinct.length) {
+    p.push(D.extinct.length === 1
+      ? `La lignee <b>${D.extinct[0]}</b> s'est eteinte.`
+      : `${D.extinct.length} lignees se sont eteintes (${D.extinct.slice(0, 3).join(', ')}).`);
+  }
+  p.push(`La lignee <b>${D.dominant_lineage}</b> domine, ${(D.dominant_share * 100).toFixed(0)} % de la population. `
+    + `Diversite genetique ${D.div_start.toFixed(3)} au depart, ${D.div_end.toFixed(3)} a la fin. `
+    + (famine > age ? `On y meurt surtout de faim (${fr(famine)} contre ${fr(age)} de vieillesse).`
+      : `On y meurt surtout de vieillesse (${fr(age)} contre ${fr(famine)} de faim) : la cognition porte la survie.`));
+  document.getElementById('chapeau').innerHTML = p.join(' ');
+})();
+
+// --- Grille de chiffres ---
+(function () {
+  const cells = [
+    ['population finale', fr(D.pop_final), ''],
+    ['generations', D.max_gen, ''],
+    ['individus eveilles', fr(D.agents_awoke), ''],
+    ['diversite genetique', D.div_end.toFixed(3), ''],
+    ['morts de faim', fr(D.deaths_starv), ''],
+    ['morts de vieillesse', fr(D.deaths_age), ''],
+    ['especes emergees', (D.species || []).length, ''],
+    ['plus longue vie', fr(D.longest_span), ' ticks'],
+  ];
+  document.getElementById('grid').innerHTML = cells.map(c =>
+    `<div class="cell"><div class="k">${c[0]}</div><div class="v">${c[1]}<small>${c[2]}</small></div></div>`
+  ).join('');
+})();
+
+// --- Courbe de population ---
+(function () {
+  const svg = document.getElementById('pop');
+  const W = 1000, H = 220, m = { l: 8, r: 8, t: 14, b: 22 };
+  const iw = W - m.l - m.r, ih = H - m.t - m.b;
+  const pop = D.pop_series || [], cap = D.cap_series || [], tk = D.tick_series || [];
+  const n = pop.length;
+  if (n < 2) { svg.innerHTML = ''; return; }
+  const maxT = tk[n - 1] || 1;
+  const maxY = Math.max(1, Math.max.apply(null, pop), Math.max.apply(null, cap));
+  const X = k => m.l + (k / (n - 1)) * iw;
+  const Y = v => m.t + ih - (v / maxY) * ih;
+  let s = '';
+  // capacite de charge
+  let d = '';
+  for (let k = 0; k < n; k++) d += (k ? 'L' : 'M') + X(k).toFixed(1) + ',' + Y(cap[k]).toFixed(1) + ' ';
+  s += `<path d="${d}" fill="none" stroke="rgba(126,158,214,0.32)" stroke-width="1.2" stroke-dasharray="3,4"/>`;
+  // aire de population
+  let a = 'M ' + X(0).toFixed(1) + ',' + (m.t + ih).toFixed(1) + ' ';
+  for (let k = 0; k < n; k++) a += 'L' + X(k).toFixed(1) + ',' + Y(pop[k]).toFixed(1) + ' ';
+  a += 'L' + X(n - 1).toFixed(1) + ',' + (m.t + ih).toFixed(1) + ' Z';
+  s += `<path d="${a}" fill="rgba(82,230,223,0.16)" stroke="none"/>`;
+  let pl = '';
+  for (let k = 0; k < n; k++) pl += (k ? 'L' : 'M') + X(k).toFixed(1) + ',' + Y(pop[k]).toFixed(1) + ' ';
+  s += `<path d="${pl}" fill="none" stroke="rgba(82,230,223,0.9)" stroke-width="1.8"/>`;
+  // marqueurs de chronique
+  for (const c of (D.chronicle || [])) {
+    const x = m.l + (c[0] / maxT) * iw;
+    s += `<line x1="${x.toFixed(1)}" y1="${m.t}" x2="${x.toFixed(1)}" y2="${m.t + ih}" stroke="rgba(255,207,114,0.18)" stroke-width="1"/>`;
+    s += `<circle cx="${x.toFixed(1)}" cy="${m.t - 4}" r="2.6" fill="rgba(255,207,114,0.95)"/>`;
+  }
+  // graduations x (annees)
+  for (let i = 0; i <= 4; i++) {
+    const x = m.l + (i / 4) * iw, tv = (maxT * i / 4);
+    s += `<text x="${x.toFixed(1)}" y="${H - 6}" text-anchor="${i === 0 ? 'start' : i === 4 ? 'end' : 'middle'}" font-size="11" font-family="ui-monospace,monospace" fill="#59637a">an ${yearOf(tv)}</text>`;
+  }
+  svg.innerHTML = s;
+})();
+
+// --- Chronique ---
+(function () {
+  const host = document.getElementById('chron');
+  const items = (D.chronicle || []);
+  if (!items.length) { host.innerHTML = '<li class="l" style="color:var(--muted)">rien de saillant</li>'; return; }
+  host.innerHTML = items.map(c =>
+    `<li><span class="t">tick ${fr(c[0])}</span><span class="l">${c[1]} <span class="an">&middot; an ${yearOf(c[0])}</span></span></li>`
+  ).join('');
+})();
+</script>
+</body>
+</html>

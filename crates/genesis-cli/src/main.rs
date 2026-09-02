@@ -9,6 +9,7 @@
 //! `replay` rejoue le monde depuis sa graine et verifie qu'il retombe exactement sur le
 //! meme etat final. C'est le moment public de 0.0.1.
 
+mod index_html;
 mod lives_html;
 mod series_html;
 mod view_html;
@@ -455,6 +456,70 @@ fn cmd_run(flags: &HashMap<String, String>) -> std::io::Result<()> {
     let lives_html = lives_html::render(&meta, &cfg, &lives_vec, BIO_EMBED, BIO_FEATURE);
     std::fs::write(wdir.root.join("lives.html"), lives_html)?;
 
+    // --- Page de garde du monde ---
+    {
+        use genesis_core::names;
+        let sec_year = (cfg.time.tick_duration_seconds as f64) / (3600.0 * 24.0 * 365.0);
+        let years = (world.tick as f64 * sec_year) as u64;
+        let (agents_alive, mean_mem) = world.agent_stats();
+        let longest = lives_vec.first();
+        let mut species: Vec<String> = Vec::new();
+        let mut extinct: Vec<String> = Vec::new();
+        let mut chronicle: Vec<(u64, String)> = Vec::new();
+        for e in notable.iter() {
+            match &e.kind {
+                EventKind::WorldCreated => chronicle.push((e.tick, "Genese du monde".to_string())),
+                EventKind::SpeciesEmerged { species: s, size } => {
+                    let n = names::species_name(*s);
+                    chronicle.push((e.tick, format!("{n} apparait, {size} individus")));
+                    species.push(n);
+                }
+                EventKind::LineageExtinct { lineage } => {
+                    let n = names::lineage_name(*lineage);
+                    chronicle.push((e.tick, format!("La lignee {n} s'eteint")));
+                    extinct.push(n);
+                }
+                EventKind::PopulationCrash { from, to } => {
+                    chronicle.push((e.tick, format!("Effondrement : {from} vers {to}")));
+                }
+                EventKind::PopulationMilestone { level } if *level >= 100 => {
+                    chronicle.push((e.tick, format!("La population franchit {level}")));
+                }
+                _ => {}
+            }
+        }
+        let digest = index_html::Digest {
+            seed,
+            engine: genesis_core::ENGINE_VERSION.to_string(),
+            ticks: world.tick,
+            years,
+            pop_final: world.population(),
+            carrying_capacity: series.last().map(|r| r.carrying_capacity).unwrap_or(0),
+            births: world.births_total,
+            deaths_starv: world.deaths_starvation,
+            deaths_age: world.deaths_age,
+            max_gen: series.last().map(|r| r.max_generation).unwrap_or(0),
+            div_start: series.first().map(|r| r.genetic_diversity).unwrap_or(0.0),
+            div_end: series.last().map(|r| r.genetic_diversity).unwrap_or(0.0),
+            agents_awoke: lives_vec.len(),
+            agents_alive,
+            mean_mem,
+            longest_span: longest.map(agent_span).unwrap_or(0),
+            longest_lineage: longest
+                .map(|l| names::lineage_name(l.lineage))
+                .unwrap_or_default(),
+            dominant_lineage: names::lineage_name(world.dominant_lineage()),
+            dominant_share: world.lineage_stats().1,
+            species,
+            extinct,
+            pop_series: series.iter().map(|r| r.population).collect(),
+            cap_series: series.iter().map(|r| r.carrying_capacity).collect(),
+            tick_series: series.iter().map(|r| r.tick).collect(),
+            chronicle,
+        };
+        std::fs::write(wdir.root.join("index.html"), index_html::render(&digest))?;
+    }
+
     println!("Monde w{seed}");
     println!("  ticks joues       {}", world.tick);
     println!("  population finale  {}", world.population());
@@ -474,7 +539,8 @@ fn cmd_run(flags: &HashMap<String, String>) -> std::io::Result<()> {
         println!("  souvenirs (moy.)  {mean_mem:.1}");
     }
     println!();
-    println!("Ouvre {}", wdir.root.join("view.html").display());
+    println!("Ouvre {}", wdir.root.join("index.html").display());
+    println!("      {}", wdir.root.join("view.html").display());
     println!("      {}", wdir.root.join("series.html").display());
     println!("      {}", wdir.root.join("lives.html").display());
     genesis_core::profile_dump();
