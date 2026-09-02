@@ -368,7 +368,7 @@
     <div class="stat"><span class="tip" data-tip="Entites eveillees : elles portent une memoire episodique. Un agent evite les lieux ou il a failli mourir. Anneau violet sur la scene.">agents vivants</span><b id="s-agents">0</b></div>
     <div class="stat"><span class="tip" data-tip="Nombre moyen de souvenirs episodiques que portent les agents.">souvenirs (moyenne)</span><b id="s-agmem">0</b></div>
     <div class="stat"><span class="tip" data-tip="La Voix (0.0.4) : alarmes vivantes a cet instant. Un agent affame crie ; les agents proches ont un sursaut de peur, sans former de souvenir. Anneaux roses sur la scene.">alarmes vives</span><b id="s-alarms">0</b></div>
-    <p style="color:var(--muted);font-size:.72rem;margin:14px 0 0;line-height:1.5;">Cliquez un point sur la scene pour rencontrer l'individu : sa lignee, son age, et s'il se souvient, ses souvenirs et ses relations. En periode peuplee, seuls les anciens restent des points distincts parmi les amas.</p>
+    <p style="color:var(--muted);font-size:.72rem;margin:14px 0 0;line-height:1.5;">Cliquez un point sur la scene pour rencontrer l'individu : sa lignee, son age, et s'il se souvient, ses souvenirs et ses relations. « Suivre » cadre la camera sur lui. Molette pour zoomer, touche F pour le plein monde. En periode peuplee, seuls les anciens restent des points distincts parmi les amas.</p>
   </div>
 </aside>
 
@@ -423,9 +423,13 @@ let dirtyUntil = 0;
 function requestDraw(ms) { dirtyUntil = performance.now() + (ms || 900); }
 
 // Selection d'un individu (au clic sur la scene).
-let selectedId = null, selWasAgent = false, following = false, selScreen = null;
+let selectedId = null, selWasAgent = false, following = false, selScreen = null, selWorld = null;
 const LINEAGE_NAMES = META.lineage_names || [];
 function linName(k) { return LINEAGE_NAMES[k] || ('lignee ' + k); }
+
+// Camera : cadrage plein par defaut, zoom sur l'individu suivi, ou zoom manuel a la molette.
+const FOLLOW_ZOOM = 3.6;
+let camZoom = 1, camCx = 64, camCy = 64, camManual = false, fitS = 1;
 
 // Cadence : frames de donnees par seconde reelle a 1x. La periode molecule est breve.
 const BASE_FPS = 5;
@@ -918,10 +922,27 @@ function draw(p) {
   ctx.clearRect(0, 0, vw, vh);
   const gw = A.grid[0], gh = A.grid[1];
   const availH = Math.max(1, vh - RESERVE_BOTTOM * DPR);
-  geoS = Math.min(vw / gw, availH / gh);
-  geoOx = (vw - geoS * gw) / 2;
-  geoOy = (availH - geoS * gh) / 2;
+  fitS = Math.min(vw / gw, availH / gh);
+
+  // Camera : suit l'individu si on le suit, sinon revient au cadrage plein.
+  let targetZoom = camZoom, tcx = camCx, tcy = camCy;
+  if (following && selWorld) {
+    targetZoom = FOLLOW_ZOOM; tcx = selWorld.x; tcy = selWorld.y;
+  } else if (!camManual) {
+    targetZoom = 1; tcx = gw / 2; tcy = gh / 2;
+  }
+  const k = 0.14;
+  camZoom += (targetZoom - camZoom) * k;
+  camCx += (tcx - camCx) * k;
+  camCy += (tcy - camCy) * k;
+  if (Math.abs(camZoom - targetZoom) < 0.003 && !camManual) camZoom = targetZoom;
+
+  geoS = fitS * camZoom;
+  geoOx = vw / 2 - camCx * geoS;
+  geoOy = availH / 2 - camCy * geoS;
   gridPxW = geoS * gw; gridPxH = geoS * gh;
+  // garde la lecture animee pendant que la camera glisse
+  if (Math.abs(camZoom - targetZoom) > 0.004) requestDraw(200);
 
   lowCount = (A.entities ? A.entities.length : 0) <= 900;
 
@@ -953,7 +974,7 @@ function draw(p) {
   }
   // Entites : en detail, toute la population ; en region, seulement les agents (un
   // individu qui se souvient reste visible et cliquable). Interpolees entre A et B.
-  selScreen = null;
+  selScreen = null; selWorld = null;
   {
     const mapB = {};
     for (let k = 0; k < B.entities.length; k++) mapB[B.entities[k].id] = B.entities[k];
@@ -974,7 +995,10 @@ function draw(p) {
         sx = a.pos[0] / PS; sy = a.pos[1] / PS;
         paintEntity(a, sx, sy, a.energy / 100, a.age / 100, 1 - frac, false);
       }
-      if (a.id === selectedId) selScreen = { x: geoOx + sx * geoS, y: geoOy + sy * geoS };
+      if (a.id === selectedId) {
+        selScreen = { x: geoOx + sx * geoS, y: geoOy + sy * geoS };
+        selWorld = { x: sx, y: sy };
+      }
     }
     for (let k = 0; k < B.entities.length; k++) {
       const b = B.entities[k];
@@ -1028,7 +1052,8 @@ function draw(p) {
   drawFx(nowMs);
 
   set('frameinfo', 'frame ' + Math.round(p) + ' / ' + (FRAMES.length - 1) + '   ' + speed + 'x'
-    + (A.lod === 'region' ? '   amas' : '') + (cs.length ? '   ' + cs.length + ' cellules' : ''));
+    + (A.lod === 'region' ? '   amas' : '') + (cs.length ? '   ' + cs.length + ' cellules' : '')
+    + (camZoom > 1.05 ? '   zoom ' + camZoom.toFixed(1) + 'x' : ''));
   if (i !== domFrame) { updatePanels(i); domFrame = i; }
   if (selectedId != null && (i !== inspFrame || following)) { renderInspector(findEntity(A, selectedId)); inspFrame = i; }
 
@@ -1096,7 +1121,9 @@ function renderInspector(e) {
   insp.classList.add('on');
   document.body.classList.add('inspecting');
   document.getElementById('i-follow').addEventListener('click', function () {
-    following = !following; renderInspector(e); requestDraw(300);
+    following = !following;
+    if (following) camManual = false;
+    renderInspector(e); requestDraw(300);
   });
   document.getElementById('i-close').addEventListener('click', deselect);
 }
@@ -1106,11 +1133,11 @@ function inspectorGone() {
     '<div class="isub" style="margin-top:10px">Cet individu n\'est plus la : mort, ou retombe entite de fond.</div>' +
     '<div class="iact"><button id="i-close">fermer</button></div>';
   document.getElementById('i-close').addEventListener('click', deselect);
-  selectedId = null; following = false; selScreen = null;
+  selectedId = null; following = false; selScreen = null; selWorld = null; camManual = false;
 }
 
 function deselect() {
-  selectedId = null; following = false; selScreen = null; inspFrame = -1;
+  selectedId = null; following = false; selScreen = null; selWorld = null; camManual = false; inspFrame = -1;
   insp.classList.remove('on');
   document.body.classList.remove('inspecting');
   requestDraw(300);
@@ -1138,6 +1165,23 @@ cv.addEventListener('click', function (ev) {
     deselect();
   }
 });
+
+cv.addEventListener('wheel', function (ev) {
+  ev.preventDefault();
+  camManual = true; following = false;
+  const if2 = document.getElementById('i-follow');
+  if (if2) if2.classList.remove('on');
+  const r = cv.getBoundingClientRect();
+  const mx = (ev.clientX - r.left) * DPR, my = (ev.clientY - r.top) * DPR;
+  const wx = (mx - geoOx) / geoS, wy = (my - geoOy) / geoS;
+  camZoom = Math.max(1, Math.min(8, camZoom * (ev.deltaY < 0 ? 1.18 : 1 / 1.18)));
+  const gs = fitS * camZoom;
+  camCx = wx - (mx - vw / 2) / gs;
+  camCy = wy - (my - availHof()) / gs;
+  if (camZoom <= 1.001) camManual = false;
+  requestDraw(500);
+}, { passive: false });
+function availHof() { return Math.max(1, vh - RESERVE_BOTTOM * DPR) / 2; }
 
 function updatePanels(i) {
   const f = FRAMES[i];
