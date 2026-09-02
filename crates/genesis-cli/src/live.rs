@@ -99,6 +99,9 @@ pub struct LiveState {
     // -- Evenements
     /// Les derniers evenements, du plus recent au plus ancien.
     pub events: Vec<LiveEvent>,
+    /// Toute la chronique du monde, du plus ancien au plus recent : `[tick, genre]`. De quoi
+    /// poser les grands tournants sur la courbe de population (l'histoire d'un coup d'oeil).
+    pub chronicle: Vec<ChroniclePoint>,
     pub last_birth_tick: u64,
     pub last_death_tick: u64,
     /// Evenements vitaux (naissances + morts) par tick, sur la fenetre recente.
@@ -139,6 +142,14 @@ pub struct EventCard {
     pub head: String,
     pub sub: String,
     pub tone: &'static str,
+}
+
+/// Un point de la chronique, pose sur la courbe de population.
+#[derive(Debug, Clone, Serialize)]
+pub struct ChroniclePoint {
+    pub tick: u64,
+    pub kind: &'static str,
+    pub text: String,
 }
 
 use genesis_core::event::{Event, EventKind};
@@ -378,6 +389,26 @@ pub fn write_live(
     events.dedup_by(|a, b| a.tick == b.tick && a.text == b.text);
     events.truncate(24);
 
+    // La chronique complete (du plus ancien au plus recent) pour la poser sur la courbe.
+    let mut chron: Vec<ChroniclePoint> = notable
+        .iter()
+        .filter_map(|e| chronicle(e).map(|(kind, text, _, _)| ChroniclePoint { tick: e.tick, kind, text }))
+        .collect();
+    chron.sort_by_key(|c| c.tick);
+    chron.dedup_by(|a, b| a.tick == b.tick && a.kind == b.kind);
+    // Un monde tres ancien peut accumuler beaucoup de fusions : on garde tout ce qui n'est
+    // pas fusion, et on echantillonne les fusions si elles sont nombreuses.
+    if chron.iter().filter(|c| c.kind == "fusion").count() > 60 {
+        let mut seen = 0usize;
+        chron.retain(|c| {
+            if c.kind != "fusion" {
+                return true;
+            }
+            seen += 1;
+            seen % 4 == 0
+        });
+    }
+
     let pop_hist: Vec<u32> = series.iter().map(|r| r.population).collect();
     let cap_hist: Vec<u32> = series.iter().map(|r| r.carrying_capacity).collect();
     let div_hist: Vec<f32> = series.iter().map(|r| r.genetic_diversity).collect();
@@ -485,6 +516,7 @@ pub fn write_live(
         last_fusion_tick: last_fusion,
         pulse,
         events,
+        chronicle: chron,
         last_birth_tick: last_birth,
         last_death_tick: last_death,
         events_per_tick: ev_per_tick,

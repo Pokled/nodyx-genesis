@@ -659,6 +659,7 @@ function applyLive(L) {
   if (seenTournants.size > 200) seenTournants = new Set(Array.from(seenTournants).slice(-100));
 }
 
+const CHRON_COL = { genese: '#ffcf72', espece: '#7ef0a6', extinction: '#b9a0ff', effondrement: '#ff8fa0', palier: '#ffcf72', fusion: '#52e6df' };
 function drawHist(L) {
   const svg = document.getElementById('hist');
   const ph = L.pop_history || [], cap = L.cap_history || [];
@@ -673,13 +674,27 @@ function drawHist(L) {
   let ar = 'M0,' + H + ' ', ln = '';
   for (let i = 0; i < ph.length; i++) { const x = X(ph[i][0]).toFixed(1), y = Y(ph[i][1]).toFixed(1); ar += 'L' + x + ',' + y + ' '; ln += (i ? 'L' : 'M') + x + ',' + y + ' '; }
   ar += 'L' + W + ',' + H + ' Z';
+  // les grands tournants poses sur la courbe : hairline + point en haut, teinte par genre
+  let marks = '';
+  for (const c of (L.chronicle || [])) {
+    if (c.tick < t0 || c.tick > t1) continue;
+    const x = X(c.tick).toFixed(1);
+    const col = CHRON_COL[c.kind] || '#9aa6be';
+    if (c.kind === 'fusion') {
+      marks += '<line x1="' + x + '" y1="0" x2="' + x + '" y2="7" stroke="' + col + '" stroke-width="1" opacity=".45"/>';
+    } else {
+      marks += '<line x1="' + x + '" y1="0" x2="' + x + '" y2="' + H + '" stroke="' + col + '" stroke-width="1" opacity=".22"/>' +
+               '<circle cx="' + x + '" cy="5" r="3" fill="' + col + '"/>';
+    }
+  }
   svg.innerHTML =
     '<path d="' + capd + '" fill="none" stroke="rgba(126,158,214,.3)" stroke-width="1" stroke-dasharray="3,4"/>' +
     '<path d="' + ar + '" fill="rgba(82,230,223,.14)"/>' +
-    '<path d="' + ln + '" fill="none" stroke="rgba(82,230,223,.9)" stroke-width="1.6"/>';
+    '<path d="' + ln + '" fill="none" stroke="rgba(82,230,223,.9)" stroke-width="1.6"/>' +
+    marks;
   const secPer = (L.age_world_seconds / Math.max(1, L.tick)) || 3600;
   document.getElementById('histcap').textContent =
-    'an ' + Math.floor(t0 * secPer / (365 * 86400)) + ' a aujourd\'hui  ·  capacite en pointille';
+    'an ' + Math.floor(t0 * secPer / (365 * 86400)) + ' a aujourd\'hui  ·  espece, extinction, effondrement, cap, fusion';
 }
 
 function drawSpark(id, arr, col) {
