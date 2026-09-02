@@ -92,8 +92,8 @@
   }
   .panel.left  { left: 20px; top: 168px; }
   .panel.right { right: 20px; width: 300px; }
-  .panel.left.hud-hidden,  body.focus .panel.left  { transform: translateX(calc(-100% - 28px)); opacity: 0; pointer-events: none; }
-  .panel.right.hud-hidden, body.focus .panel.right { transform: translateX(calc(100% + 28px)); opacity: 0; pointer-events: none; }
+  body.left-collapsed  .panel.left,  body.focus .panel.left  { transform: translateX(calc(-100% - 34px)); opacity: 0; pointer-events: none; }
+  body.right-collapsed .panel.right, body.focus .panel.right { transform: translateX(calc(100% + 34px)); opacity: 0; pointer-events: none; }
   .panel .scroll { flex: 1; overflow-y: auto; min-height: 0; padding: 16px 18px 18px; scrollbar-gutter: stable; }
   .panel .scroll::-webkit-scrollbar { width: 8px; }
   .panel .scroll::-webkit-scrollbar-thumb { background: rgba(126,158,214,.16); border-radius: 4px; }
@@ -120,10 +120,11 @@
   #traits { margin-top: 8px; }
   #traits .head { color: var(--muted); margin: 2px 0 4px; font-size: .72rem; letter-spacing: .03em; }
   .trait-row { display: flex; align-items: center; gap: 8px; padding: 2px 0; }
-  .trait-row .tn { color: var(--soft); font-size: .76rem; width: 74px; flex: none; cursor: help; }
-  .trait-row .tb { flex: 1; height: 4px; border-radius: 2px; background: rgba(126,158,214,.12); position: relative; overflow: hidden; }
+  .trait-row .tn { color: var(--soft); font-size: .74rem; width: 64px; flex: none; cursor: help; }
+  .trait-row .tb { flex: 1; min-width: 40px; height: 4px; border-radius: 2px; background: rgba(126,158,214,.12); position: relative; overflow: hidden; }
   .trait-row .tb i { position: absolute; inset: 0 auto 0 0; background: linear-gradient(90deg, var(--bio-cyan), var(--bio-violet)); border-radius: 2px; }
-  .trait-row .tv { color: var(--muted); font-size: .72rem; width: 66px; text-align: right; flex: none; font-variant-numeric: tabular-nums; }
+  .trait-row .tv { color: var(--muted); font-size: .7rem; width: 96px; text-align: right; flex: none; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .trait-row .tv b { color: var(--soft); font-weight: 500; }
 
   .ev {
     padding: 3px 0; color: var(--soft); font-size: .78rem;
@@ -158,15 +159,18 @@
 
   /* --- ADN --- */
   .dna {
-    position: absolute; left: 336px; bottom: 92px; width: 176px; z-index: 4;
+    position: absolute; left: 328px; bottom: 92px; width: 168px; z-index: 4;
     pointer-events: none; user-select: none;
+    padding: 11px 12px 12px; border-radius: 12px;
+    background: var(--glass); border: 1px solid var(--glass-line);
+    backdrop-filter: blur(14px) saturate(1.15); -webkit-backdrop-filter: blur(14px) saturate(1.15);
     transition: opacity .3s, left .34s;
   }
-  body.focus .dna { left: 24px; }
-  .dna .cap { font-size: .6rem; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin-bottom: 5px; }
-  .dna svg { display: block; overflow: visible; }
+  body.left-collapsed .dna, body.focus .dna { left: 20px; }
+  .dna .cap { font-size: .58rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-bottom: 5px; white-space: nowrap; }
+  .dna svg { display: block; overflow: visible; width: 100%; height: auto; }
   .dna .lab { fill: var(--soft); font-size: 10px; font-family: var(--mono); text-anchor: end; dominant-baseline: middle; pointer-events: auto; cursor: help; }
-  .dna .lv  { fill: var(--muted); font-size: 9px; font-family: var(--mono); text-anchor: start; dominant-baseline: middle; }
+  .dna .lv  { fill: var(--soft); font-size: 9px; font-family: var(--mono); text-anchor: start; dominant-baseline: middle; }
 
   /* --- Transport, bandeau bas --- */
   .transport {
@@ -217,18 +221,21 @@
   }
   .tk { color: var(--soft); font-variant-numeric: tabular-nums; min-width: 132px; font-size: .74rem; }
 
-  /* --- poignees de repli --- */
+  /* --- poignees de repli, ancrees au bord interieur des panneaux --- */
   .handle {
-    position: absolute; z-index: 6; top: 50%; transform: translateY(-50%);
-    width: 22px; height: 62px; border-radius: 8px;
+    position: absolute; z-index: 7; top: 50%; transform: translateY(-50%);
+    width: 15px; height: 46px; border-radius: 6px;
     background: var(--glass); border: 1px solid var(--glass-line);
     backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
     color: var(--soft); cursor: pointer; display: flex; align-items: center; justify-content: center;
-    font-size: .8rem; padding: 0; transition: opacity .3s, color .15s, border-color .15s;
+    font-size: .74rem; padding: 0; opacity: .5;
+    transition: opacity .3s, color .15s, border-color .15s, left .34s, right .34s;
   }
-  .handle:hover { color: var(--bio-cyan); border-color: rgba(82,230,223,.5); }
-  .handle.left  { left: 20px; }
-  .handle.right { right: 20px; }
+  .handle:hover { opacity: 1; color: var(--bio-cyan); border-color: rgba(82,230,223,.5); }
+  .handle.left  { left: 312px; }
+  .handle.right { right: 324px; }
+  body.left-collapsed  .handle.left  { left: 6px; }
+  body.right-collapsed .handle.right { right: 6px; }
 
   #tooltip {
     position: fixed; left: 0; top: 0; z-index: 50; max-width: 264px;
@@ -251,7 +258,7 @@
 <div class="stage">
   <canvas id="c"></canvas>
   <div class="dna">
-    <div class="cap">ADN, espece dominante</div>
+    <div class="cap">ADN dominant</div>
     <svg id="dna-svg" width="176" height="286" viewBox="0 0 176 286"></svg>
   </div>
 </div>
@@ -259,7 +266,7 @@
 <div class="hud-id">
   <div class="wname">Monde w__SEED__</div>
   <div class="wclock" id="s-date">an 0</div>
-  <div class="wmeta">graine <b>__SEED__</b> &nbsp;/&nbsp; moteur <b>__ENGINE__</b> &nbsp;/&nbsp; grille <b>__GW__x__GH__</b> &nbsp;/&nbsp; tick <b id="s-tick">0</b> &nbsp;/&nbsp; 1 tick = <b>__TSEC__ s</b></div>
+  <div class="wmeta">graine <b>__SEED__</b> &nbsp;/&nbsp; grille <b>__GW__x__GH__</b> &nbsp;/&nbsp; tick <b id="s-tick">0</b> &nbsp;/&nbsp; moteur <b>__ENGINE__</b></div>
   <div class="chips">
     <span class="chip tip" data-tip="Temperature moyenne de l'environnement. En 0.0.1 elle est affichee ; plus tard elle modulera le metabolisme.">temperature <b>__TEMP__ C</b></span>
     <span class="chip tip" data-tip="Le milieu dans lequel baigne la vie. Plus tard il changera ce qui est comestible et l'efficacite du metabolisme.">milieu <b>__MEDIUM__</b></span>
@@ -490,9 +497,13 @@ function drawDna() {
   }
 }
 
-// --- Chapitres : evenements saillants. ---
+// --- Chapitres : les grands tournants. ---
 const CHAPTER_MIN_SALIENCE = 150;
 const maxTick = FRAMES.length ? FRAMES[FRAMES.length - 1].tick : 1;
+// Seuls ces evenements meritent une onde et un titre sur la scene, et une ligne
+// individuelle dans la chronique : les grands tournants. Les eveils d'agents et les
+// cellules sont trop frequents (ils restent dans le fil), on n'en garde que le premier.
+const MOMENT_KINDS = { genese: 1, espece: 1, effondrement: 1, palier: 1, lignee_eteinte: 1 };
 
 function chapterLabel(e) {
   const l = {
@@ -509,18 +520,31 @@ function chapterLabel(e) {
   return e.note ? l + ' (' + e.note + ')' : l;
 }
 
+// Chronique curee : les grands tournants un a un, plus le premier eveil et la
+// premiere cellule resumes en une ligne. Le reste vit dans le fil.
 const CHAPTERS = [];
 (function () {
   const seen = {};
+  let firstAwake = false, firstCell = false;
   for (let i = 0; i < FRAMES.length; i++) {
     const es = FRAMES[i].events || [];
     for (let j = 0; j < es.length; j++) {
       const e = es[j];
       if ((e.salience || 0) < CHAPTER_MIN_SALIENCE) continue;
-      const key = e.tick + ':' + e.kind + ':' + (e.note || '');
-      if (seen[key]) continue;
-      seen[key] = 1;
-      CHAPTERS.push({ tick: e.tick, frame: i, label: chapterLabel(e), kind: e.kind });
+      let label = null;
+      if (MOMENT_KINDS[e.kind]) {
+        const key = e.tick + ':' + e.kind + ':' + (e.note || '');
+        if (seen[key]) continue;
+        seen[key] = 1;
+        label = chapterLabel(e);
+      } else if (e.kind === 'agent_eveille' && !firstAwake) {
+        firstAwake = true; label = "Les premiers individus s'eveillent";
+      } else if (e.kind === 'cellule' && !firstCell) {
+        firstCell = true; label = 'Les premieres cellules se forment';
+      } else {
+        continue;
+      }
+      CHAPTERS.push({ tick: e.tick, frame: i, label: label, kind: e.kind });
     }
   }
 })();
@@ -640,21 +664,21 @@ function drawFx(nowMs) {
       ctx.beginPath(); ctx.arc(x, y, Math.max(0.4, r), 0, 6.2832); ctx.fill();
     } else if (e.type === 'ripple') {
       const r = Math.max(0, eo * e.reach * geoS);
-      ctx.globalAlpha = (1 - p) * 0.55;
+      ctx.globalAlpha = (1 - p) * 0.26;
       ctx.strokeStyle = e.color;
-      ctx.lineWidth = 2.2 * (1 - p) + 0.4;
+      ctx.lineWidth = 1.4 * (1 - p) + 0.3;
       ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.stroke();
-      if (p < 0.6) {
-        ctx.globalAlpha = (0.6 - p) * 1.4;
-        ctx.strokeStyle = e.color; ctx.lineWidth = 1;
-        ctx.beginPath(); ctx.arc(x, y, Math.max(0, r * 0.6), 0, 6.2832); ctx.stroke();
-      }
     } else if (e.type === 'label') {
-      ctx.globalAlpha = p < 0.15 ? p / 0.15 : (1 - p) / 0.85;
-      ctx.fillStyle = e.color;
-      ctx.font = '600 13px "Fraunces", Georgia, serif';
+      const a = p < 0.12 ? p / 0.12 : (p > 0.82 ? (1 - p) / 0.18 : 1);
+      const lx = geoOx + gridPxW / 2;
+      const ly = geoOy + 46 + (e.slot || 0) * 26;
+      ctx.globalAlpha = Math.max(0, a);
+      ctx.font = '600 15px "Fraunces", Georgia, serif';
       ctx.textAlign = 'center';
-      ctx.fillText(e.text, x, y - 16 - eo * 10);
+      ctx.shadowColor = 'rgba(4,6,11,0.95)'; ctx.shadowBlur = 8;
+      ctx.fillStyle = e.color;
+      ctx.fillText(e.text, lx, ly);
+      ctx.shadowBlur = 0;
     }
   }
   ctx.globalAlpha = 1;
@@ -662,18 +686,27 @@ function drawFx(nowMs) {
 }
 function geoScale() { return Math.max(0.6, Math.min(2.2, geoS / 5)); }
 
-let lastEventFrame = -1;
 function fireFrameMoments(i, prevDrawn) {
-  // evenements saillants -> onde + titre pres du centre de vie
-  const cen = worldCentroid(FRAMES[i]);
   const es = FRAMES[i].events || [];
   for (let j = 0; j < es.length; j++) {
     const e = es[j];
-    if ((e.salience || 0) < CHAPTER_MIN_SALIENCE) continue;
-    const violet = 'rgba(185,160,255,0.9)', amber = 'rgba(255,207,114,0.9)';
-    const col = (e.kind === 'espece' || e.kind === 'agent_eveille') ? violet : amber;
-    spawnFx({ type: 'ripple', x: cen.x, y: cen.y, reach: Math.max(FRAMES[i].grid[0], FRAMES[i].grid[1]) * 0.75, color: col, dur: 2600 });
-    spawnFx({ type: 'label', x: cen.x, y: cen.y, text: chapterLabel(e), color: col, dur: 3200 });
+    if ((e.salience || 0) < CHAPTER_MIN_SALIENCE || !MOMENT_KINDS[e.kind]) continue;
+    const txt = chapterLabel(e);
+    let labels = fx.filter(function (f) { return f.type === 'label'; });
+    if (labels.some(function (f) { return f.text === txt; })) continue;
+    // creneau libre le plus bas (0..3) ; si tout est pris, on chasse le plus ancien.
+    let slot = 0;
+    const used = labels.map(function (f) { return f.slot; });
+    while (slot < 4 && used.indexOf(slot) >= 0) slot++;
+    if (slot >= 4) {
+      const idx = fx.findIndex(function (f) { return f.type === 'label'; });
+      slot = fx[idx].slot;
+      fx.splice(idx, 1);
+    }
+    const cen = worldCentroid(FRAMES[i]);
+    const col = e.kind === 'espece' ? 'rgba(185,160,255,0.95)' : 'rgba(255,207,114,0.95)';
+    spawnFx({ type: 'ripple', x: cen.x, y: cen.y, reach: Math.max(FRAMES[i].grid[0], FRAMES[i].grid[1]) * 0.3, color: col, dur: 2400 });
+    spawnFx({ type: 'label', text: txt, color: col, slot: slot, dur: 3600 });
   }
   // naissances / morts : uniquement en detail et sur un pas d'une frame
   if (FRAMES[i].lod === 'region' || prevDrawn < 0 || Math.abs(i - prevDrawn) !== 1) return;
@@ -705,7 +738,9 @@ function worldCentroid(f) {
 }
 
 // --- Rendu ---------------------------------------------------------------------------
-let vw = 1, vh = 1, geoS = 1, geoOx = 0, geoOy = 0;
+let vw = 1, vh = 1, geoS = 1, geoOx = 0, geoOy = 0, gridPxW = 1, gridPxH = 1;
+// Marge basse reservee : le monde s'arrete juste au-dessus du bandeau de transport.
+const RESERVE_BOTTOM = 78;
 function resize() {
   const r = cv.getBoundingClientRect();
   vw = Math.max(1, Math.round(r.width * DPR));
@@ -785,8 +820,8 @@ function paintCluster(c) {
     ctx.beginPath(); ctx.arc(x, y, r * 0.62, 0, 6.2832); ctx.stroke();
     ctx.globalAlpha = 1;
   }
-  if (c.count >= 40 && r > 15) {
-    ctx.fillStyle = 'rgba(233,237,247,0.7)';
+  if (c.count >= 120 && r > 26) {
+    ctx.fillStyle = 'rgba(233,237,247,0.6)';
     ctx.font = '10px ' + '"Fraunces", Georgia, serif';
     ctx.textAlign = 'center';
     ctx.fillText(c.count, x, y + 3);
@@ -810,8 +845,8 @@ function paintCell(c, tsec) {
   ctx.setLineDash([1, 3]); ctx.lineDashOffset = -tsec * 6;
   ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.stroke();
   ctx.setLineDash([]);
-  if (r > 17) {
-    ctx.fillStyle = 'rgba(233,237,247,0.66)';
+  if (r > 30) {
+    ctx.fillStyle = 'rgba(233,237,247,0.5)';
     ctx.font = '9px ' + '"Fraunces", Georgia, serif';
     ctx.textAlign = 'center';
     ctx.fillText(c.count, x, y - r - 4);
@@ -832,9 +867,11 @@ function draw(p) {
 
   ctx.clearRect(0, 0, vw, vh);
   const gw = A.grid[0], gh = A.grid[1];
-  geoS = Math.min(vw / gw, vh / gh);
+  const availH = Math.max(1, vh - RESERVE_BOTTOM * DPR);
+  geoS = Math.min(vw / gw, availH / gh);
   geoOx = (vw - geoS * gw) / 2;
-  geoOy = (vh - geoS * gh) / 2;
+  geoOy = (availH - geoS * gh) / 2;
+  gridPxW = geoS * gw; gridPxH = geoS * gh;
 
   lowCount = A.lod !== 'region' && (A.entities ? A.entities.length : 0) <= 900;
 
@@ -944,7 +981,7 @@ function updatePanels(i) {
   for (let k = 0; k < TRAITS.length; k++) {
     const v = st.trait_mean[k];
     traitBars[k].fill.style.right = (100 - v * 100).toFixed(1) + '%';
-    traitBars[k].tv.textContent = v.toFixed(2) + ' +/- ' + st.trait_spread[k].toFixed(2);
+    traitBars[k].tv.innerHTML = '<b>' + v.toFixed(2) + '</b> +/- ' + st.trait_spread[k].toFixed(2);
   }
 
   const log = [];
@@ -1008,13 +1045,18 @@ function buildRibbon() {
   for (let k = 0; k < n; k++) { const x = X(k), y = Y(POP[k]); k ? o.lineTo(x, y) : o.moveTo(x, y); }
   o.stroke();
 
-  // marqueurs de chapitres
+  // marqueurs des grands tournants seulement (les eveils / cellules sont trop nombreux
+  // pour la barre) ; on fusionne ceux qui tombent au meme pixel.
+  let lastX = -99;
   for (let k = 0; k < CHAPTERS.length; k++) {
+    if (!MOMENT_KINDS[CHAPTERS[k].kind]) continue;
     const x = CHAPTERS[k].tick / maxTick * ribW;
-    o.fillStyle = 'rgba(255,207,114,0.9)';
-    o.beginPath(); o.arc(x, 6, 2.4, 0, 6.2832); o.fill();
-    o.strokeStyle = 'rgba(255,207,114,0.3)'; o.lineWidth = 1;
-    o.beginPath(); o.moveTo(x, 0); o.lineTo(x, ribH); o.stroke();
+    if (x - lastX < 5 * DPR) continue;
+    lastX = x;
+    o.fillStyle = 'rgba(255,207,114,0.95)';
+    o.beginPath(); o.arc(x, 4 * DPR, 2.4 * DPR, 0, 6.2832); o.fill();
+    o.strokeStyle = 'rgba(255,207,114,0.22)'; o.lineWidth = 1;
+    o.beginPath(); o.moveTo(x, 0); o.lineTo(x, 9 * DPR); o.stroke();
   }
 }
 function drawRibbonPlayhead(p) {
@@ -1023,9 +1065,16 @@ function drawRibbonPlayhead(p) {
   rctx.drawImage(ribbonOff, 0, 0);
   const n = POP.length;
   const x = n < 2 ? 0 : (p / (n - 1)) * ribW;
-  rctx.strokeStyle = 'rgba(233,237,247,0.9)';
-  rctx.lineWidth = 1.5;
+  // fond sombre pour detacher le curseur de tout ce qui est derriere
+  rctx.strokeStyle = 'rgba(4,6,11,0.75)'; rctx.lineWidth = 3.5 * DPR;
   rctx.beginPath(); rctx.moveTo(x, 0); rctx.lineTo(x, ribH); rctx.stroke();
+  rctx.strokeStyle = 'rgba(233,237,247,0.98)'; rctx.lineWidth = 1.4 * DPR;
+  rctx.beginPath(); rctx.moveTo(x, 0); rctx.lineTo(x, ribH); rctx.stroke();
+  // triangles haut et bas
+  const t = 4 * DPR;
+  rctx.fillStyle = 'rgba(233,237,247,0.98)';
+  rctx.beginPath(); rctx.moveTo(x - t, 0); rctx.lineTo(x + t, 0); rctx.lineTo(x, t * 1.4); rctx.closePath(); rctx.fill();
+  rctx.beginPath(); rctx.moveTo(x - t, ribH); rctx.lineTo(x + t, ribH); rctx.lineTo(x, ribH - t * 1.4); rctx.closePath(); rctx.fill();
 }
 
 // --- Boucle ---------------------------------------------------------------------------
@@ -1070,9 +1119,15 @@ document.getElementById('layer').addEventListener('change', function (e) {
 });
 
 // --- Repli des panneaux et plein monde ---
-const pL = document.getElementById('panel-left'), pR = document.getElementById('panel-right');
-document.getElementById('h-left').addEventListener('click', function () { pL.classList.toggle('hud-hidden'); });
-document.getElementById('h-right').addEventListener('click', function () { pR.classList.toggle('hud-hidden'); });
+const hL = document.getElementById('h-left'), hR = document.getElementById('h-right');
+hL.addEventListener('click', function () {
+  const c = document.body.classList.toggle('left-collapsed');
+  hL.innerHTML = c ? '&#8250;' : '&#8249;';
+});
+hR.addEventListener('click', function () {
+  const c = document.body.classList.toggle('right-collapsed');
+  hR.innerHTML = c ? '&#8249;' : '&#8250;';
+});
 const focusBtn = document.getElementById('focus');
 function toggleFocus() {
   document.body.classList.toggle('focus');
