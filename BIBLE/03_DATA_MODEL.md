@@ -152,6 +152,7 @@ struct Entity {
     cell_id:    Option<u32>,        // (0.0.2) cellule d'appartenance, None = molécule libre
     mind:       Option<Box<Mind>>,  // (0.0.3, schema v7) esprit d'agent, None pour la quasi-totalité
     last_shock: Option<Shock>,      // (0.0.3) dernier choc marquant, graine d'un souvenir
+    health:     f32,               // (0.0.3, schema v13) [0,1] condition biologique consolidée
 }
 
 struct Position { x: f32, y: f32 }
@@ -205,7 +206,20 @@ pondèrent cette même cible : la faim pousse à foncer manger, la peur fait fui
 même affamé, la solitude fait dériver vers les siens. En tranche 6, `Mind.mode` retient
 laquelle de ces forces a **dominé** la décision (une lecture, pas un changement de
 comportement) : la biographie peut alors dire « elle a fui plutôt que de manger ».
-La dé-simulation de la biologie sous l'agent est une tranche suivante.
+
+## Santé, la biologie de fond (0.0.3, tranche 8)
+
+`Entity.health` dans [0, 1] (schema v13) consolide la condition biologique en un seul
+scalaire. Mis à jour en phase 6 de `sim.rs`, sans RNG : il glisse vers une cible d'usure liée
+à l'âge (`biology.wear_start`, `wear_floor`), sauf quand l'énergie est sous le seuil de péril
+où la cible tombe à 0 et la dégradation accélère (`damage_rate` > `heal_rate` : une famine
+laisse une marque qui met du temps à s'effacer). Deux retours sur le monde, valables pour
+toute entité : un corps usé se déplace moins vite (`frail_slow`, phase 4) et meurt plus tôt
+de vieillesse (`wear_death_boost`, phase 6). Config `[biology]` (6 clés), deux boutons pour
+l'A/B. C'est la marche « Individu » de l'escalier des échelles : la biologie recule au rang
+d'état de fond que la cognition lit, au lieu d'un détail rejugé chaque tick. Déféré à 0.0.6
+(escalier étape 2) : le bilan molécule qui remplace la simulation membre à membre d'une
+cellule.
 
 ## Génome
 

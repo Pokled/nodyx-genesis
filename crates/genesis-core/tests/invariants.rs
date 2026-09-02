@@ -307,6 +307,42 @@ fn social_ties_form() {
 }
 
 #[test]
+fn health_stays_bounded() {
+    // Biologie de fond (0.0.3, tranche 8) : `Entity.health` reste dans [0, 1] a chaque tick.
+    // Un corps vieux et eprouve descend sous 0.9 ; un corps jeune et rassasie tient au-dessus
+    // de 0.9.
+    let cfg = SimConfig::default();
+    let expected_mean = cfg.lifecycle.lifespan_ticks_mean as f32;
+    let mut w = WorldState::new(1, &cfg);
+    let mut saw_worn = false;
+    let mut saw_intact = false;
+    for _ in 0..40_000 {
+        let _ = tick(&mut w, &cfg);
+        for e in w.entities.iter() {
+            assert!(
+                (0.0..=1.0).contains(&e.health),
+                "sante hors bornes au tick {} : {}",
+                w.tick,
+                e.health
+            );
+            let expected = expected_mean * (0.5 + e.genome.traits.lifespan);
+            let age_frac = e.age_ticks as f32 / expected.max(1.0);
+            if age_frac > 1.2 && e.health < 0.9 {
+                saw_worn = true;
+            }
+            if age_frac < 0.4 && e.energy > cfg.reproduction.energy_threshold && e.health > 0.9 {
+                saw_intact = true;
+            }
+        }
+        if w.entities.is_empty() {
+            break;
+        }
+    }
+    assert!(saw_worn, "aucun corps use vu en 40000 ticks");
+    assert!(saw_intact, "aucun corps jeune et intact vu en 40000 ticks");
+}
+
+#[test]
 fn agent_modes_are_chosen() {
     // Cognition (0.0.3, tranche 6) : un agent choisit explicitement un mode de comportement.
     // Sur une course, plusieurs modes doivent apparaitre (pas seulement forage), et le mode

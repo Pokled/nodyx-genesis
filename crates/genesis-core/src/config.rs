@@ -17,6 +17,7 @@ pub struct SimConfig {
     pub bricks: BricksCfg,
     pub environment: EnvironmentCfg,
     pub metabolism: MetabolismCfg,
+    pub biology: BiologyCfg,
     pub lifecycle: LifecycleCfg,
     pub reproduction: ReproductionCfg,
     pub cohesion: CohesionCfg,
@@ -38,6 +39,7 @@ impl Default for SimConfig {
             bricks: BricksCfg::default(),
             environment: EnvironmentCfg::default(),
             metabolism: MetabolismCfg::default(),
+            biology: BiologyCfg::default(),
             lifecycle: LifecycleCfg::default(),
             reproduction: ReproductionCfg::default(),
             cohesion: CohesionCfg::default(),
@@ -207,6 +209,46 @@ pub struct MetabolismCfg {
 impl Default for MetabolismCfg {
     fn default() -> Self {
         MetabolismCfg { base_burn: 0.05, move_cost: 0.02, eat_rate: 2.0 }
+    }
+}
+
+/// Biologie de fond (0.0.3, tranche 8). Un scalaire `Entity.health` dans [0, 1] consolide la
+/// condition biologique : il integre lentement les famines repetees et la vieillesse, au lieu
+/// que le pipeline rejuge l'energie brute et l'age a chaque tick. La sante remonte quand
+/// l'entite est rassasiee et pas trop vieille. Deux effets sur le monde : un corps use se
+/// deplace moins vite et meurt plus tot de vieillesse. C'est la marche « Individu » de
+/// l'escalier des echelles : la biologie recule au rang d'etat de fond, la cognition passe
+/// devant. Deferre a l'etape 2 (0.0.6) : le bilan molecule qui remplace la simulation
+/// membre a membre d'une cellule.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct BiologyCfg {
+    /// Fraction de l'esperance de vie sous laquelle un corps reste a pleine sante.
+    pub wear_start: f32,
+    /// Sante cible d'un corps a 1.5x son esperance de vie (usure de la vieillesse).
+    pub wear_floor: f32,
+    /// Fraction de l'ecart a la cible corrigee par tick quand l'entite est rassasiee.
+    pub heal_rate: f32,
+    /// Idem quand l'energie est sous le seuil de peril (cible 0) : plus rapide, la famine
+    /// laisse une marque qui met du temps a s'effacer.
+    pub damage_rate: f32,
+    /// `max_step *= frail_slow + (1 - frail_slow) * health`. `1.0` = pas d'effet sur le
+    /// mouvement (pour l'A/B).
+    pub frail_slow: f32,
+    /// `p_death_age *= 1 + wear_death_boost * (1 - health)`. `0` = pas d'effet sur la mort
+    /// par age (pour l'A/B).
+    pub wear_death_boost: f32,
+}
+impl Default for BiologyCfg {
+    fn default() -> Self {
+        BiologyCfg {
+            wear_start: 0.6,
+            wear_floor: 0.15,
+            heal_rate: 0.015,
+            damage_rate: 0.02,
+            frail_slow: 0.5,
+            wear_death_boost: 1.5,
+        }
     }
 }
 

@@ -93,4 +93,15 @@ pub struct Entity {
     /// Graine d'un futur souvenir : lu a l'eveil et a chaque tick par un agent.
     #[serde(default)]
     pub last_shock: Option<Shock>,
+
+    /// Sante (0.0.3, tranche 8) : la condition biologique consolidee, dans [0, 1]. `1.0` =
+    /// corps intact. Integre lentement les famines repetees et la vieillesse (phase 6), au
+    /// lieu que le pipeline rejuge l'energie brute et l'age a chaque tick. C'est la biologie
+    /// devenue etat de fond : la cognition (la biographie) lit ce scalaire, pas le detail.
+    #[serde(default = "one")]
+    pub health: f32,
+}
+
+fn one() -> f32 {
+    1.0
 }

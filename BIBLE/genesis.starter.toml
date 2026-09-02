@@ -62,6 +62,21 @@ base_burn = 0.05   # énergie/tick pour metabolism = 0.5
 move_cost = 0.02   # énergie par unité de distance
 eat_rate  = 2.0    # énergie max absorbée d'une case par tick
 
+[biology]
+# Biologie de fond (0.0.3, tranche 8). Un scalaire Entity.health dans [0, 1] consolide la
+# condition biologique : il intègre lentement les famines répétées et la vieillesse. Un
+# corps usé se déplace moins vite et meurt plus tôt de vieillesse. La cognition (la
+# biographie) lit ce scalaire, pas le détail. A/B graine 1, 60000 ticks, contre santé inerte
+# (frail_slow = 1.0, wear_death_boost = 0.0) : morts par famine +15 % (2 291 -> ... la
+# fragilité ralentit un corps déjà en peine, ça se cumule), morts par âge +2 %, génération
+# moyenne +0,5, diversité -0,007. Effet réel et mesuré, pas réglé pour l'image (T-16).
+wear_start        = 0.6     # sous 0,6x l'espérance de vie, corps à pleine santé
+wear_floor        = 0.15    # santé cible à 1,5x l'espérance de vie
+heal_rate         = 0.015   # correction de l'écart à la cible par tick, rassasié
+damage_rate       = 0.02    # ... en famine (cible 0), plus rapide : la faim laisse une marque
+frail_slow        = 0.5     # max_step *= frail_slow + (1 - frail_slow) * health ; 1.0 = inerte
+wear_death_boost  = 1.5     # p_death_age *= 1 + wear_death_boost * (1 - health) ; 0 = inerte
+
 [lifecycle]
 starve_at           = 0.0
 lifespan_ticks_mean = 20000   # environ 2,3 années-monde, à régler

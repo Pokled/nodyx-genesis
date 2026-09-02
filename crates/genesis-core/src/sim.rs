@@ -291,10 +291,13 @@ pub fn tick(world: &mut WorldState, cfg: &SimConfig) -> Vec<Event> {
     let move_cost = cfg.metabolism.move_cost;
     let sw = space.width as f32;
     let sh = space.height as f32;
+    // Biologie de fond (tranche 8) : un corps use se traine.
+    let frail_slow = cfg.biology.frail_slow.clamp(0.0, 1.0);
     world.entities.par_iter_mut().for_each(|e| {
         let Some(tg) = e.target else { return };
         let pos = e.position;
-        let max_step = 0.3 + e.genome.traits.speed * 1.2;
+        let max_step =
+            (0.3 + e.genome.traits.speed * 1.2) * (frail_slow + (1.0 - frail_slow) * e.health);
         let dx = tg.x - pos.x;
         let dy = tg.y - pos.y;
         let dist = (dx * dx + dy * dy).sqrt();
@@ -385,6 +388,13 @@ pub fn tick(world: &mut WorldState, cfg: &SimConfig) -> Vec<Event> {
     let corpse_nut = cfg.environment.corpse_nutrients;
     let corpse_ret = cfg.environment.corpse_energy_return;
     let body_matter = cfg.bricks.body_matter;
+    // Biologie de fond (tranche 8) : un corps use meurt plus tot de vieillesse.
+    let wear_death_boost = cfg.biology.wear_death_boost.max(0.0);
+    let bio_wear_start = cfg.biology.wear_start.clamp(0.0, 1.49);
+    let bio_wear_floor = cfg.biology.wear_floor.clamp(0.0, 1.0);
+    let bio_heal = cfg.biology.heal_rate.max(0.0);
+    let bio_damage = cfg.biology.damage_rate.max(0.0);
+    let bio_peril_energy = cfg.cognition.peril_frac * repro_threshold;
 
     // Decision : `dead` reste dans l'ordre des id.
     let mut dead: Vec<(EntityId, DeathCause)> = Vec::new();
@@ -401,6 +411,7 @@ pub fn tick(world: &mut WorldState, cfg: &SimConfig) -> Vec<Event> {
             0.0
         } else {
             (0.002 * (frac - 1.0).powf(age_curve)).min(0.5)
+                * (1.0 + wear_death_boost * (1.0 - e.health))
         };
         if roll < p_death {
             dead.push((e.id, DeathCause::Age));
@@ -410,6 +421,23 @@ pub fn tick(world: &mut WorldState, cfg: &SimConfig) -> Vec<Event> {
     for e in world.entities.iter_mut() {
         e.age_ticks += 1;
         e.cooldown = e.cooldown.saturating_sub(1);
+
+        // Sante : integration lente de la condition biologique. Cible = usure de l'age,
+        // sauf en famine ou la cible tombe a 0 et la degradation est plus rapide.
+        let expected = (lifespan_mean * (0.5 + e.genome.traits.lifespan)).max(1.0);
+        let age_frac = e.age_ticks as f32 / expected;
+        let wear_target = if age_frac <= bio_wear_start {
+            1.0
+        } else {
+            (1.0 - (age_frac - bio_wear_start) / (1.5 - bio_wear_start) * (1.0 - bio_wear_floor))
+                .max(bio_wear_floor)
+        };
+        let (goal, rate) = if e.energy < bio_peril_energy {
+            (0.0, bio_damage)
+        } else {
+            (wear_target, bio_heal)
+        };
+        e.health = (e.health + rate * (goal - e.health)).clamp(0.0, 1.0);
     }
 
     // Positions des morts de ce tick, avec le `seq` de leur `EntityDied` : les agents
@@ -664,6 +692,8 @@ pub fn tick(world: &mut WorldState, cfg: &SimConfig) -> Vec<Event> {
             // Un nouveau-ne n'a pas d'histoire : ni esprit, ni choc.
             mind: None,
             last_shock: None,
+            // Un corps neuf demarre intact.
+            health: 1.0,
         });
         emit(
             &mut events,

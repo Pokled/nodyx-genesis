@@ -53,6 +53,8 @@ struct LifeBeat {
     pos: [f32; 2],
     /// energie en pourcents du plafond, 0..100.
     energy: u8,
+    /// sante en pourcents, 0..100 (biologie de fond, tranche 8).
+    h: u8,
     /// jauges en pourcents : [faim, peur, solitude].
     n: [u8; 3],
     /// mode de comportement choisi : forage | flee | join | seek_bounty | wander.
@@ -79,6 +81,8 @@ struct AgentLife {
     ended_tick: Option<u64>,
     /// "vivant" | "mort" | "sommeil"
     ended: &'static str,
+    /// sante au dernier echantillon, 0..100 (biologie de fond, tranche 8).
+    ended_health: u8,
     memories: Vec<Memory>,
     /// Les relations sociales de fin de vie : (id de l'autre, familiarite, valence).
     #[serde(skip_serializing_if = "Vec::is_empty")]
@@ -123,6 +127,7 @@ fn new_life(e: &genesis_core::Entity, awoke_tick: u64) -> AgentLife {
         awoke_place: [e.position.x, e.position.y],
         ended_tick: None,
         ended: "vivant",
+        ended_health: (e.health.clamp(0.0, 1.0) * 100.0) as u8,
         memories: Vec::new(),
         ties: Vec::new(),
         beats: Vec::new(),
@@ -327,10 +332,12 @@ fn cmd_run(flags: &HashMap<String, String>) -> std::io::Result<()> {
                             m.mode.as_str(),
                         )
                     });
+                    l.ended_health = pct(x.health);
                     l.beats.push(LifeBeat {
                         tick: world.tick,
                         pos: [x.position.x, x.position.y],
                         energy: ((x.energy / ceiling).clamp(0.0, 1.0) * 100.0) as u8,
+                        h: pct(x.health),
                         n,
                         md,
                         mem: if with_mem { snap } else { Vec::new() },

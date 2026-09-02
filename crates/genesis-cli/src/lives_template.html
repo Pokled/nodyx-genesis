@@ -203,6 +203,11 @@ function drawEnergy(life) {
     p.series.forEach((pt, i) => { d += (i ? 'L' : 'M') + X(pt.tick).toFixed(1) + ',' + Y(pt.s * 100).toFixed(1) + ' '; });
     s += `<path d="${d}" fill="none" stroke="${aversive(p.k) ? css('--peril') : css('--bounty')}" stroke-width="1.4" stroke-opacity="0.7"${p.k === 2 ? ' stroke-dasharray="4,3"' : ''}/>`;
   });
+  if (b.length > 1 && b.some(x => x.h != null)) {
+    let d = '';
+    for (let i = 0; i < b.length; i++) d += (i ? 'L' : 'M') + X(b[i].tick).toFixed(1) + ',' + Y(b[i].h == null ? 100 : b[i].h).toFixed(1) + ' ';
+    s += `<path d="${d}" fill="none" stroke="${css('--lapse')}" stroke-width="1.6" stroke-opacity="0.85"/>`;
+  }
   if (b.length > 1) {
     let d = '';
     for (let i = 0; i < b.length; i++) d += (i ? 'L' : 'M') + X(b[i].tick).toFixed(1) + ',' + Y(b[i].energy).toFixed(1) + ' ';
@@ -211,11 +216,12 @@ function drawEnergy(life) {
     for (const bb of b) if (bb.energy < lo.energy) lo = bb;
     s += `<circle cx="${X(lo.tick).toFixed(1)}" cy="${Y(lo.energy).toFixed(1)}" r="3.4" fill="${css('--peril')}"><title>plus bas : ${lo.energy} % au tick ${num(lo.tick)}</title></circle>`;
   }
-  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="energie et force des souvenirs">${s}</svg>`;
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="energie, sante et force des souvenirs">${s}</svg>`;
 }
 function capEnergy() {
   return `<div class="cap">` +
     `<span class="k"><span class="s" style="background:${css('--ink-soft')}"></span>energie</span>` +
+    `<span class="k"><span class="s" style="background:${css('--lapse')}"></span>sante</span>` +
     `<span class="k"><span class="s" style="background:${css('--peril')}"></span>force d'un souvenir de peril</span>` +
     `<span class="k" style="color:${css('--peril')}"><span class="s dash"></span>force d'une mort vue</span>` +
     `</div>`;
@@ -354,6 +360,22 @@ function prose(life) {
   if (so > 60) temper.push('a l\'ecart des siens'); else if (so < 25) temper.push('au milieu des siens');
   if (temper.length) parts.push(`Il a vecu surtout ${temper.join(', ')} (faim ${(hn / 100).toFixed(2)}, peur ${(fr / 100).toFixed(2)}, solitude ${(so / 100).toFixed(2)} de moyenne).`);
 
+  // Sante : la biologie de fond. Ligne grise du graphe d'energie.
+  const hb = (life.beats || []).filter(x => x.h != null);
+  if (hb.length >= 2) {
+    const hStart = hb[0].h, hEnd = life.ended_health != null ? life.ended_health : hb[hb.length - 1].h;
+    const hMin = Math.min(...hb.map(x => x.h));
+    if (life.ended === 'mort') {
+      parts.push(hEnd < 55
+        ? `Cote corps : il est mort use, la sante tombee a ${hEnd} % (famines repetees, ou grand age).`
+        : `Cote corps : mort en assez bonne forme (sante ${hEnd} %), d'une famine brutale plutot que d'une lente degradation.`);
+    } else if (life.ended === 'vivant') {
+      parts.push(`Cote corps : a la derniere image, sa sante tenait a ${hEnd} %` + (hMin < hEnd - 20 ? `, apres etre descendue jusqu'a ${hMin} %.` : '.'));
+    } else {
+      parts.push(`Cote corps : sante ${hEnd} % quand il a cesse d'etre un agent.`);
+    }
+  }
+
   // Modes de comportement : ce qu'il a explicitement choisi.
   const mc = modeCounts(life);
   if (mc.total > 0) {
@@ -428,10 +450,11 @@ renderLegend(document.getElementById('legend'), [
       `<div class="chip"><span class="pill ${life.ended}">${life.ended === 'mort' ? 'mort de faim' : life.ended}</span>` +
       `<span>lignee ${life.lineage}</span><span>generation ${life.generation}</span>` +
       `<span>perception ${life.perception.toFixed(2)}</span>` +
-      `<span>duree ${num(span(life))} ticks</span><span>jusqu'a ${peak} souvenirs</span></div>` +
+      `<span>duree ${num(span(life))} ticks</span><span>jusqu'a ${peak} souvenirs</span>` +
+      (life.ended_health != null ? `<span>sante finale ${life.ended_health} %</span>` : '') + `</div>` +
       `<div class="panels">` +
         `<figure><div class="t">carte memoire</div>${drawMap(life)}</figure>` +
-        `<figure><div class="t">energie et souvenirs, 0 a 100</div>${drawEnergy(life)}${capEnergy()}</figure>` +
+        `<figure><div class="t">energie, sante et souvenirs, 0 a 100</div>${drawEnergy(life)}${capEnergy()}</figure>` +
         `<figure><div class="t">besoins, 0 a 100</div>${drawNeeds(life)}${capNeeds()}</figure>` +
         `<figure><div class="t">mode de comportement choisi</div>${drawModes(life)}${capModes(life)}</figure>` +
       `</div>` +

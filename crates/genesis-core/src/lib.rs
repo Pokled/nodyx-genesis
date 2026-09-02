@@ -53,4 +53,7 @@ pub const ENGINE_VERSION: &str = env!("CARGO_PKG_VERSION");
 ///       manger, fuir, suivre, chercher une aubaine, errer).
 /// v12 : souvenirs sociaux (`Mind.social` : relations vers d'autres agents, familiarite et
 ///       valence). Premier pas vers les groupes.
-pub const SCHEMA_VERSION: u32 = 12;
+/// v13 : sante (`Entity.health`) : la biologie devient un etat de fond consolide (famines
+///       repetees, vieillesse) que la cognition lit ; un corps use se traine et meurt plus
+///       tot de vieillesse.
+pub const SCHEMA_VERSION: u32 = 13;

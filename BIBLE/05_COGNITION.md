@@ -302,8 +302,46 @@ population dense et nourrie), quelques négatives. Effet de survie de `friend_pu
 (les agents sont rarement isolés). Déterministe byte-identique 1 vs 8 threads. Test
 `social_ties_form`. C'est le premier pas vers les groupes et le jalon 0.0.4 « Voix ».
 
-**Ce qui reste (0.0.3).** Dé-simulation de la biologie sous l'agent (marche de l'escalier).
-Ensuite : jalon 0.0.4, ou le modèle de temps à deux horloges (`04_SIMULATION.md`).
+---
+
+## Tranche 8 : la santé, la biologie de fond (fait, 2026-09-02)
+
+La marche « Individu » de l'escalier des échelles : la biologie recule au rang d'état de
+fond, la cognition passe devant. Schéma v13. `Entity.health` dans [0, 1] : un seul scalaire
+qui **intègre lentement** la condition biologique, au lieu que le pipeline rejuge l'énergie
+brute et l'âge à chaque tick.
+
+Mise à jour en phase 6 de `sim.rs`, séquentielle, sans RNG :
+- cible d'usure liée à l'âge : 1,0 tant que l'entité a moins de `wear_start` (0,6) de son
+  espérance de vie, puis descente linéaire jusqu'à `wear_floor` (0,15) à 1,5x.
+- en famine (`energy < peril`), la cible tombe à 0 et le taux passe de `heal_rate` (0,015) à
+  `damage_rate` (0,02) : une famine laisse une marque qui met du temps à s'effacer.
+
+Deux retours sur le monde, pour **toute** entité (la biologie de fond vaut pour tous, elle
+est seulement mise en avant pour l'agent, dans la biographie) :
+- mouvement : `max_step *= frail_slow + (1 - frail_slow) * health` (`frail_slow` = 0,5).
+- mort par âge : `p_death *= 1 + wear_death_boost * (1 - health)` (`wear_death_boost` = 1,5).
+
+Config `[biology]`, 6 clés. Deux boutons pour l'A/B : `frail_slow = 1.0` et
+`wear_death_boost = 0.0` rendent la santé inerte (aucun effet sur le monde).
+
+`lives.html` : ligne grise (santé) sur le graphe d'énergie, phrase « Côté corps : il est
+mort usé, la santé tombée à 30 % » ou « mort en assez bonne forme, d'une famine brutale »,
+puce « santé finale X % ». `lives.jsonl` : `LifeBeat.h`, `AgentLife.ended_health`.
+
+**Résultat (graine 1, 60000 ticks, contre santé inerte).** Morts par famine +15 %
+(4 326 -> 4 966), morts par âge +2 % (2 271 -> 2 326), génération moyenne 8,9 -> 9,4, max
+16 -> 18, diversité génétique 0,050 -> 0,043, agents vivants 1 680 -> 1 633. La fragilité
+ralentit un corps déjà affamé, ce qui aggrave sa faim : un léger cercle vicieux pour les
+individus en peine, donc un monde qui se renouvelle un peu plus vite. C'est un effet réel et
+mesuré, pas un réglage vers une image (T-16) : on l'inscrit tel quel. Déterministe
+byte-identique 1 vs 8 threads, rejeu OK. Test `health_stays_bounded`.
+
+**Ce qui reste déféré.** L'agent qui quitte le détail cellulaire (le bilan molécule qui
+remplace la simulation membre à membre d'une cellule, escalier étape 2) : trop de risque
+écologique pour 0.0.3 (le partage d'énergie des cellules sauve des membres affamés), reporté
+à 0.0.6 avec la vraie étape 2. La cible probante de 0.0.3 (un individu qui se souvient, avec
+une biographie lisible) est atteinte.
 
 ---
 

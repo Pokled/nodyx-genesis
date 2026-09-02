@@ -211,6 +211,7 @@ impl WorldState {
                 cell_id: None,
                 mind: None,
                 last_shock: None,
+                health: 1.0,
             });
         }
 
