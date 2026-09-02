@@ -209,10 +209,11 @@ genesis, Nodyx Genesis 0.0.1
       Reprend un monde depuis son dernier instantane et le fait avancer de T ticks.
       Le journal et la serie temporelle continuent ; la scene montre le monde recent.
 
-  genesis serve <dossier-monde> [--chunk <N>] [--for <T>] [--rate <ticks/s>] [--port <P>]
-      Fait tourner un monde en continu, en refaisant les pages a chaque tranche.
-      Ouvre index.html dans un navigateur et rafraichis. Ctrl-C pour arreter.
-      Avec --port, sert le monde en http (overlay du direct : /stream.html).
+  genesis serve <dossier-monde> [--rate <ticks/s>] [--port <P>] [--for <T>] [--step <N>]
+      Fait tourner un monde en continu, en avancant par petits pas paces (--rate,
+      defaut 30 ticks/s reels ; 0 = a fond). Avec --port, sert le monde en http :
+      l'overlay du direct est sur http://localhost:<P>/stream.html (source OBS).
+      Sinon, ouvre index.html et rafraichis. Ctrl-C pour arreter.
 
   genesis replay <dossier-monde>
       Rejoue le monde depuis sa graine et verifie l'etat final. Deterministe : OK ou DIFF.
@@ -284,7 +285,7 @@ fn cmd_run(flags: &HashMap<String, String>) -> std::io::Result<()> {
 
     // Fenetre "genese" : on echantillonne quatre fois plus fin sur les premiers ticks, la ou
     // deux entites deviennent une lignee. En `run` on garde toutes les frames.
-    sim.run(&mut world, &cfg, &wdir, ticks, frame_every, 4000.min(ticks), usize::MAX)?;
+    sim.run(&mut world, &cfg, &wdir, ticks, frame_every, 4000.min(ticks), usize::MAX, true)?;
 
     let awoke_total = sim.lives.len() as u64;
     write_world_pages(
@@ -339,7 +340,9 @@ impl Sim {
 
     /// Fait tourner `ticks` ticks, en appendant au journal et en ecrivant les instantanes.
     /// `max_frames` borne le nombre de frames gardees (une fenetre glissante pour `continue`,
-    /// `usize::MAX` pour `run`).
+    /// `usize::MAX` pour `run`). `checkpoint` : ecrire un instantane exactement au dernier tick
+    /// (vrai pour `run` / `continue` ; faux quand `serve` avance par petits pas, ou l'on ne
+    /// veut pas un fichier d'instantane toutes les secondes, seulement ceux de l'intervalle).
     #[allow(clippy::too_many_arguments)]
     fn run(
         &mut self,
@@ -350,6 +353,7 @@ impl Sim {
         frame_every: u64,
         genesis_window: u64,
         max_frames: usize,
+        checkpoint: bool,
     ) -> std::io::Result<()> {
         let tps = cfg.time.target_ticks_per_real_second;
         let series_every = cfg.persistence.series_every.max(1);
@@ -489,7 +493,10 @@ impl Sim {
         }
 
         // Instantane final exactement au dernier tick, pour que replay puisse comparer.
-        wdir.write_snapshot(world)?;
+        // En pas-a-pas (`serve`), on s'en remet aux instantanes de l'intervalle.
+        if checkpoint {
+            wdir.write_snapshot(world)?;
+        }
         self.frames.push(project(world, cfg, tps, &since_frame));
         while self.frames.len() > max_frames {
             self.frames.remove(0);
@@ -563,6 +570,11 @@ fn write_world_pages(
             .then(b.memories.len().cmp(&a.memories.len()))
             .then(agent_span(b).cmp(&agent_span(a)))
     });
+
+    // Un instantane exactement au tick courant : meta, journal et instantane restent
+    // coherents, y compris quand `serve` avance par petits pas sans checkpoint. C'est aussi
+    // ce que `replay` compare. (Pour `run`, c'est le meme fichier que celui deja ecrit.)
+    wdir.write_snapshot(world)?;
 
     let meta = WorldMeta {
         seed,
@@ -732,7 +744,7 @@ fn cmd_continue(
 
     let mut r = Resume::load(&out)?;
     let from_tick = r.world.tick;
-    r.sim.run(&mut r.world, &r.cfg, &r.wdir, ticks, frame_every, 0, CONTINUE_FRAME_WINDOW)?;
+    r.sim.run(&mut r.world, &r.cfg, &r.wdir, ticks, frame_every, 0, CONTINUE_FRAME_WINDOW, true)?;
 
     println!(
         "Monde {} repris : {} -> {} ticks (+{})",
@@ -753,28 +765,33 @@ fn cmd_serve(
 ) -> std::io::Result<()> {
     let out = resume_path(flags, positional, "genesis serve <dossier-monde>")?;
     let frame_every = resume_frame_every(flags);
-    let chunk: u64 = flags
-        .get("chunk")
+    let limit: Option<u64> = flags.get("for").and_then(|s| s.parse().ok());
+    // Cadence voulue, en ticks par seconde reelle. Un monde qui tourne 24/24 se regarde :
+    // le defaut est lent. `--rate 0` = a fond.
+    let rate: f64 = flags.get("rate").and_then(|s| s.parse().ok()).unwrap_or(30.0);
+    // Pas d'avancement : environ une seconde de temps-monde par tour de boucle, pour que
+    // l'overlay (qui relit live.json toutes les 3 s) voie le monde bouger en continu.
+    let step: u64 = flags
+        .get("step")
+        .or_else(|| flags.get("chunk"))
         .and_then(|s| s.parse().ok())
         .filter(|&n| n > 0)
-        .unwrap_or(4000);
-    let limit: Option<u64> = flags.get("for").and_then(|s| s.parse().ok());
-    // Ticks par seconde reelle voulus. 0 = a fond.
-    let rate: f64 = flags.get("rate").and_then(|s| s.parse().ok()).unwrap_or(0.0);
-    // On ne refait pas les pages a chaque tranche : au plus une fois toutes ces secondes.
+        .unwrap_or_else(|| if rate > 0.0 { (rate.round() as u64).max(1) } else { 400 });
+    // Les pages lourdes (view / series / lives / index) : au plus une fois toutes ces secondes.
     let pages_every: f64 = flags
         .get("pages-every")
         .and_then(|s| s.parse().ok())
-        .unwrap_or(10.0);
+        .unwrap_or(15.0);
     // Serveur de fichiers pour l'overlay du direct. 0 (defaut) = coupe.
     let port: u16 = flags.get("port").and_then(|s| s.parse().ok()).unwrap_or(0);
 
     let mut r = Resume::load(&out)?;
     let start = r.world.tick;
     println!(
-        "Monde {} en marche depuis le tick {}. Ctrl-C pour arreter.",
+        "Monde {} en marche depuis le tick {} ({} ticks/s reels). Ctrl-C pour arreter.",
         out.display(),
-        start
+        start,
+        if rate > 0.0 { format!("{rate:.0}") } else { "max".into() },
     );
     println!("Ouvre {}", r.wdir.root.join("index.html").display());
     if port > 0 {
@@ -784,44 +801,49 @@ fn cmd_serve(
         }
     }
 
-    let mut last_pages = std::time::Instant::now()
-        - std::time::Duration::from_secs_f64(pages_every.max(0.0) + 1.0);
+    let pages_gap = std::time::Duration::from_secs_f64(pages_every.max(0.5));
+    let mut last_pages = std::time::Instant::now() - pages_gap * 2;
+    let mut last_beat = std::time::Instant::now() - std::time::Duration::from_secs(9);
     loop {
         let t0 = std::time::Instant::now();
         let before = r.world.tick;
         r.sim
-            .run(&mut r.world, &r.cfg, &r.wdir, chunk, frame_every, 0, CONTINUE_FRAME_WINDOW)?;
+            .run(&mut r.world, &r.cfg, &r.wdir, step, frame_every, 0, CONTINUE_FRAME_WINDOW, false)?;
 
-        let done = r.world.entities.is_empty()
-            || limit.is_some_and(|l| r.world.tick - start >= l);
-        if done || last_pages.elapsed().as_secs_f64() >= pages_every {
+        // L'overlay : petit etat vivant + derniere image, a chaque pas (peu couteux).
+        r.write_live_light()?;
+
+        let extinct = r.world.entities.is_empty();
+        let limit_hit = limit.is_some_and(|l| r.world.tick - start >= l);
+
+        if extinct || limit_hit || last_pages.elapsed() >= pages_gap {
             r.write_pages(false)?;
             last_pages = std::time::Instant::now();
         }
 
-        let (agents_alive, _) = r.world.agent_stats();
-        println!(
-            "  tick {:>10}  pop {:>5}  agents {:>5}  gen {:>3}  ({:.1}s)",
-            r.world.tick,
-            r.world.population(),
-            agents_alive,
-            r.sim.series.last().map(|s| s.max_generation).unwrap_or(0),
-            t0.elapsed().as_secs_f64(),
-        );
+        if extinct || limit_hit || last_beat.elapsed().as_secs_f64() >= 5.0 {
+            let (agents_alive, _) = r.world.agent_stats();
+            println!(
+                "  tick {:>10}  pop {:>5}  agents {:>5}  gen {:>3}",
+                r.world.tick,
+                r.world.population(),
+                agents_alive,
+                r.sim.series.last().map(|s| s.max_generation).unwrap_or(0),
+            );
+            last_beat = std::time::Instant::now();
+        }
 
-        if r.world.entities.is_empty() {
+        if extinct {
             println!("Le monde s'est eteint au tick {}.", r.world.tick);
             break;
         }
-        if let Some(l) = limit {
-            if r.world.tick - start >= l {
-                break;
-            }
+        if limit_hit {
+            break;
         }
+
         // Cadence : on attend pour ne pas depasser `rate` ticks par seconde reelle.
         if rate > 0.0 {
-            let advanced = (r.world.tick - before) as f64;
-            let target = advanced / rate;
+            let target = (r.world.tick - before) as f64 / rate;
             let spent = t0.elapsed().as_secs_f64();
             if target > spent {
                 std::thread::sleep(std::time::Duration::from_secs_f64(target - spent));
@@ -907,13 +929,47 @@ impl Resume {
         Ok(Resume { wdir, cfg, seed: meta.seed, world, sim, awoke_before, from_tick })
     }
 
-    fn write_pages(&self, verbose: bool) -> std::io::Result<()> {
-        let new_awoke = self
-            .sim
+    /// Nombre d'eveils sur ce segment (pour `meta.agents_awoke_total`).
+    fn new_awoke(&self) -> u64 {
+        self.sim
             .lives
             .values()
             .filter(|l| l.awoke_tick >= self.from_tick)
-            .count() as u64;
+            .count() as u64
+    }
+
+    /// Le strict necessaire a l'overlay, entre deux pas de `serve` : `live.json`,
+    /// `scene.json`, `records.json`. Peu couteux, appele en continu ; les pages HTML
+    /// lourdes restent l'affaire de `write_pages`.
+    fn write_live_light(&self) -> std::io::Result<()> {
+        let span =
+            |l: &AgentLife| l.ended_tick.unwrap_or(self.world.tick).saturating_sub(l.awoke_tick);
+        let mut lives_vec: Vec<AgentLife> = self.sim.lives.values().cloned().collect();
+        lives_vec.sort_by(|a, b| span(b).cmp(&span(a)).then(a.id.cmp(&b.id)));
+        lives_vec.truncate(LIVES_FILE_CAP);
+        let world_name = self
+            .wdir
+            .root
+            .file_name()
+            .map(|s| s.to_string_lossy().into_owned())
+            .unwrap_or_else(|| format!("w{}", self.seed));
+        live::write_live(
+            &self.wdir,
+            &self.world,
+            &self.cfg,
+            self.seed,
+            self.awoke_before + self.new_awoke(),
+            &world_name,
+            &self.sim.frames,
+            &self.sim.series,
+            &self.sim.notable,
+            &lives_vec,
+        )?;
+        Ok(())
+    }
+
+    fn write_pages(&self, verbose: bool) -> std::io::Result<()> {
+        let new_awoke = self.new_awoke();
         write_world_pages(
             &self.world,
             &self.cfg,

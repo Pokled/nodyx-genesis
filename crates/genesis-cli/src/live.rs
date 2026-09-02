@@ -292,19 +292,33 @@ pub fn write_live(
         .max(notable.iter().filter(|e| matches!(e.kind, EventKind::SpeciesEmerged { .. })).count() as u32);
     write_json(&wdir.root.join("records.json"), &rec)?;
 
-    // --- Le fil : les derniers evenements des dernieres frames, plus les grands tournants.
+    // --- Le fil : les derniers evenements de la fenetre de frames, plus les grands tournants.
+    // On garde `last_birth` / `last_death` monotones : la fenetre peut ne pas contenir de
+    // mort sur un intervalle calme (plateau de capacite), on repart alors du live.json d'avant.
+    #[derive(serde::Deserialize)]
+    struct PrevTicks {
+        #[serde(default)]
+        last_birth_tick: u64,
+        #[serde(default)]
+        last_death_tick: u64,
+    }
+    let prev: Option<PrevTicks> = read_json(&wdir.root.join("live.json"));
     let mut events: Vec<LiveEvent> = Vec::new();
-    let mut last_birth = 0u64;
-    let mut last_death = 0u64;
+    let mut last_birth = prev.as_ref().map(|p| p.last_birth_tick).unwrap_or(0);
+    let mut last_death = prev.as_ref().map(|p| p.last_death_tick).unwrap_or(0);
     let mut eveils = 0;
-    let from = frames.len().saturating_sub(12);
-    for f in &frames[from..] {
+    // Le fil ne montre que la queue recente ; les compteurs balaient toute la fenetre.
+    let tail = frames.len().saturating_sub(14);
+    for (i, f) in frames.iter().enumerate() {
         for e in f.events.iter() {
             if e.kind == "naissance" {
                 last_birth = last_birth.max(e.tick);
             }
             if e.kind == "mort" {
                 last_death = last_death.max(e.tick);
+            }
+            if i < tail {
+                continue;
             }
             if let Some((k, text)) = ev_label(e.kind, &e.subjects) {
                 // On borne les eveils : ils sont trop nombreux pour le fil.
