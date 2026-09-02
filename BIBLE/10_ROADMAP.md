@@ -148,5 +148,5 @@ défend émergent. Reprend l'intention déjà inscrite dans `GENESIS_FIDELITY.md
 
 - `04_SIMULATION.md` : écrit (le modèle de temps à deux horloges).
 - `05_COGNITION.md` : squelette écrit (le pont Entity vers Agent, la question semé ou cultivé).
-- `06_EMERGENCE.md` : à écrire avant 0.0.5, avec l'expérience 004.
+- `06_EMERGENCE.md` : à écrire avant 0.0.5. Plan de l'expérience 00X (la croyance sur le vrai moteur) : `experiments/010_belief_tranche.md`.
 - `07_HISTORY_JUDGMENT.md`, `08_WORLDS.md`, `09_NODYX_VOILE.md` : à écrire au fil des jalons.

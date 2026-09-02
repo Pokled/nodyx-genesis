@@ -365,7 +365,7 @@ threads. Test `alarms_are_emitted_and_bounded`.
 
 **Suite (0.0.4).** Des signaux distincts (pas seulement l'alarme), une transmission avec
 perte, la divergence entre deux populations isolées (le moment public). Le pari du langage
-émergent : `06_EMERGENCE.md`, à écrire avant 0.0.5 avec l'expérience 004.
+émergent : `06_EMERGENCE.md` (à écrire) et l'expérience 00X, plan dans `experiments/010_belief_tranche.md`.
 
 ---
 
@@ -410,7 +410,7 @@ A ou B.
 - `10_ROADMAP.md` : la place de 0.0.3 dans la feuille de route, l'escalier des échelles.
 - `04_SIMULATION.md` : pourquoi l'option B a besoin de l'horloge grossière.
 - `experiments/001_emergence.md` : le prototype d'émergence sociale (croyance partagée).
-- `06_EMERGENCE.md` (à écrire) : l'expérience 004, le vrai test du pari avant 0.0.5.
+- `06_EMERGENCE.md` (à écrire) : l'expérience 00X (`experiments/010_belief_tranche.md`), le vrai test du pari avant 0.0.5.
 - `02_ARCHITECTURE.md` : le module Agent, le module Memory, leurs frontières.
 
 Ce document reste un squelette jusqu'à 0.0.3. Il sera étoffé avec le modèle de mémoire
