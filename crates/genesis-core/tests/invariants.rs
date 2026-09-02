@@ -573,7 +573,7 @@ fn cells_merge_when_membranes_overlap() {
     for _ in 0..30_000 {
         let ev = tick(&mut w, &cfg);
         for e in &ev {
-            if let EventKind::CellsMerged { cell, absorbed, size } = e.kind {
+            if let EventKind::CellsMerged { cell, absorbed, size, .. } = e.kind {
                 merges += 1;
                 assert_ne!(cell, absorbed, "une cellule fusionne avec elle-meme");
                 assert!(!w.cells.iter().any(|c| c.id == absorbed), "cellule absorbee encore la");

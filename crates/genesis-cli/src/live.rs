@@ -48,6 +48,10 @@ pub struct LiveState {
     pub stage: &'static str,
     /// STABLE | EN CROISSANCE | EN DECLIN | ETEINT, d'apres la tendance recente.
     pub status: &'static str,
+    /// Dimensions du monde en cases.
+    pub grid: [u32; 2],
+    /// Matiere structurelle libre (briques disponibles pour de nouveaux corps).
+    pub free_matter: f32,
 
     // -- Vie du monde
     pub population: u32,
@@ -78,9 +82,16 @@ pub struct LiveState {
     pub agents_alive: u32,
     pub agents_awoke_total: u64,
     pub mean_memories: f32,
+
+    // -- Cellules
     pub cells_alive: u32,
+    pub cells_in_pct: f32,
+    pub cell_size_mean: f32,
+    pub cells_formed: u64,
+    pub cells_dissolved: u64,
     /// Fusions de cellules depuis le debut du monde (schema v15).
     pub cells_merged: u64,
+    pub last_fusion_tick: u64,
 
     // -- Pouls
     pub pulse: Pulse,
@@ -115,6 +126,10 @@ pub struct LiveEvent {
     /// Presente pour les grands tournants : de quoi faire une carte a l'ecran.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub card: Option<EventCard>,
+    /// Position dans la grille (`[x, y]` en cases) quand l'evenement a un lieu : l'overlay y
+    /// pose un effet sur la scene. Aujourd'hui : les fusions de cellules.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub at: Option<[f32; 2]>,
 }
 
 /// La carte plein ecran d'un grand tournant.
@@ -173,7 +188,8 @@ fn ev_label(kind: &str, subjects: &[genesis_core::EntityId]) -> Option<(&'static
 }
 
 /// Un grand tournant de la chronique en (genre pour le fil, ligne du fil, carte).
-fn chronicle(e: &Event) -> Option<(&'static str, String, EventCard)> {
+fn chronicle(e: &Event) -> Option<(&'static str, String, EventCard, Option<[f32; 2]>)> {
+    let mut at: Option<[f32; 2]> = None;
     let (kind, text, card) = match &e.kind {
         EventKind::WorldCreated => (
             "genese",
@@ -235,19 +251,22 @@ fn chronicle(e: &Event) -> Option<(&'static str, String, EventCard)> {
                 tone: "palier",
             },
         ),
-        EventKind::CellsMerged { size, .. } => (
-            "fusion",
-            format!("deux cellules fusionnent, {size} membres"),
-            EventCard {
-                badge: "FUSION CELLULAIRE",
-                head: "Deux membranes n'en font plus qu'une".into(),
-                sub: format!("{size} organismes sous une seule membrane, un genome remanie"),
-                tone: "fusion",
-            },
-        ),
+        EventKind::CellsMerged { size, at: pos, .. } => {
+            at = Some(*pos);
+            (
+                "fusion",
+                format!("deux cellules fusionnent, {size} membres"),
+                EventCard {
+                    badge: "FUSION CELLULAIRE",
+                    head: "Deux membranes n'en font plus qu'une".into(),
+                    sub: format!("{size} organismes sous une seule membrane, un genome remanie"),
+                    tone: "fusion",
+                },
+            )
+        }
         _ => return None,
     };
-    Some((kind, text, card))
+    Some((kind, text, card, at))
 }
 
 /// Ecrit `live.json`, `scene.json`, met a jour `records.json`, et renvoie
@@ -340,15 +359,19 @@ pub fn write_live(
                         continue;
                     }
                 }
-                events.push(LiveEvent { tick: e.tick, kind: k, text, card: None });
+                events.push(LiveEvent { tick: e.tick, kind: k, text, card: None, at: None });
             }
         }
     }
     let mut last_notable = 0u64;
+    let mut last_fusion = 0u64;
     for e in notable.iter().rev().take(8) {
-        if let Some((kind, text, card)) = chronicle(e) {
+        if let Some((kind, text, card, at)) = chronicle(e) {
             last_notable = last_notable.max(e.tick);
-            events.push(LiveEvent { tick: e.tick, kind, text, card: Some(card) });
+            if kind == "fusion" {
+                last_fusion = last_fusion.max(e.tick);
+            }
+            events.push(LiveEvent { tick: e.tick, kind, text, card: Some(card), at });
         }
     }
     events.sort_by_key(|a| std::cmp::Reverse(a.tick));
@@ -425,6 +448,8 @@ pub fn write_live(
         age_world_seconds: world.tick.saturating_mul(cfg.time.tick_duration_seconds),
         stage,
         status,
+        grid: [world.space.width, world.space.height],
+        free_matter: st.free_matter,
         population: st.population,
         births: st.births_total,
         deaths_starv: st.deaths_starvation,
@@ -448,7 +473,16 @@ pub fn write_live(
         agents_awoke_total: awoke_total,
         mean_memories: mean_mem,
         cells_alive: st.cells_alive,
+        cells_in_pct: if st.population > 0 {
+            st.entities_in_cells as f32 / st.population as f32 * 100.0
+        } else {
+            0.0
+        },
+        cell_size_mean: st.mean_cell_size,
+        cells_formed: st.cells_formed_total,
+        cells_dissolved: st.cells_dissolved_total,
         cells_merged: world.cells_merged_total,
+        last_fusion_tick: last_fusion,
         pulse,
         events,
         last_birth_tick: last_birth,

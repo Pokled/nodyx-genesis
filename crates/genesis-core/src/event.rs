@@ -74,8 +74,9 @@ pub enum EventKind {
     /// Une cellule s'est dissoute : dispersion ou perte de ses membres. Bascule reversible.
     CellDissolved { cell: u32 },
     /// Deux cellules stables aux membranes chevauchantes et aux genomes proches ont fusionne :
-    /// `absorbed` disparait dans `cell`, qui garde son identite. `size` = effectif combine.
-    CellsMerged { cell: u32, absorbed: u32, size: u32 },
+    /// `absorbed` disparait dans `cell`, qui garde son identite. `size` = effectif combine,
+    /// `at` = position de la cellule survivante (cases), pour que l'overlay pose un effet.
+    CellsMerged { cell: u32, absorbed: u32, size: u32, at: [f32; 2] },
     /// Une entite s'est eveillee en agent : elle percoit assez, a vecu assez, et vient de
     /// subir un choc. Elle gagne une memoire (0.0.3, tranche 1).
     AgentAwoke { entity: EntityId },

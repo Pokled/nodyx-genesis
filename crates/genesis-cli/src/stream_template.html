@@ -96,32 +96,39 @@
 
   /* --- side : pouls + stats --- */
   .side { grid-area:side; border-left:1px solid var(--line); background:var(--panel);
-    backdrop-filter:blur(10px); padding:18px 24px; display:flex; flex-direction:column; gap:16px; overflow:hidden; }
-  .side-groups { display:flex; flex-direction:column; gap:12px; }
-  .side-groups .h2 { margin-bottom:5px; }
+    backdrop-filter:blur(10px); padding:16px 24px; display:flex; flex-direction:column; gap:11px; overflow:hidden; }
+  .side-groups { display:flex; flex-direction:column; gap:9px; }
+  .side-groups .h2 { margin-bottom:3px; }
   .h2 {
-    font-family:var(--serif); font-weight:500; font-size:1rem; color:var(--ink);
-    display:flex; align-items:baseline; gap:10px; margin-bottom:7px;
+    font-family:var(--serif); font-weight:500; font-size:.95rem; color:var(--ink);
+    display:flex; align-items:baseline; gap:10px; margin-bottom:6px;
   }
   .h2::after { content:''; flex:1; height:1px; background:linear-gradient(90deg,var(--line),transparent); align-self:center; }
 
-  #pulse .pr { display:grid; grid-template-columns:118px 1fr 46px; align-items:center; gap:10px; padding:2px 0; font-size:.8rem; }
+  #pulse .pr { display:grid; grid-template-columns:118px 1fr 46px; align-items:center; gap:10px; padding:1px 0; font-size:.8rem; }
   #pulse .pr span { color:var(--soft); }
   #pulse .pr .track { height:7px; border-radius:4px; background:rgba(126,158,214,.12); overflow:hidden; }
   #pulse .pr .fill { height:100%; border-radius:4px; transition:width .8s cubic-bezier(.4,0,.2,1); }
   #pulse .pr b { text-align:right; color:var(--ink); font-weight:500; font-variant-numeric:tabular-nums; }
 
-  .rows { display:grid; grid-template-columns:1fr 1fr; gap:2px 22px; }
-  .r { display:flex; justify-content:space-between; align-items:baseline; padding:1px 0; font-size:.84rem; }
+  .rows { display:grid; grid-template-columns:1fr 1fr; gap:1px 22px; }
+  .r { display:flex; justify-content:space-between; align-items:baseline; padding:0.5px 0; font-size:.82rem; }
   .r span { color:var(--soft); }
   .r b { color:var(--ink); font-weight:500; font-variant-numeric:tabular-nums; }
   .r.wide { grid-column:1 / -1; }
+  .r.fus b { color:var(--cyan); }
+  .r.hit { animation:rhit 2.6s ease; border-radius:4px; }
+  @keyframes rhit { 0%,100%{background:transparent} 15%{background:rgba(82,230,223,.22)} }
 
-  /* --- bottom left : events --- */
+  /* --- bottom left : events + brin d'ADN --- */
   .foot-l { grid-area:foot-l; border-top:1px solid var(--line); background:rgba(6,9,15,.5);
-    padding:14px 24px; overflow:hidden; }
+    padding:14px 24px; overflow:hidden; display:flex; gap:24px; }
+  .fl-feed { width:452px; flex:none; overflow:hidden; }
+  .fl-dna { flex:1; position:relative; min-width:0; }
+  .fl-dna canvas { position:absolute; left:0; right:0; top:26px; bottom:0; width:100%; height:calc(100% - 26px); }
   .foot-l .h2s, .foot-r .h2s { font-family:var(--serif); font-weight:500; font-size:.98rem; color:var(--soft);
     letter-spacing:.06em; text-transform:uppercase; margin-bottom:10px; }
+  .fl-dna .h2s b { color:var(--cyan); font-weight:500; }
   #feed { display:flex; flex-direction:column; gap:4px; }
   .fe { display:flex; gap:14px; font-size:.85rem; color:var(--soft); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .fe .t { color:var(--soft); opacity:.6; font-variant-numeric:tabular-nums; min-width:104px; }
@@ -232,8 +239,14 @@
   </div>
 
   <div class="foot-l">
-    <div class="h2s">Live events</div>
-    <div id="feed"></div>
+    <div class="fl-feed">
+      <div class="h2s">Live events</div>
+      <div id="feed"></div>
+    </div>
+    <div class="fl-dna">
+      <div class="h2s">Genome dominant &middot; lignee <b id="domname">--</b></div>
+      <canvas id="dna"></canvas>
+    </div>
   </div>
 
   <div class="foot-r">
@@ -252,7 +265,12 @@
     </div>
   </div>
 
-  <div class="bar" id="bar">Simulation deterministe<b>&middot;</b>graine __SEED__<b>&middot;</b>monde __WNAME__<b>&middot;</b>replay disponible<b>&middot;</b>24/7</div>
+  <div class="bar" id="bar">
+    <span>graine __SEED__</span><b>&middot;</b>
+    <span id="barenv">grille -- &middot; 1 tick = 1 heure-monde</span><b>&middot;</b>
+    <span>simulation deterministe, replay disponible</span><b>&middot;</b>
+    <span>24/7</span>
+  </div>
 </div>
 
 <div id="card">
@@ -274,8 +292,14 @@ let SCENE = parse('boot-scene', null);
 
 const cv = document.getElementById('c');
 const ctx = cv.getContext('2d');
+const dnaCv = document.getElementById('dna');
+const dctx = dnaCv.getContext('2d');
 const DPR = Math.min(window.devicePixelRatio || 1, 2);
-function resize() { cv.width = cv.clientWidth * DPR; cv.height = cv.clientHeight * DPR; }
+function resize() {
+  cv.width = cv.clientWidth * DPR; cv.height = cv.clientHeight * DPR;
+  dnaCv.width = dnaCv.clientWidth * DPR; dnaCv.height = dnaCv.clientHeight * DPR;
+  dctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+}
 window.addEventListener('resize', resize); resize();
 
 const fr = n => Number(n || 0).toLocaleString('fr-FR');
@@ -327,6 +351,8 @@ function tickClock() {
 // --- rendu de la scene ---
 const PS = 4;
 let camX = null, camY = null;
+let fx = [];                 // effets ponctuels sur la scene : {gx, gy, r0, t0}
+let seenFusions = new Set();  // fusions deja jouees (pas de rejeu au chargement)
 function bio(h, l, a) {
   let d = ((h - 188) % 360 + 540) % 360 - 180;
   return 'hsla(' + (188 + d * 0.6).toFixed(0) + ',78%,' + l + '%,' + a + ')';
@@ -376,14 +402,54 @@ function drawScene() {
     g.addColorStop(1, bio(c.hue, 60, 0));
     ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.fill();
   }
-  // cellules
+  // cellules : membrane pleine tres douce, jonc net, epaisseur selon l'effectif, noyau
   for (const c of (S.cells || [])) {
     const x = ox + (c.pos[0] / PS) * s, y = oy + (c.pos[1] / PS) * s;
-    const r = Math.max(6, (c.radius / PS) * s) * (1 + Math.sin(tsec * 1.1 + c.pos[0]) * 0.02);
+    const br = Math.sin(tsec * 1.0 + c.pos[0] * 0.03) * 0.025;
+    const r = Math.max(7, (c.radius / PS) * s) * (1 + br);
     let d = ((c.hue - 188) % 360 + 540) % 360 - 180; const h = (188 + d * 0.6).toFixed(0);
-    ctx.strokeStyle = 'hsla(' + h + ',72%,74%,.7)'; ctx.lineWidth = 1.3;
-    ctx.setLineDash([1, 3]); ctx.lineDashOffset = -tsec * 6;
+    const big = Math.min(1, (c.count || 12) / 120);
+    const g = ctx.createRadialGradient(x, y, r * 0.15, x, y, r);
+    g.addColorStop(0, 'hsla(' + h + ',70%,62%,' + (0.035 + big * 0.06).toFixed(3) + ')');
+    g.addColorStop(0.7, 'hsla(' + h + ',68%,55%,' + (0.02 + big * 0.035).toFixed(3) + ')');
+    g.addColorStop(1, 'hsla(' + h + ',68%,55%,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.fill();
+    ctx.strokeStyle = 'hsla(' + h + ',74%,' + (72 + big * 8).toFixed(0) + '%,' + (0.5 + big * 0.38).toFixed(2) + ')';
+    ctx.lineWidth = 1.1 + big * 1.7;
+    ctx.setLineDash([1.5, 3.5]); ctx.lineDashOffset = -tsec * 5;
     ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = 'hsla(' + h + ',82%,82%,' + (0.22 + big * 0.4).toFixed(2) + ')';
+    ctx.beginPath(); ctx.arc(x, y, 1.5 + big * 2.2, 0, 6.2832); ctx.fill();
+  }
+  // fusions : l'effet epique. Deux anneaux convergent, un bloom, une onde de choc.
+  const fnow = performance.now();
+  fx = fx.filter(f => fnow - f.t0 < 2300);
+  for (const f of fx) {
+    const x = ox + f.gx * s, y = oy + f.gy * s;
+    const p = (fnow - f.t0) / 2300;
+    const R = Math.max(7, f.r0 / PS * s);
+    if (p < 0.52) {
+      const q = p / 0.52;
+      const gap = (1 - q) * R * 2.6;
+      ctx.globalAlpha = (1 - q) * 0.95;
+      ctx.strokeStyle = 'rgba(82,230,223,.95)'; ctx.lineWidth = 2.2;
+      for (const dir of [-1, 1]) { ctx.beginPath(); ctx.arc(x + dir * gap, y, R * (0.45 + q * 0.45), 0, 6.2832); ctx.stroke(); }
+    }
+    const bl = Math.max(0, Math.sin(Math.max(0, Math.min(1, (p - 0.22) / 0.5)) * Math.PI));
+    if (bl > 0.01) {
+      const bg = ctx.createRadialGradient(x, y, 0, x, y, R * 1.7);
+      bg.addColorStop(0, 'rgba(190,255,250,' + (bl * 0.55).toFixed(3) + ')');
+      bg.addColorStop(1, 'rgba(82,230,223,0)');
+      ctx.globalAlpha = 1; ctx.fillStyle = bg;
+      ctx.beginPath(); ctx.arc(x, y, R * 1.7, 0, 6.2832); ctx.fill();
+    }
+    if (p > 0.3) {
+      const q = (p - 0.3) / 0.7;
+      ctx.globalAlpha = (1 - q) * 0.75;
+      ctx.strokeStyle = 'rgba(126,240,246,.9)'; ctx.lineWidth = 2 * (1 - q) + 0.5;
+      ctx.beginPath(); ctx.arc(x, y, R * (0.6 + q * 3.4), 0, 6.2832); ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
   }
   // entites
   for (const en of (S.entities || [])) {
@@ -420,8 +486,22 @@ const PULSE_DEFS = [
 ];
 let seenTournants = new Set();
 let prevRecords = null;
+let prevMerged = null;
+let lastFusionCard = -1e9;
 function applyLive(L) {
   LIVE = L;
+  // une fusion vient-elle de s'ajouter au compteur ? (flash de la stat)
+  const fusionHit = prevMerged !== null && (L.cells_merged || 0) > prevMerged;
+  prevMerged = L.cells_merged || 0;
+  // effet sur la scene pour chaque fusion nouvelle et localisee
+  for (const e of (L.events || [])) {
+    if (e.kind !== 'fusion' || !e.at) continue;
+    const key = e.tick + '|' + e.at[0].toFixed(1);
+    if (seenFusions.has(key)) continue;
+    seenFusions.add(key);
+    fx.push({ gx: e.at[0], gy: e.at[1], r0: 34, t0: performance.now() });
+  }
+  if (seenFusions.size > 120) seenFusions = new Set(Array.from(seenFusions).slice(-60));
   // horloge du monde
   const now = performance.now();
   const realDelta = (now - lastPollMs) / 1000;
@@ -439,6 +519,13 @@ function applyLive(L) {
   const map = { 'EN CROISSANCE': 'grow', 'EN DECLIN': 'decl', 'ETEINT': 'dead', 'STABLE': 'stable' };
   sc.className = 'statuschip ' + (map[L.status] || 'stable');
   document.getElementById('statusv').textContent = L.status || 'STABLE';
+  document.getElementById('domname').textContent = L.dominant_lineage || '--';
+  // bandeau du bas : les constantes et grandeurs reelles du monde (pas de chiffre invente)
+  const dens = L.occupied_cells ? (L.population / L.occupied_cells).toFixed(1) : '0';
+  document.getElementById('barenv').textContent =
+    'grille ' + (L.grid ? L.grid[0] + ' × ' + L.grid[1] : '--') + ' cases  ·  densite ' + dens +
+    ' ind/case  ·  biomasse ' + fr(Math.round(L.biomass || 0)) + '  ·  matiere libre ' +
+    fr(Math.round(L.free_matter || 0)) + '  ·  1 tick = 1 heure-monde';
 
   // pouls
   const P = L.pulse || {};
@@ -470,16 +557,20 @@ function applyLive(L) {
       statRow('ressource / case', L.resource_mean.toFixed(2)) +
       statRow('cases epuisees', L.depleted_pct.toFixed(1) + ' %') +
       statRow('cases occupees', fr(L.occupied_cells)) +
-      statRow('cellules vivantes', fr(L.cells_alive)) +
-      statRow('fusions de cellules', fr(L.cells_merged || 0), 'wide') +
+    '</div>' +
+    '<div class="h2">Cellules</div><div class="rows">' +
+      statRow('vivantes', fr(L.cells_alive)) +
+      statRow('en cellule', (L.cells_in_pct || 0).toFixed(0) + ' %') +
+      statRow('taille moy.', (L.cell_size_mean || 0).toFixed(0)) +
+      statRow('formees', fr(L.cells_formed || 0)) +
+      statRow('dissoutes', fr(L.cells_dissolved || 0)) +
+      statRow('fusions', fr(L.cells_merged || 0), 'fus' + (fusionHit ? ' hit' : '')) +
     '</div>' +
     '<div class="h2">Cognition et voix</div><div class="rows">' +
       statRow('agents vivants', fr(L.agents_alive)) +
       statRow('eveils (total)', fr(L.agents_awoke_total)) +
       statRow('souvenirs moy.', L.mean_memories.toFixed(1)) +
       statRow('even. / tick', (L.events_per_tick || 0).toFixed(2)) +
-      statRow('grands tournants', L.notable_count || 0) +
-      statRow('derniere mort', 'tick ' + fr(L.last_death_tick)) +
     '</div>';
 
   // fil
@@ -518,6 +609,14 @@ function applyLive(L) {
     const key = e.tick + '|' + (e.card.head || e.text);
     if (seenTournants.has(key)) continue;
     seenTournants.add(key);
+    // Les fusions sont frequentes : la scene les montre toutes, mais on ne sort la grande
+    // carte que pour les grosses, et pas plus d'une toutes les 25 s.
+    if (e.kind === 'fusion') {
+      const big = /(\d[\d\s]*) membres/.exec(e.text);
+      const n = big ? parseInt(big[1].replace(/\s/g, ''), 10) : 0;
+      if (n < 70 || performance.now() - lastFusionCard < 25000) continue;
+      lastFusionCard = performance.now();
+    }
     showCard(e);
   }
   if (seenTournants.size > 200) seenTournants = new Set(Array.from(seenTournants).slice(-100));
@@ -557,6 +656,95 @@ function drawSpark(id, arr, col) {
   svg.innerHTML = '<path d="' + ln + '" fill="none" stroke="' + col + '" stroke-width="1.4" opacity=".9"/>';
 }
 
+// --- le brin d'ADN : le genome dominant du monde, une double helice vivante ---
+const DNA_TRAITS = ['metabolisme', 'vitesse', 'perception', 'efficacite', 'fecondite', 'longevite', 'cohesion', 'prudence', 'curiosite'];
+const DNA_HUE = [14, 42, 190, 96, 330, 262, 150, 208, 52];
+let dnaGeno = [1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5]; // valeurs lissees affichees
+function drawDna() {
+  const W = dnaCv.clientWidth, H = dnaCv.clientHeight;
+  dctx.clearRect(0, 0, W, H);
+  if (W < 40 || H < 40) { requestAnimationFrame(drawDna); return; }
+  const st = (SCENE && SCENE.stats) || {};
+  const gq = st.dominant_genome || [];              // 0..3 par trait
+  const gm = st.trait_mean || [];                   // 0..1 par trait
+  const n = DNA_TRAITS.length;
+  const t = performance.now() / 1000;
+
+  const labelW = 168;
+  const cx = Math.min((W - labelW) * 0.52, W * 0.42);
+  const amp = Math.min(cx * 0.82, H * 0.34);
+  const top = H * 0.10, span = H * 0.80;
+  const turns = 2.35, rot = t * 0.55;
+  const angAt = f => f * turns * Math.PI * 2 + rot;
+
+  // valeurs cibles : melange du quantifie (net) et de la moyenne (fin), lissees
+  for (let i = 0; i < n; i++) {
+    const target = gm[i] != null ? gm[i] * 3 : (gq[i] != null ? gq[i] : 1.5);
+    dnaGeno[i] += (target - dnaGeno[i]) * 0.08;
+  }
+
+  // 1. les deux brins du squelette
+  for (const side of [0, 1]) {
+    dctx.beginPath();
+    const fine = 90;
+    for (let k = 0; k <= fine; k++) {
+      const f = k / fine, y = top + f * span;
+      const x = cx + Math.cos(angAt(f) + (side ? Math.PI : 0)) * amp;
+      k ? dctx.lineTo(x, y) : dctx.moveTo(x, y);
+    }
+    const grad = dctx.createLinearGradient(0, top, 0, top + span);
+    grad.addColorStop(0, side ? 'rgba(126,240,166,.35)' : 'rgba(82,230,223,.5)');
+    grad.addColorStop(0.5, side ? 'rgba(126,240,166,.75)' : 'rgba(82,230,223,.85)');
+    grad.addColorStop(1, side ? 'rgba(126,240,166,.35)' : 'rgba(82,230,223,.5)');
+    dctx.strokeStyle = grad; dctx.lineWidth = 2.6; dctx.lineCap = 'round';
+    dctx.shadowBlur = 8; dctx.shadowColor = side ? 'rgba(126,240,166,.4)' : 'rgba(82,230,223,.5)';
+    dctx.stroke(); dctx.shadowBlur = 0;
+  }
+
+  // 2. les barreaux (une paire de bases par trait), du plus lointain au plus proche
+  const rungs = [];
+  for (let i = 0; i < n; i++) {
+    const f = n === 1 ? 0.5 : i / (n - 1);
+    const a = angAt(f);
+    rungs.push({ i, y: top + f * span, a, z: Math.sin(a) });
+  }
+  rungs.sort((p, q) => p.z - q.z);
+  for (const p of rungs) {
+    const x1 = cx + Math.cos(p.a) * amp, x2 = cx + Math.cos(p.a + Math.PI) * amp;
+    const depth = 0.5 + (p.z + 1) / 2 * 0.5;
+    const v = dnaGeno[p.i] / 3;                       // 0..1
+    const hue = DNA_HUE[p.i];
+    dctx.strokeStyle = 'hsla(' + hue + ',78%,' + (52 + v * 18).toFixed(0) + '%,' + (0.3 + depth * 0.5).toFixed(2) + ')';
+    dctx.lineWidth = (1.2 + v * 3.6) * depth;
+    dctx.beginPath(); dctx.moveTo(x1, p.y); dctx.lineTo(x2, p.y); dctx.stroke();
+    for (const bx of [x1, x2]) {
+      dctx.beginPath();
+      dctx.fillStyle = 'hsla(' + hue + ',85%,72%,' + (0.45 + depth * 0.45).toFixed(2) + ')';
+      dctx.shadowBlur = 9 * depth; dctx.shadowColor = 'hsla(' + hue + ',85%,60%,.85)';
+      dctx.arc(bx, p.y, (2.2 + v * 3.2) * depth, 0, 6.2832); dctx.fill();
+    }
+    dctx.shadowBlur = 0;
+  }
+
+  // 3. les etiquettes des traits + barre de valeur, a droite
+  const lx = cx + amp + 22;
+  dctx.textBaseline = 'middle';
+  for (let i = 0; i < n; i++) {
+    const f = n === 1 ? 0.5 : i / (n - 1);
+    const y = top + f * span;
+    const v = dnaGeno[i] / 3;
+    const hue = DNA_HUE[i];
+    dctx.font = '600 10px "IBM Plex Mono", monospace';
+    dctx.fillStyle = 'hsla(' + hue + ',55%,78%,.95)';
+    dctx.fillText(DNA_TRAITS[i].toUpperCase(), lx, y - 5);
+    dctx.fillStyle = 'rgba(126,158,214,.14)';
+    dctx.fillRect(lx, y + 3, 120, 3);
+    dctx.fillStyle = 'hsla(' + hue + ',72%,62%,.95)';
+    dctx.fillRect(lx, y + 3, Math.max(1, v * 120), 3);
+  }
+  requestAnimationFrame(drawDna);
+}
+
 let cardTimer = 0;
 function showCard(e) {
   const c = e.card;
@@ -582,12 +770,17 @@ function showRecord(label) {
 
 // --- demarrage : on ne rejoue pas les cartes des evenements deja passes ---
 if (LIVE) {
-  for (const e of (LIVE.events || [])) { if (e.card) seenTournants.add(e.tick + '|' + (e.card.head || e.text)); }
+  for (const e of (LIVE.events || [])) {
+    if (e.card) seenTournants.add(e.tick + '|' + (e.card.head || e.text));
+    if (e.kind === 'fusion' && e.at) seenFusions.add(e.tick + '|' + e.at[0].toFixed(1));
+  }
   prevRecords = Object.assign({}, LIVE.records || {});
+  prevMerged = LIVE.cells_merged || 0;
   applyLive(LIVE);
 }
 requestAnimationFrame(tickClock);
 requestAnimationFrame(drawScene);
+requestAnimationFrame(drawDna);
 poll();
 </script>
 </body>

@@ -996,16 +996,16 @@ fn cell_phase(
                 }
             }
             world.cells.retain(|c| c.id != gone);
-            let size = world.cell_mut(keep).map_or(0, |c| {
+            let (size, at) = world.cell_mut(keep).map_or((0, [0.0, 0.0]), |c| {
                 c.member_count += gone_count;
-                c.member_count
+                (c.member_count, [c.position.x, c.position.y])
             });
             world.cells_merged_total += 1;
             emit(
                 events,
                 &mut world.next_event_seq,
                 t,
-                EventKind::CellsMerged { cell: keep, absorbed: gone, size },
+                EventKind::CellsMerged { cell: keep, absorbed: gone, size, at },
             );
         }
     }
