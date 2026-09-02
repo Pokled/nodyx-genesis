@@ -1610,13 +1610,23 @@ fn run_watchers(world: &mut WorldState, cfg: &SimConfig, t: u64, events: &mut Ve
         // Basculement du genome dominant : l'evolution a deplace le centre de la population.
         // On exige que la nouvelle cle domine plusieurs controles d'affilee (elle peut
         // flotter pres d'une egalite), comme une espece doit tenir avant d'etre reconnue.
-        if world.watch.dominant_genome_key == 0 {
+        let far_enough = dominant != world.watch.dominant_genome_key
+            && dominant != 0
+            && key_distance(dominant, world.watch.dominant_genome_key) >= wc.species_min_distance;
+        if world.watch.dominant_genome_key == 0 || wc.genome_shift_persist_checks == 0 {
+            // premiere fixation, ou detecteur coupe : on suit la cle sans jamais emettre.
             world.watch.dominant_genome_key = dominant;
-        } else if wc.genome_shift_persist_checks == 0 {
-            // detecteur coupe : on suit quand meme la cle etablie, sans jamais emettre.
-            world.watch.dominant_genome_key = dominant;
-        } else if dominant != world.watch.dominant_genome_key && dominant != 0 {
-            world.watch.dominant_shift_streak += 1;
+            world.watch.dominant_shift_cand = 0;
+            world.watch.dominant_shift_streak = 0;
+        } else if far_enough {
+            // il faut la MEME cle distincte, tenue plusieurs controles : un flottement entre
+            // deux bins voisines, ou entre deux cles eloignees, ne compte pas.
+            if dominant == world.watch.dominant_shift_cand {
+                world.watch.dominant_shift_streak += 1;
+            } else {
+                world.watch.dominant_shift_cand = dominant;
+                world.watch.dominant_shift_streak = 1;
+            }
             if world.watch.dominant_shift_streak >= wc.genome_shift_persist_checks {
                 let from = world.watch.dominant_genome_key;
                 let (mg, _) = world.generation_stats();
@@ -1627,9 +1637,11 @@ fn run_watchers(world: &mut WorldState, cfg: &SimConfig, t: u64, events: &mut Ve
                     EventKind::GenomeShift { from, to: dominant, generation: mg.round() as u32 },
                 );
                 world.watch.dominant_genome_key = dominant;
+                world.watch.dominant_shift_cand = 0;
                 world.watch.dominant_shift_streak = 0;
             }
         } else {
+            world.watch.dominant_shift_cand = 0;
             world.watch.dominant_shift_streak = 0;
         }
 

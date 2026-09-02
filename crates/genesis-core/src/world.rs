@@ -119,7 +119,10 @@ pub struct Watch {
     /// Un basculement tenu sur plusieurs controles emet `GenomeShift` (schema v16).
     #[serde(default)]
     pub dominant_genome_key: u16,
-    /// Nombre de controles consecutifs ou une autre cle domine.
+    /// Cle candidate a devenir la nouvelle dominante (assez loin de l'etablie), et le nombre
+    /// de controles consecutifs ou elle a domine.
+    #[serde(default)]
+    pub dominant_shift_cand: u16,
     #[serde(default)]
     pub dominant_shift_streak: u16,
 }
@@ -267,6 +270,7 @@ impl WorldState {
                 deaths_since_check: Vec::new(),
                 last_death_seq_by_lineage: BTreeMap::new(),
                 dominant_genome_key: 0,
+                dominant_shift_cand: 0,
                 dominant_shift_streak: 0,
             },
         }
