@@ -90,9 +90,19 @@ partage d'énergie (chaque membre tend vers la moyenne du groupe) et une reprodu
 protégée (`birth_loss` multiplié par `1 - cell_birth_relief`). Réversible : dissolution si
 la cellule se disperse, rétrécit sous `min_members`, ou voit sa cohésion moyenne retomber.
 
-L'étape 2 dé-simulera les membres (ils quittent `entities`, la cellule devient un bilan) :
-`population()` et les invariants de conservation gagneront alors un terme cellule. En étape 1
-les invariants sont **inchangés**. Config : bloc `[cells]`.
+**Étape 2b, fusion (schéma v15).** Deux cellules stables (au-delà de `grace_ticks`) dont les
+membranes se chevauchent (`distance(centres) < (radius1 + radius2) * fuse_overlap`) et dont
+les `mean_traits` sont à distance L1 sous `fuse_kin` fusionnent : la plus grosse (à effectif
+égal, le plus petit id, donc la plus ancienne) garde son `id`, son `formed_tick`, son
+histoire ; la petite est retirée de `WorldState.cells`, ses membres retaggués `cell_id` vers
+la survivante. `WorldState.cells_merged_total` cumule. `EventKind::CellsMerged { cell,
+absorbed, size }`. Rien ne déclenche la fusion à la main : phase 5b (3b), séquentiel, sans
+RNG, ordre stable (cellules triées par id), une fusion par cellule et par tick. L'invariant
+d'effectif (`somme(member_count) == entités taguées`) tient aussi les ticks de fusion.
+
+L'étape 2 (vraie dé-simulation) dé-simulera les membres (ils quittent `entities`, la cellule
+devient un bilan) : `population()` et les invariants de conservation gagneront alors un terme
+cellule. Aujourd'hui les invariants sont **inchangés**. Config : bloc `[cells]`.
 
 ## Matière structurelle (briques, 0.0.2)
 
@@ -295,6 +305,7 @@ enum EventKind {
     PopulationCrash { from: u32, to: u32 },
     CellFormed { cell: u32, size: u32 },   // (0.0.2, tranche 2)
     CellDissolved { cell: u32 },
+    CellsMerged { cell: u32, absorbed: u32, size: u32 },  // (v15) deux membranes n'en font qu'une
     AgentAwoke { entity: EntityId },        // (0.0.3, tranche 1) une entité s'éveille en agent
     AgentLapsed { entity: EntityId },       // ... et retombe entité de fond. Réversible.
 }
@@ -414,6 +425,9 @@ persist_checks    = 4
 leave_factor      = 1.9
 energy_share      = 0.15
 cell_birth_relief = 0.4
+fuse              = true   # (v15) fusion de deux cellules chevauchantes et parentes
+fuse_overlap      = 0.5    # distance(centres) < (r1 + r2) * ce facteur
+fuse_kin          = 0.9    # ... et L1 des genomes moyens sous ce seuil
 
 [lifecycle]
 starve_at            = 0.0
