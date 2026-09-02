@@ -84,6 +84,29 @@ impl WorldDir {
         std::fs::write(p, json)
     }
 
+    /// Ne garde que les `keep` instantanes les plus recents. Un monde qui tourne sans fin
+    /// n'a pas besoin de tout son passe sur disque : la reprise et `replay` ne lisent que le
+    /// dernier. `keep` doit valoir au moins 1.
+    pub fn prune_snapshots(&self, keep: usize) -> std::io::Result<()> {
+        let dir = self.root.join("snapshots");
+        if !dir.exists() {
+            return Ok(());
+        }
+        let mut files: Vec<PathBuf> = std::fs::read_dir(&dir)?
+            .filter_map(|e| e.ok().map(|e| e.path()))
+            .filter(|p| p.extension().is_some_and(|x| x == "json"))
+            .collect();
+        if files.len() <= keep.max(1) {
+            return Ok(());
+        }
+        files.sort();
+        let cut = files.len() - keep.max(1);
+        for p in &files[..cut] {
+            let _ = std::fs::remove_file(p);
+        }
+        Ok(())
+    }
+
     pub fn latest_snapshot(&self) -> std::io::Result<Option<WorldState>> {
         let dir = self.root.join("snapshots");
         if !dir.exists() {
@@ -91,7 +114,7 @@ impl WorldDir {
         }
         let mut files: Vec<PathBuf> = std::fs::read_dir(&dir)?
             .filter_map(|e| e.ok().map(|e| e.path()))
-            .filter(|p| p.extension().map_or(false, |x| x == "json"))
+            .filter(|p| p.extension().is_some_and(|x| x == "json"))
             .collect();
         files.sort();
         match files.last() {

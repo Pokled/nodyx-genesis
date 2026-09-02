@@ -209,11 +209,12 @@ genesis, Nodyx Genesis 0.0.1
       Reprend un monde depuis son dernier instantane et le fait avancer de T ticks.
       Le journal et la serie temporelle continuent ; la scene montre le monde recent.
 
-  genesis serve <dossier-monde> [--rate <ticks/s>] [--port <P>] [--for <T>] [--step <N>]
+  genesis serve <dossier-monde> [--rate <ticks/s>] [--port <P>] [--restart] [--max-years <Y>]
       Fait tourner un monde en continu, en avancant par petits pas paces (--rate,
       defaut 30 ticks/s reels ; 0 = a fond). Avec --port, sert le monde en http :
       l'overlay du direct est sur http://localhost:<P>/stream.html (source OBS).
-      Sinon, ouvre index.html et rafraichis. Ctrl-C pour arreter.
+      Avec --restart, une nouvelle graine repart ici quand le monde meurt (ou passe
+      --max-years annees-monde) ; records.json se transmet. Ctrl-C pour arreter.
 
   genesis replay <dossier-monde>
       Rejoue le monde depuis sa graine et verifie l'etat final. Deterministe : OK ou DIFF.
@@ -255,12 +256,48 @@ fn cmd_run(flags: &HashMap<String, String>) -> std::io::Result<()> {
         Some(p) => SimConfig::load(Path::new(p))?,
         None => SimConfig::default(),
     };
+    birth_world(&out, seed, &cfg, ticks, frame_every, true)
+}
+
+/// Les journaux et instantanes derives : effaces quand un monde renait au meme endroit
+/// (`serve --restart`). `records.json` n'est PAS dans la liste : les records se transmettent
+/// de monde en monde, c'est l'histoire sportive de la graine.
+const DERIVED_FILES: &[&str] = &[
+    "events.jsonl",
+    "frames.jsonl",
+    "series.jsonl",
+    "notable.jsonl",
+    "lives.jsonl",
+    "live.json",
+    "scene.json",
+    "meta.json",
+];
+
+/// Fait naitre un monde dans `root` (le dossier peut deja exister : on repart a neuf) et le
+/// fait tourner `ticks` ticks. Partage par `cmd_run` et la renaissance de `serve --restart`.
+fn birth_world(
+    root: &Path,
+    seed: u64,
+    cfg: &SimConfig,
+    ticks: u64,
+    frame_every: u64,
+    verbose: bool,
+) -> std::io::Result<()> {
     let tps = cfg.time.target_ticks_per_real_second;
+    let wdir = WorldDir::open_or_create(root)?;
+    wdir.write_config(cfg)?;
 
-    let wdir = WorldDir::open_or_create(&out)?;
-    wdir.write_config(&cfg)?;
+    // Table rase des derives d'un eventuel monde precedent (sauf records.json).
+    for f in DERIVED_FILES {
+        let _ = std::fs::remove_file(wdir.root.join(f));
+    }
+    if let Ok(entries) = std::fs::read_dir(wdir.root.join("snapshots")) {
+        for e in entries.flatten() {
+            let _ = std::fs::remove_file(e.path());
+        }
+    }
 
-    let mut world = WorldState::new(seed, &cfg);
+    let mut world = WorldState::new(seed, cfg);
 
     // Evenement fondateur et naissance des deux entites. Les `seq` 0..N sont poses ici a la
     // main (avant le premier tick) ; le compteur du monde reprend a la suite.
@@ -278,28 +315,27 @@ fn cmd_run(flags: &HashMap<String, String>) -> std::io::Result<()> {
 
     let mut sim = Sim::new();
     // La premiere frame porte les evenements fondateurs : la genese est un chapitre.
-    sim.frames.push(project(&world, &cfg, tps, &founding));
-    sim.series.push(series_row(&world, &cfg));
+    sim.frames.push(project(&world, cfg, tps, &founding));
+    sim.series.push(series_row(&world, cfg));
     sim.notable
         .extend(founding.iter().filter(|e| is_chronicle_event(&e.kind)).cloned());
 
     // Fenetre "genese" : on echantillonne quatre fois plus fin sur les premiers ticks, la ou
     // deux entites deviennent une lignee. En `run` on garde toutes les frames.
-    sim.run(&mut world, &cfg, &wdir, ticks, frame_every, 4000.min(ticks), usize::MAX, true)?;
+    sim.run(&mut world, cfg, &wdir, ticks, frame_every, 4000.min(ticks), usize::MAX, true)?;
 
-    let awoke_total = sim.lives.len() as u64;
     write_world_pages(
         &world,
-        &cfg,
+        cfg,
         &wdir,
         seed,
-        awoke_total,
+        sim.awoke_count,
         &sim.frames,
         &sim.series,
         &sim.notable,
         &sim.lives,
         sim.extinct_at,
-        true,
+        verbose,
     )
 }
 
@@ -317,6 +353,14 @@ fn is_chronicle_event(kind: &EventKind) -> bool {
     )
 }
 
+/// `true` si l'evenement va au journal append-only (`events.jsonl`). On laisse tomber les
+/// `ReplicationFailed` : au plateau de capacite c'est l'ecrasante majorite du volume et ca
+/// ne dit rien de plus que la stat `repro_blocked_materials`. La simulation ne relit jamais
+/// le journal, donc le monde est identique ; seul l'artefact `events.jsonl` maigrit.
+fn journal_worthy(e: &Event) -> bool {
+    !matches!(e.kind, EventKind::ReplicationFailed { .. })
+}
+
 /// Les accumulateurs d'un segment de simulation : ce qu'on garde en memoire pour engendrer
 /// les pages a la fin. Partage par `run` (depart) et `continue` (reprise).
 struct Sim {
@@ -324,6 +368,9 @@ struct Sim {
     series: Vec<SeriesRow>,
     notable: Vec<Event>,
     lives: std::collections::HashMap<EntityId, AgentLife>,
+    /// Eveils comptes sur ce segment. Un compteur, pas `lives.len()` : `serve` oublie les
+    /// vieilles biographies pour ne pas gonfler sans fin, `lives.len()` sous-estimerait.
+    awoke_count: u64,
     extinct_at: Option<u64>,
 }
 
@@ -334,8 +381,44 @@ impl Sim {
             series: Vec::new(),
             notable: Vec::new(),
             lives: std::collections::HashMap::new(),
+            awoke_count: 0,
             extinct_at: None,
         }
+    }
+
+    /// Oublie les biographies terminees les moins longues au-dela de `keep`. Les vies en
+    /// cours sont toujours gardees. Pour qu'un `serve` sans fin ne fuie pas la memoire.
+    fn prune_ended_lives(&mut self, now: u64, keep: usize) {
+        let span =
+            |l: &AgentLife| l.ended_tick.unwrap_or(now).saturating_sub(l.awoke_tick);
+        let mut ended: Vec<(EntityId, u64)> = self
+            .lives
+            .iter()
+            .filter(|(_, l)| l.ended_tick.is_some())
+            .map(|(id, l)| (*id, span(l)))
+            .collect();
+        if ended.len() <= keep {
+            return;
+        }
+        ended.sort_by_key(|(_, s)| std::cmp::Reverse(*s));
+        for (id, _) in ended.into_iter().skip(keep) {
+            self.lives.remove(&id);
+        }
+    }
+
+    /// Borne `series` : recent au pas plein, ancien decime. Un monde 24/24 ne peut pas
+    /// garder chaque ligne pour toujours ; l'overlay et la page de garde reechantillonnent.
+    fn thin_series(&mut self, max: usize) {
+        if self.series.len() <= max {
+            return;
+        }
+        let cut = self.series.len() / 4; // on decime le quart le plus ancien
+        let mut i = 0;
+        self.series.retain(|_| {
+            let keep = i >= cut || i % 4 == 0;
+            i += 1;
+            keep
+        });
     }
 
     /// Fait tourner `ticks` ticks, en appendant au journal et en ecrivant les instantanes.
@@ -362,16 +445,24 @@ impl Sim {
 
         for _ in 0..ticks {
             let ev = tick(world, cfg);
-            since_frame.extend(ev.iter().cloned());
-            wdir.append_events(&ev)?;
+            // Biographies et chronique : lisent tous les evenements.
             self.notable
                 .extend(ev.iter().filter(|e| is_chronicle_event(&e.kind)).cloned());
+            // Journal et frames : sans le bruit de plateau (`ReplicationFailed` = ~90 % du
+            // volume au plafond de capacite, deja compte dans `repro_blocked_materials` ;
+            // la simulation ne relit jamais le journal, le monde reste identique).
+            let journal: Vec<Event> = ev.iter().filter(|e| journal_worthy(e)).cloned().collect();
+            since_frame.extend(journal.iter().cloned());
+            wdir.append_events(&journal)?;
 
             for e in ev.iter() {
                 match &e.kind {
                     EventKind::AgentAwoke { entity } => {
-                        if let Some(x) = world.get(*entity) {
-                            self.lives.entry(*entity).or_insert_with(|| new_life(x, world.tick));
+                        if !self.lives.contains_key(entity) {
+                            if let Some(x) = world.get(*entity) {
+                                self.lives.insert(*entity, new_life(x, world.tick));
+                                self.awoke_count += 1;
+                            }
                         }
                     }
                     EventKind::AgentLapsed { entity } => {
@@ -482,9 +573,11 @@ impl Sim {
             }
             if world.tick % cfg.persistence.snapshot_interval_ticks == 0 {
                 wdir.write_snapshot(world)?;
+                wdir.prune_snapshots(SNAPSHOTS_KEPT)?;
             }
             if world.tick % series_every == 0 {
                 self.series.push(series_row(world, cfg));
+                self.thin_series(SERIES_MAX);
             }
             if world.entities.is_empty() {
                 self.extinct_at = Some(world.tick);
@@ -496,6 +589,7 @@ impl Sim {
         // En pas-a-pas (`serve`), on s'en remet aux instantanes de l'intervalle.
         if checkpoint {
             wdir.write_snapshot(world)?;
+            wdir.prune_snapshots(SNAPSHOTS_KEPT)?;
         }
         self.frames.push(project(world, cfg, tps, &since_frame));
         while self.frames.len() > max_frames {
@@ -575,6 +669,7 @@ fn write_world_pages(
     // coherents, y compris quand `serve` avance par petits pas sans checkpoint. C'est aussi
     // ce que `replay` compare. (Pour `run`, c'est le meme fichier que celui deja ecrit.)
     wdir.write_snapshot(world)?;
+    wdir.prune_snapshots(SNAPSHOTS_KEPT)?;
 
     let meta = WorldMeta {
         seed,
@@ -727,6 +822,12 @@ const LIVES_FILE_CAP: usize = 800;
 const CONTINUE_FRAME_WINDOW: usize = 500;
 /// Chapitres gardes a la reprise.
 const CONTINUE_NOTABLE_KEPT: usize = 2500;
+/// Instantanes gardes sur disque. Un monde 24/24 en ecrit un toutes les quelques minutes ;
+/// la reprise et `replay` ne lisent que le dernier. ~12 x 5 Mo au plateau.
+const SNAPSHOTS_KEPT: usize = 12;
+/// Plafond de lignes de serie temporelle gardees en memoire (et dans `series.jsonl`). Au-dela,
+/// le quart le plus ancien est decime : recent au pas plein, tres ancien esquisse.
+const SERIES_MAX: usize = 4000;
 
 /// `genesis continue <dossier> --ticks N` : reprend un monde depuis son dernier instantane et
 /// le fait avancer. Le journal et la serie temporelle continuent de grossir (verite du
@@ -784,9 +885,19 @@ fn cmd_serve(
         .unwrap_or(15.0);
     // Serveur de fichiers pour l'overlay du direct. 0 (defaut) = coupe.
     let port: u16 = flags.get("port").and_then(|s| s.parse().ok()).unwrap_or(0);
+    // Renaissance : quand le monde meurt (ou passe --max-years annees-monde), une nouvelle
+    // graine repart au meme endroit. records.json se transmet : chaque monde vise les records
+    // du precedent.
+    let restart = flags.contains_key("restart");
+    let genesis_ticks: u64 = flags
+        .get("genesis-ticks")
+        .and_then(|s| s.parse().ok())
+        .filter(|&n| n > 0)
+        .unwrap_or(4000);
+    let max_years: Option<u64> = flags.get("max-years").and_then(|s| s.parse().ok());
 
     let mut r = Resume::load(&out)?;
-    let start = r.world.tick;
+    let mut start = r.world.tick;
     println!(
         "Monde {} en marche depuis le tick {} ({} ticks/s reels). Ctrl-C pour arreter.",
         out.display(),
@@ -794,6 +905,9 @@ fn cmd_serve(
         if rate > 0.0 { format!("{rate:.0}") } else { "max".into() },
     );
     println!("Ouvre {}", r.wdir.root.join("index.html").display());
+    if restart {
+        println!("Renaissance activee : a la mort du monde, une nouvelle graine repart ici.");
+    }
     if port > 0 {
         match http_serve::spawn(r.wdir.root.clone(), port) {
             Ok(p) => println!("Overlay du direct : http://localhost:{p}/stream.html"),
@@ -801,27 +915,40 @@ fn cmd_serve(
         }
     }
 
+    let year_ticks = (365 * 86400 / r.cfg.time.tick_duration_seconds.max(1)).max(1);
     let pages_gap = std::time::Duration::from_secs_f64(pages_every.max(0.5));
     let mut last_pages = std::time::Instant::now() - pages_gap * 2;
     let mut last_beat = std::time::Instant::now() - std::time::Duration::from_secs(9);
+    // Ticks avances sur toute la session, tous mondes confondus (la renaissance remet
+    // `world.tick` a zero).
+    let mut session_advanced = 0u64;
     loop {
         let t0 = std::time::Instant::now();
         let before = r.world.tick;
         r.sim
             .run(&mut r.world, &r.cfg, &r.wdir, step, frame_every, 0, CONTINUE_FRAME_WINDOW, false)?;
+        session_advanced += r.world.tick.saturating_sub(before);
 
         // L'overlay : petit etat vivant + derniere image, a chaque pas (peu couteux).
         r.write_live_light()?;
 
         let extinct = r.world.entities.is_empty();
-        let limit_hit = limit.is_some_and(|l| r.world.tick - start >= l);
+        let age = r.world.tick.saturating_sub(start);
+        let old_age = max_years.is_some_and(|y| age >= y * year_ticks);
+        let session_done = limit.is_some_and(|l| session_advanced >= l);
 
-        if extinct || limit_hit || last_pages.elapsed() >= pages_gap {
+        if extinct || old_age || session_done || last_pages.elapsed() >= pages_gap {
+            // Bornage memoire d'un monde qui ne s'arrete jamais.
+            r.sim.prune_ended_lives(r.world.tick, CONTINUE_LIVES_KEPT);
+            if r.sim.notable.len() > CONTINUE_NOTABLE_KEPT {
+                let d = r.sim.notable.len() - CONTINUE_NOTABLE_KEPT;
+                r.sim.notable.drain(0..d);
+            }
             r.write_pages(false)?;
             last_pages = std::time::Instant::now();
         }
 
-        if extinct || limit_hit || last_beat.elapsed().as_secs_f64() >= 5.0 {
+        if extinct || old_age || session_done || last_beat.elapsed().as_secs_f64() >= 5.0 {
             let (agents_alive, _) = r.world.agent_stats();
             println!(
                 "  tick {:>10}  pop {:>5}  agents {:>5}  gen {:>3}",
@@ -833,12 +960,31 @@ fn cmd_serve(
             last_beat = std::time::Instant::now();
         }
 
-        if extinct {
-            println!("Le monde s'est eteint au tick {}.", r.world.tick);
+        if session_done {
             break;
         }
-        if limit_hit {
-            break;
+        if extinct || old_age {
+            let why = if extinct {
+                format!("s'est eteint au tick {}", r.world.tick)
+            } else {
+                format!("a vecu {} annees-monde", age / year_ticks)
+            };
+            if !restart {
+                println!("Le monde {why}.");
+                break;
+            }
+            let next_seed = r.seed.wrapping_add(1);
+            println!("Le monde {why}. Une nouvelle graine ({next_seed}) repart ici.");
+            let cfg = r.cfg.clone();
+            drop(r);
+            // Un petit repos entre deux vies : evite un tour serre si plusieurs graines
+            // d'affilee donnent un monde qui meurt aussitot.
+            std::thread::sleep(std::time::Duration::from_secs(2));
+            birth_world(&out, next_seed, &cfg, genesis_ticks, frame_every, false)?;
+            r = Resume::load(&out)?;
+            start = r.world.tick;
+            last_pages = std::time::Instant::now() - pages_gap * 2;
+            continue;
         }
 
         // Cadence : on attend pour ne pas depasser `rate` ticks par seconde reelle.
@@ -863,7 +1009,6 @@ struct Resume {
     sim: Sim,
     /// Compte d'eveils avant ce segment (pour `meta.agents_awoke_total`).
     awoke_before: u64,
-    from_tick: u64,
 }
 
 impl Resume {
@@ -926,16 +1071,13 @@ impl Resume {
             sim.series.push(series_row(&world, &cfg));
         }
 
-        Ok(Resume { wdir, cfg, seed: meta.seed, world, sim, awoke_before, from_tick })
+        Ok(Resume { wdir, cfg, seed: meta.seed, world, sim, awoke_before })
     }
 
-    /// Nombre d'eveils sur ce segment (pour `meta.agents_awoke_total`).
+    /// Nombre d'eveils sur ce segment (pour `meta.agents_awoke_total`). Un compteur, pas
+    /// `lives.len()` : `serve` oublie les vieilles biographies au fil de l'eau.
     fn new_awoke(&self) -> u64 {
-        self.sim
-            .lives
-            .values()
-            .filter(|l| l.awoke_tick >= self.from_tick)
-            .count() as u64
+        self.sim.awoke_count
     }
 
     /// Le strict necessaire a l'overlay, entre deux pas de `serve` : `live.json`,
@@ -1202,9 +1344,17 @@ fn parse_flags(args: &[String]) -> HashMap<String, String> {
     while i < args.len() {
         let a = &args[i];
         if let Some(name) = a.strip_prefix("--") {
-            let val = args.get(i + 1).cloned().unwrap_or_default();
-            map.insert(name.to_string(), val);
-            i += 2;
+            // Un drapeau suivi d'un autre drapeau (ou rien) est booleen : valeur vide.
+            match args.get(i + 1) {
+                Some(v) if !v.starts_with("--") => {
+                    map.insert(name.to_string(), v.clone());
+                    i += 2;
+                }
+                _ => {
+                    map.insert(name.to_string(), String::new());
+                    i += 1;
+                }
+            }
         } else {
             i += 1;
         }

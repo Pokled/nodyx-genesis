@@ -28,3 +28,7 @@ Transcription/Les origines de la vie*_files/
 
 # Notes de travail locales (briefings, brouillons) : hors du depot.
 /Stream_Twitch
+
+# Installeurs et binaires telecharges
+Transcription/*.exe
+*.exe
