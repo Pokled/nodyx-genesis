@@ -560,6 +560,53 @@ fn a_world_knows_which_engine_made_it() {
 }
 
 #[test]
+fn dominant_genome_shift_is_watched() {
+    // Le basculement du genome dominant (schema v16) : sur un monde sous stress climatique,
+    // le centre genetique de la population se deplace plusieurs fois, et c'est detecte. La
+    // cle etablie et le compteur restent coherents. `genome_shift_persist_checks = 0` coupe.
+    use genesis_core::event::EventKind;
+
+    let mut stressed = SimConfig::default();
+    stressed.planet.temperature_c = 1.0; // 14 degres sous l'optimum : selection dure
+
+    let mut w = WorldState::new(1, &stressed);
+    let mut shifts = 0u32;
+    for _ in 0..50_000 {
+        let ev = tick(&mut w, &stressed);
+        for e in &ev {
+            if let EventKind::GenomeShift { from, to, .. } = e.kind {
+                shifts += 1;
+                assert_ne!(from, to, "basculement du genome vers lui-meme");
+            }
+        }
+        assert!(
+            w.watch.dominant_shift_streak < 64,
+            "compteur de basculement qui s'emballe au tick {}",
+            w.tick
+        );
+        if w.entities.is_empty() {
+            break;
+        }
+    }
+    assert!(shifts >= 1, "aucun basculement de genome en 50000 ticks (monde froid, graine 1)");
+
+    // Coupe : plus aucun basculement.
+    let mut off = stressed.clone();
+    off.watch.genome_shift_persist_checks = 0;
+    let mut w2 = WorldState::new(1, &off);
+    for _ in 0..50_000 {
+        let ev = tick(&mut w2, &off);
+        assert!(
+            !ev.iter().any(|e| matches!(e.kind, EventKind::GenomeShift { .. })),
+            "basculement alors que genome_shift_persist_checks = 0"
+        );
+        if w2.entities.is_empty() {
+            break;
+        }
+    }
+}
+
+#[test]
 fn climate_shapes_the_world() {
     // Le climat (schema : config seulement, pas d'etat) agit vraiment sur le monde : un
     // monde loin de sa temperature optimale voit plus de morts de faim. Effet inerte au

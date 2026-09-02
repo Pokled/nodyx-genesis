@@ -142,7 +142,8 @@
   .fe.effondrement .b { color:var(--rose); }
   .fe.extinction .b { color:var(--violet); }
   .fe.fusion .b { color:var(--cyan); }
-  .fe.genese .t, .fe.palier .t, .fe.espece .t, .fe.effondrement .t, .fe.extinction .t, .fe.fusion .t { color:var(--amber); }
+  .fe.bascule .b { color:var(--green); }
+  .fe.genese .t, .fe.palier .t, .fe.espece .t, .fe.effondrement .t, .fe.extinction .t, .fe.fusion .t, .fe.bascule .t { color:var(--amber); }
 
   /* --- bottom right : history + records --- */
   .foot-r { grid-area:foot-r; border-top:1px solid var(--line); border-left:1px solid var(--line);
@@ -188,6 +189,8 @@
   #card.genese .rule { background:var(--amber); } #card.genese .badge { color:var(--amber); }
   #card.fusion .rule { background:var(--cyan); } #card.fusion .badge { color:var(--cyan); }
   #card.fusion { border-color:rgba(82,230,223,.4); box-shadow:0 30px 90px rgba(0,0,0,.65), 0 0 60px rgba(82,230,223,.15); }
+  #card.bascule .rule { background:var(--green); } #card.bascule .badge { color:var(--green); }
+  #card.bascule { border-color:rgba(126,240,166,.4); box-shadow:0 30px 90px rgba(0,0,0,.65), 0 0 60px rgba(126,240,166,.15); }
   #card.age .rule { background:var(--amber); } #card.age .badge { color:var(--amber); }
   #card.age .h { font-size:2.6rem; }
 
@@ -551,6 +554,14 @@ function applyLive(L) {
     fx.push({ gx: e.at[0], gy: e.at[1], r0: 34, t0: performance.now() });
   }
   if (seenFusions.size > 120) seenFusions = new Set(Array.from(seenFusions).slice(-60));
+  // un basculement du genome : le brin d'ADN s'illumine
+  for (const e of (L.events || [])) {
+    if (e.kind !== 'bascule') continue;
+    if (seenShifts.has(e.tick)) continue;
+    seenShifts.add(e.tick);
+    dnaFlash = performance.now();
+  }
+  if (seenShifts.size > 60) seenShifts = new Set(Array.from(seenShifts).slice(-30));
   // horloge du monde
   const now = performance.now();
   const realDelta = (now - lastPollMs) / 1000;
@@ -680,7 +691,7 @@ function applyLive(L) {
   if (seenTournants.size > 200) seenTournants = new Set(Array.from(seenTournants).slice(-100));
 }
 
-const CHRON_COL = { genese: '#ffcf72', espece: '#7ef0a6', extinction: '#b9a0ff', effondrement: '#ff8fa0', palier: '#ffcf72', fusion: '#52e6df' };
+const CHRON_COL = { genese: '#ffcf72', espece: '#7ef0a6', extinction: '#b9a0ff', effondrement: '#ff8fa0', palier: '#ffcf72', fusion: '#52e6df', bascule: '#7ef0a6' };
 function drawHist(L) {
   const svg = document.getElementById('hist');
   const ph = L.pop_history || [], cap = L.cap_history || [];
@@ -746,7 +757,8 @@ function drawSpark(id, arr, col) {
 const DNA_TRAITS = ['metabolisme', 'vitesse', 'perception', 'efficacite', 'fecondite', 'longevite', 'cohesion', 'prudence', 'curiosite'];
 const DNA_HUE = [14, 42, 190, 96, 330, 262, 150, 208, 52];
 let dnaGeno = [1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5]; // valeurs lissees affichees
-let dnaLast = 0;
+let dnaLast = 0, dnaFlash = -1e9; // dnaFlash : instant d'un basculement du genome
+let seenShifts = new Set();
 function drawDna(now) {
   requestAnimationFrame(drawDna);
   if (now - dnaLast < 40) return;   // ~24 images/s, largement assez pour une helice
@@ -766,9 +778,19 @@ function drawDna(now) {
   const turns = 2.35, rot = t * 0.5;
   const angAt = f => f * turns * Math.PI * 2 + rot;
 
+  // basculement du genome : on rapproche plus vite les valeurs affichees, et on illumine
+  const fp = (now - dnaFlash) / 2200;
+  const flashing = fp >= 0 && fp < 1;
   for (let i = 0; i < n; i++) {
     const target = gm[i] != null ? gm[i] * 3 : (gq[i] != null ? gq[i] : 1.5);
-    dnaGeno[i] += (target - dnaGeno[i]) * 0.08;
+    dnaGeno[i] += (target - dnaGeno[i]) * (flashing ? 0.22 : 0.08);
+  }
+  if (flashing) {
+    const b = Math.sin(fp * Math.PI);
+    const bg = dctx.createRadialGradient(cx, top + span / 2, 0, cx, top + span / 2, span * 0.8);
+    bg.addColorStop(0, 'rgba(150,255,190,' + (b * 0.28).toFixed(3) + ')');
+    bg.addColorStop(1, 'rgba(126,240,166,0)');
+    dctx.fillStyle = bg; dctx.fillRect(0, 0, W, H);
   }
 
   if (!dnaGrad) {

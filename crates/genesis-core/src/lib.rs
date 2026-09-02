@@ -64,4 +64,7 @@ pub const ENGINE_VERSION: &str = env!("CARGO_PKG_VERSION");
 /// v15 : fusion de cellules (`WorldState.cells_merged_total`, `EventKind::CellsMerged`). Deux
 ///       membranes stables, chevauchantes et parentes n'en font plus qu'une ; la plus grosse
 ///       garde son identite. Emergent (condition geometrique et genetique), pas scripte.
-pub const SCHEMA_VERSION: u32 = 15;
+/// v16 : basculement du genome dominant (`Watch.dominant_genome_key` / `dominant_shift_streak`,
+///       `EventKind::GenomeShift`). La cle de genome la plus repandue change et se tient : le
+///       centre genetique de la population s'est deplace. Detecte, jamais devine (T-7).
+pub const SCHEMA_VERSION: u32 = 16;

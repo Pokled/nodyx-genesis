@@ -1607,6 +1607,32 @@ fn run_watchers(world: &mut WorldState, cfg: &SimConfig, t: u64, events: &mut Ve
             .map(|(k, _)| *k)
             .unwrap_or(0);
 
+        // Basculement du genome dominant : l'evolution a deplace le centre de la population.
+        // On exige que la nouvelle cle domine plusieurs controles d'affilee (elle peut
+        // flotter pres d'une egalite), comme une espece doit tenir avant d'etre reconnue.
+        if world.watch.dominant_genome_key == 0 {
+            world.watch.dominant_genome_key = dominant;
+        } else if wc.genome_shift_persist_checks == 0 {
+            // detecteur coupe : on suit quand meme la cle etablie, sans jamais emettre.
+            world.watch.dominant_genome_key = dominant;
+        } else if dominant != world.watch.dominant_genome_key && dominant != 0 {
+            world.watch.dominant_shift_streak += 1;
+            if world.watch.dominant_shift_streak >= wc.genome_shift_persist_checks {
+                let from = world.watch.dominant_genome_key;
+                let (mg, _) = world.generation_stats();
+                emit(
+                    events,
+                    &mut world.next_event_seq,
+                    t,
+                    EventKind::GenomeShift { from, to: dominant, generation: mg.round() as u32 },
+                );
+                world.watch.dominant_genome_key = dominant;
+                world.watch.dominant_shift_streak = 0;
+            }
+        } else {
+            world.watch.dominant_shift_streak = 0;
+        }
+
         let mut still: BTreeMap<u16, u16> = BTreeMap::new();
         for (&k, &c) in counts.iter() {
             if k == dominant

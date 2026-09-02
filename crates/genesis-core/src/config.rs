@@ -616,6 +616,9 @@ pub struct WatchCfg {
     pub crash_drop_frac: f32,
     /// Longueur de la fenetre de detection d'effondrement, en controles.
     pub crash_window_checks: u16,
+    /// Nombre de controles consecutifs ou une autre cle de genome doit dominer avant qu'on
+    /// parle de basculement du genome dominant (`GenomeShift`). `0` desactive.
+    pub genome_shift_persist_checks: u16,
 }
 impl Default for WatchCfg {
     fn default() -> Self {
@@ -627,6 +630,7 @@ impl Default for WatchCfg {
             species_max_spread: 18.0,
             crash_drop_frac: 0.5,
             crash_window_checks: 6,
+            genome_shift_persist_checks: 5,
         }
     }
 }

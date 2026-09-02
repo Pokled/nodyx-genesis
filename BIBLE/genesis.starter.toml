@@ -219,6 +219,8 @@ species_persist_checks = 3      # contrôles consécutifs où le candidat doit t
 species_max_spread     = 18.0   # rayon moyen max des membres : au delà, c'est de la dérive dispersée
 crash_drop_frac        = 0.5    # fraction de population perdue pour parler d'effondrement
 crash_window_checks    = 6      # longueur de la fenêtre de détection d'effondrement
+genome_shift_persist_checks = 5 # contrôles consécutifs où une autre clé de génome doit dominer
+                                # avant de parler de basculement du génome dominant (0 = coupé)
 
 [persistence]
 snapshot_interval_ticks   = 5000

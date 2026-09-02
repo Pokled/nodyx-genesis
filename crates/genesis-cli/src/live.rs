@@ -284,6 +284,18 @@ fn chronicle(e: &Event) -> Option<(&'static str, String, EventCard, Option<[f32;
                 },
             )
         }
+        EventKind::GenomeShift { generation, .. } => (
+            "bascule",
+            format!("le genome dominant du monde bascule, generation {generation}"),
+            EventCard {
+                badge: "BASCULE DU GENOME",
+                head: "Le genome dominant du monde a change".into(),
+                sub: format!(
+                    "a la generation {generation}, l'evolution a deplace le centre de la population"
+                ),
+                tone: "bascule",
+            },
+        ),
         _ => return None,
     };
     Some((kind, text, card, at))

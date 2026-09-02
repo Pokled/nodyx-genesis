@@ -351,6 +351,7 @@ fn is_chronicle_event(kind: &EventKind) -> bool {
             | EventKind::PopulationCrash { .. }
             | EventKind::PopulationMilestone { .. }
             | EventKind::CellsMerged { .. }
+            | EventKind::GenomeShift { .. }
     )
 }
 
@@ -729,6 +730,12 @@ fn write_world_pages(
                 }
                 EventKind::PopulationMilestone { level } if *level >= 100 => {
                     chronicle.push((e.tick, format!("La population franchit {level}")));
+                }
+                EventKind::GenomeShift { generation, .. } => {
+                    chronicle.push((
+                        e.tick,
+                        format!("Le genome dominant bascule, generation {generation}"),
+                    ));
                 }
                 _ => {}
             }

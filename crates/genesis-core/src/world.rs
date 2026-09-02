@@ -115,6 +115,13 @@ pub struct Watch {
     /// `LineageExtinct` la cite comme cause.
     #[serde(default)]
     pub last_death_seq_by_lineage: BTreeMap<u16, u64>,
+    /// Cle de genome dominante etablie du monde, au dernier controle (0 = pas encore fixee).
+    /// Un basculement tenu sur plusieurs controles emet `GenomeShift` (schema v16).
+    #[serde(default)]
+    pub dominant_genome_key: u16,
+    /// Nombre de controles consecutifs ou une autre cle domine.
+    #[serde(default)]
+    pub dominant_shift_streak: u16,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -259,6 +266,8 @@ impl WorldState {
                 cell_pending: Vec::new(),
                 deaths_since_check: Vec::new(),
                 last_death_seq_by_lineage: BTreeMap::new(),
+                dominant_genome_key: 0,
+                dominant_shift_streak: 0,
             },
         }
     }

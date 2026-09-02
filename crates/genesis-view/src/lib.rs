@@ -667,6 +667,11 @@ fn event_view(e: &Event) -> Option<EventView> {
         EventKind::CellsMerged { cell, size, .. } => {
             ("cellule_fusion", vec![], format!("cellule {}, {} membres", cell, size))
         }
+        EventKind::GenomeShift { generation, .. } => (
+            "genome_bascule",
+            vec![],
+            format!("le genome dominant bascule, generation {generation}"),
+        ),
         EventKind::AgentAwoke { entity } => ("agent_eveille", vec![*entity], String::new()),
         EventKind::AgentLapsed { entity } => ("agent_endormi", vec![*entity], String::new()),
         // EntityAte et SnapshotTaken sont trop bruyants, on ne les remonte pas.

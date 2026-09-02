@@ -306,6 +306,7 @@ enum EventKind {
     CellFormed { cell: u32, size: u32 },   // (0.0.2, tranche 2)
     CellDissolved { cell: u32 },
     CellsMerged { cell: u32, absorbed: u32, size: u32 },  // (v15) deux membranes n'en font qu'une
+    GenomeShift { from: u16, to: u16, generation: u32 },   // (v16) la clé de génome dominante a basculé
     AgentAwoke { entity: EntityId },        // (0.0.3, tranche 1) une entité s'éveille en agent
     AgentLapsed { entity: EntityId },       // ... et retombe entité de fond. Réversible.
 }
