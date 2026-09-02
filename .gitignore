@@ -25,3 +25,6 @@ Transcription/Les origines de la vie*_files/
 # Divers
 *.tmp
 .DS_Store
+
+# Notes de travail locales (briefings, brouillons) : hors du depot.
+/Stream_Twitch

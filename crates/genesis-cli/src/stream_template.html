@@ -1,0 +1,453 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1920, initial-scale=1">
+<title>Genesis Live, monde __WNAME__</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --abyss:#04060b; --deep:#0a0e17; --panel:rgba(11,16,26,.72); --line:rgba(126,158,214,.16);
+    --ink:#e9edf7; --soft:#9aa6be; --muted:#59637a;
+    --cyan:#52e6df; --green:#7ef0a6; --blue:#74a8ff; --rose:#ff8fa0; --amber:#ffcf72; --violet:#b9a0ff;
+    --serif:"Fraunces","Iowan Old Style",Georgia,serif;
+    --mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+  }
+  * { box-sizing:border-box; margin:0; }
+  html,body { width:1920px; height:1080px; overflow:hidden; }
+  body {
+    background:radial-gradient(120% 90% at 50% 0%, #10151f 0%, #070a11 55%, #04060b 100%);
+    color:var(--ink); font:15px/1.5 var(--mono);
+  }
+  .grid {
+    width:1920px; height:1080px; display:grid;
+    grid-template-columns:1180px 740px;
+    grid-template-rows:78px 1fr 286px 40px;
+    grid-template-areas:
+      "head head"
+      "scene side"
+      "foot-l foot-r"
+      "bar bar";
+  }
+
+  /* --- header --- */
+  header {
+    grid-area:head; display:flex; align-items:center; gap:26px; padding:0 34px;
+    border-bottom:1px solid var(--line); background:rgba(6,9,15,.55);
+  }
+  header .logo { font-family:var(--serif); font-weight:600; font-size:1.9rem; letter-spacing:.03em; }
+  header .tag { color:var(--soft); font-size:.9rem; letter-spacing:.14em; text-transform:uppercase; }
+  header .live {
+    margin-left:auto; display:flex; align-items:center; gap:10px;
+    font-family:var(--serif); font-weight:600; font-size:1.1rem; letter-spacing:.18em;
+    color:var(--rose);
+  }
+  header .live .dot {
+    width:12px; height:12px; border-radius:50%; background:var(--rose);
+    box-shadow:0 0 12px var(--rose); animation:pulse 1.6s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.45;transform:scale(.82)} }
+
+  /* --- scene --- */
+  .scene { grid-area:scene; position:relative; overflow:hidden; }
+  .scene canvas { position:absolute; inset:0; width:100%; height:100%; }
+  .scene::before {
+    content:''; position:absolute; left:0; top:0; width:560px; height:340px; z-index:2;
+    background:linear-gradient(150deg, rgba(4,6,11,.88) 0%, rgba(4,6,11,.5) 45%, rgba(4,6,11,0) 78%); pointer-events:none;
+  }
+  .scene .clock {
+    position:absolute; left:34px; top:28px; z-index:3;
+  }
+  .scene .clock .k { font-size:.72rem; letter-spacing:.24em; text-transform:uppercase; color:var(--cyan); }
+  .scene .clock .age { font-family:var(--serif); font-weight:500; font-size:3.6rem; line-height:1; letter-spacing:.02em; margin-top:6px; font-variant-numeric:tabular-nums; }
+  .scene .clock .ticks { color:var(--soft); font-size:1rem; margin-top:8px; letter-spacing:.05em; }
+  .scene .manifesto {
+    position:absolute; left:34px; top:210px; z-index:3; max-width:470px;
+    font-family:var(--serif); color:var(--soft); font-size:1.02rem; line-height:1.7;
+  }
+  .scene .manifesto b { color:var(--ink); font-weight:500; }
+
+  /* --- side stats --- */
+  .side { grid-area:side; border-left:1px solid var(--line); background:var(--panel);
+    backdrop-filter:blur(10px); padding:20px 24px; display:flex; flex-direction:column; gap:16px; overflow:hidden; }
+  .group h2 {
+    font-family:var(--serif); font-weight:500; font-size:1.05rem; color:var(--ink);
+    display:flex; align-items:baseline; gap:10px; margin-bottom:8px;
+  }
+  .group h2::after { content:''; flex:1; height:1px; background:linear-gradient(90deg,var(--line),transparent); align-self:center; }
+  .rows { display:grid; grid-template-columns:1fr 1fr; gap:3px 22px; }
+  .r { display:flex; justify-content:space-between; align-items:baseline; padding:2px 0; font-size:.86rem; }
+  .r span { color:var(--soft); }
+  .r b { color:var(--ink); font-weight:500; font-variant-numeric:tabular-nums; }
+  .r b.up { color:var(--green); } .r b.down { color:var(--rose); }
+  .r.wide { grid-column:1 / -1; }
+
+  /* --- bottom left : events --- */
+  .foot-l { grid-area:foot-l; border-top:1px solid var(--line); background:rgba(6,9,15,.5);
+    padding:14px 24px; overflow:hidden; }
+  .foot-l h2, .foot-r h2 { font-family:var(--serif); font-weight:500; font-size:1rem; color:var(--soft);
+    letter-spacing:.06em; text-transform:uppercase; margin-bottom:10px; }
+  #feed { display:flex; flex-direction:column; gap:5px; }
+  .fe { display:flex; gap:12px; font-size:.84rem; color:var(--soft); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    opacity:0; transform:translateY(4px); animation:fein .35s ease forwards; }
+  @keyframes fein { to { opacity:1; transform:none; } }
+  .fe .t { color:var(--muted); font-variant-numeric:tabular-nums; min-width:96px; }
+  .fe .b { color:var(--ink); }
+  .fe.naissance .b { color:var(--green); }
+  .fe.mort .b { color:var(--rose); }
+  .fe.division .b { color:var(--blue); }
+  .fe.tournant .b { color:var(--amber); }
+  .fe.eveil .b { color:var(--violet); }
+
+  /* --- bottom right : history + records --- */
+  .foot-r { grid-area:foot-r; border-top:1px solid var(--line); border-left:1px solid var(--line);
+    background:rgba(6,9,15,.5); padding:14px 24px; display:grid; grid-template-columns:1.15fr 1fr; gap:22px; }
+  .hist svg { width:100%; height:150px; display:block; }
+  .hist .cap { color:var(--muted); font-size:.72rem; margin-top:4px; letter-spacing:.03em; }
+  .records .rec { display:flex; justify-content:space-between; align-items:baseline; font-size:.82rem; padding:3px 0; border-bottom:1px solid var(--line); }
+  .records .rec:last-child { border-bottom:none; }
+  .records .rec span { color:var(--soft); }
+  .records .rec b { color:var(--amber); font-weight:500; font-variant-numeric:tabular-nums; }
+
+  /* --- footer bar --- */
+  .bar { grid-area:bar; display:flex; align-items:center; justify-content:center;
+    border-top:1px solid var(--line); background:rgba(6,9,15,.65);
+    color:var(--muted); font-size:.78rem; letter-spacing:.22em; text-transform:uppercase; }
+  .bar b { color:var(--soft); font-weight:400; margin:0 6px; }
+
+  /* --- big event card --- */
+  #card {
+    position:fixed; left:50%; top:46%; transform:translate(-50%,-50%) scale(.94);
+    z-index:20; min-width:420px; text-align:center;
+    background:rgba(8,11,18,.92); border:1px solid var(--glass-line,rgba(126,158,214,.24));
+    border-radius:18px; padding:34px 46px; box-shadow:0 30px 80px rgba(0,0,0,.6);
+    opacity:0; pointer-events:none; transition:opacity .4s, transform .4s;
+  }
+  #card.on { opacity:1; transform:translate(-50%,-50%) scale(1); }
+  #card .rule { width:60px; height:2px; background:var(--amber); margin:0 auto 18px; }
+  #card .kind { font-size:.74rem; letter-spacing:.28em; text-transform:uppercase; color:var(--amber); }
+  #card .h { font-family:var(--serif); font-weight:600; font-size:2.1rem; margin:10px 0 6px; }
+  #card .sub { color:var(--soft); font-size:1rem; }
+  #card .tick { color:var(--muted); font-size:.8rem; margin-top:14px; letter-spacing:.06em; }
+</style>
+</head>
+<body>
+<div class="grid">
+  <header>
+    <span class="logo">Genesis</span>
+    <span class="tag">A world that lives on its own</span>
+    <span class="live"><span class="dot"></span>LIVE 24/7</span>
+  </header>
+
+  <div class="scene">
+    <canvas id="c"></canvas>
+    <div class="clock">
+      <div class="k">Age du monde</div>
+      <div class="age" id="age">--</div>
+      <div class="ticks"><b id="agesub">--</b> &nbsp;/&nbsp; tick <b id="tick">--</b></div>
+    </div>
+    <div class="manifesto">
+      <b>Pas de joueur. Pas d'histoire ecrite. Pas de pause.</b><br>
+      Chaque tick change le monde. Meme graine, meme monde, pour toujours.
+    </div>
+  </div>
+
+  <div class="side" id="side"></div>
+
+  <div class="foot-l">
+    <h2>Live events</h2>
+    <div id="feed"></div>
+  </div>
+
+  <div class="foot-r">
+    <div class="hist">
+      <h2>Population history</h2>
+      <svg id="hist" viewBox="0 0 520 150" preserveAspectRatio="none" role="img"></svg>
+      <div class="cap" id="histcap"></div>
+    </div>
+    <div class="records">
+      <h2>World records</h2>
+      <div id="recs"></div>
+    </div>
+  </div>
+
+  <div class="bar" id="bar">Deterministic simulation<b>&middot;</b>seed __SEED__<b>&middot;</b>world __WNAME__<b>&middot;</b>running 24/7</div>
+</div>
+
+<div id="card">
+  <div class="rule"></div>
+  <div class="kind" id="cardkind"></div>
+  <div class="h" id="cardh"></div>
+  <div class="sub" id="cardsub"></div>
+  <div class="tick" id="cardtick"></div>
+</div>
+
+<script id="boot-live" type="application/json">__LIVE__</script>
+<script id="boot-scene" type="application/json">__SCENE__</script>
+<script>
+const parse = (id, d) => { try { return JSON.parse(document.getElementById(id).textContent) || d; } catch (e) { return d; } };
+let LIVE = parse('boot-live', null);
+let SCENE = parse('boot-scene', null);
+
+const cv = document.getElementById('c');
+const ctx = cv.getContext('2d');
+const DPR = Math.min(window.devicePixelRatio || 1, 2);
+function resize() { cv.width = cv.clientWidth * DPR; cv.height = cv.clientHeight * DPR; }
+window.addEventListener('resize', resize); resize();
+
+const fr = n => Number(n || 0).toLocaleString('fr');
+// Age du monde en temps-monde (1 tick = 1 heure). Gros chiffre = annees ou jours.
+function worldAge(sec) {
+  sec = Math.max(0, Math.floor(sec));
+  const years = Math.floor(sec / (365 * 86400));
+  const days = Math.floor(sec % (365 * 86400) / 86400);
+  const hours = Math.floor(sec % 86400 / 3600);
+  if (years >= 1) return { big: 'an ' + fr(years), sub: 'jour ' + days + ', ' + hours + ' h' };
+  return { big: 'jour ' + fr(days), sub: hours + ' h de l\'an 0' };
+}
+
+// --- polling : fetch quand servi en http, sinon on garde le repli embarque ---
+async function poll() {
+  try {
+    const [l, s] = await Promise.all([
+      fetch('live.json?_=' + Date.now()).then(r => r.ok ? r.json() : null),
+      fetch('scene.json?_=' + Date.now()).then(r => r.ok ? r.json() : null),
+    ]);
+    if (l) { applyLive(l); }
+    if (s) { SCENE = s; }
+  } catch (e) { /* file:// : on reste sur le repli */ }
+}
+setInterval(poll, 3000);
+
+// --- horloge : tick fluide entre deux sondages ---
+let ageBase = 0, ageAt = performance.now(), tickBase = 0, secPerTick = 3600;
+function tickClock() {
+  const extra = (performance.now() - ageAt) / 1000;
+  const a = worldAge(ageBase + extra * apparentRate);
+  document.getElementById('age').textContent = a.big;
+  document.getElementById('agesub').textContent = a.sub;
+  document.getElementById('tick').textContent = fr(tickBase + Math.floor(extra * apparentTickRate));
+  requestAnimationFrame(tickClock);
+}
+let apparentRate = 0, apparentTickRate = 0, lastTick = 0, lastAgeSec = 0, lastPollMs = performance.now();
+
+// --- rendu de la scene ---
+const PS = 4;
+let camX = null, camY = null;
+function bio(h, l, a) {
+  let d = ((h - 188) % 360 + 540) % 360 - 180;
+  return 'hsla(' + (188 + d * 0.6).toFixed(0) + ',78%,' + l + '%,' + a + ')';
+}
+function drawScene() {
+  const S = SCENE;
+  const W = cv.width, H = cv.height;
+  ctx.clearRect(0, 0, W, H);
+  const hg = ctx.createRadialGradient(W / 2, H * 0.4, 0, W / 2, H * 0.4, Math.max(W, H) * 0.6);
+  hg.addColorStop(0, 'rgba(18,38,52,.5)'); hg.addColorStop(1, 'rgba(4,6,11,0)');
+  ctx.fillStyle = hg; ctx.fillRect(0, 0, W, H);
+  if (!S || !S.grid) { requestAnimationFrame(drawScene); return; }
+  const gw = S.grid[0], gh = S.grid[1];
+  // Centre sur la vie : la scene suit le centre de masse de la population.
+  let sx = 0, sy = 0, sw = 0;
+  const src = (S.clusters && S.clusters.length) ? S.clusters : (S.entities || []);
+  for (const e of src) { const w = e.count || 1; sx += e.pos[0] / PS * w; sy += e.pos[1] / PS * w; sw += w; }
+  let cx = sw ? sx / sw : gw / 2, cy = sw ? sy / sw : gh / 2;
+  // Cadrage "cover" : le monde couvre toute la scene, la camera choisit quoi montrer.
+  const s = Math.max(W / gw, H / gh) * 1.06;
+  const hx = W / (2 * s), hy = H / (2 * s);
+  cx = 2 * hx >= gw ? gw / 2 : Math.max(hx, Math.min(gw - hx, cx));
+  cy = 2 * hy >= gh ? gh / 2 : Math.max(hy, Math.min(gh - hy, cy));
+  if (camX === null) { camX = cx; camY = cy; }
+  camX += (cx - camX) * 0.05; camY += (cy - camY) * 0.05;
+  const ox = W / 2 - camX * s, oy = H / 2 - camY * s;
+  const tsec = performance.now() / 1000;
+
+  // champ de ressources
+  const rv = S.resources;
+  if (rv && rv.cells) {
+    const cw = rv.w, ch = rv.h, cs = s * gw / cw;
+    for (let i = 0; i < rv.cells.length; i++) {
+      const v = rv.cells[i] / 255; if (v < 0.04) continue;
+      const x = ox + (i % cw) * cs, y = oy + Math.floor(i / cw) * cs;
+      ctx.fillStyle = 'rgba(90,230,150,' + (Math.pow(v, .9) * 0.20).toFixed(3) + ')';
+      ctx.fillRect(x, y, cs + 1, cs + 1);
+    }
+  }
+  // amas
+  for (const c of (S.clusters || [])) {
+    const x = ox + (c.pos[0] / PS) * s, y = oy + (c.pos[1] / PS) * s;
+    const r = Math.max(4, (c.radius / PS) * s);
+    const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+    const e = c.energy / 100;
+    g.addColorStop(0, bio(c.hue, 66, (0.18 + e * 0.32)));
+    g.addColorStop(1, bio(c.hue, 60, 0));
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.fill();
+  }
+  // cellules
+  for (const c of (S.cells || [])) {
+    const x = ox + (c.pos[0] / PS) * s, y = oy + (c.pos[1] / PS) * s;
+    const r = Math.max(6, (c.radius / PS) * s) * (1 + Math.sin(tsec * 1.1 + c.pos[0]) * 0.02);
+    let d = ((c.hue - 188) % 360 + 540) % 360 - 180; const h = (188 + d * 0.6).toFixed(0);
+    ctx.strokeStyle = 'hsla(' + h + ',72%,74%,.7)'; ctx.lineWidth = 1.3;
+    ctx.setLineDash([1, 3]); ctx.lineDashOffset = -tsec * 6;
+    ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.stroke(); ctx.setLineDash([]);
+  }
+  // entites (agents en region, tout le monde en detail)
+  for (const en of (S.entities || [])) {
+    const x = ox + (en.pos[0] / PS) * s, y = oy + (en.pos[1] / PS) * s;
+    const ep = (en.energy || 50) / 100;
+    const rr = (1.4 + ep * 3.4) * Math.max(0.7, s / 5);
+    ctx.beginPath();
+    ctx.fillStyle = bio(en.hue, 64, 0.5 + ep * 0.4);
+    if (ep > 0.3) { ctx.shadowBlur = 8; ctx.shadowColor = bio(en.hue, 66, .9); }
+    ctx.arc(x, y, rr, 0, 6.2832); ctx.fill(); ctx.shadowBlur = 0;
+    if (en.agent) { ctx.strokeStyle = 'rgba(185,160,255,.6)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(x, y, rr + 2.5, 0, 6.2832); ctx.stroke(); }
+  }
+  // alarmes
+  for (const sg of (S.signals || [])) {
+    const x = ox + (sg[0] / PS) * s, y = oy + (sg[1] / PS) * s;
+    const a = Math.min(1, sg[2] / 4);
+    ctx.globalAlpha = (1 - a) * 0.5; ctx.strokeStyle = 'rgba(255,143,160,.95)'; ctx.lineWidth = 1.4;
+    ctx.beginPath(); ctx.arc(x, y, (2 + a * 9) * Math.max(0.7, s / 5), 0, 6.2832); ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+  ctx.strokeStyle = 'rgba(126,158,214,.1)'; ctx.lineWidth = 1;
+  ctx.strokeRect(ox, oy, s * gw, s * gh);
+  requestAnimationFrame(drawScene);
+}
+
+// --- application d'un etat live ---
+function statRow(label, val, cls) {
+  return '<div class="r ' + (cls || '') + '"><span>' + label + '</span><b>' + val + '</b></div>';
+}
+let seenTournants = new Set();
+function applyLive(L) {
+  LIVE = L;
+  // horloge
+  const now = performance.now();
+  const realDelta = (now - lastPollMs) / 1000;
+  if (lastTick) {
+    apparentTickRate = Math.max(0, (L.tick - lastTick) / Math.max(1, realDelta));
+    apparentRate = apparentTickRate * secPerTick;
+  }
+  lastTick = L.tick; lastPollMs = now;
+  ageBase = L.age_world_seconds; tickBase = L.tick; ageAt = now;
+  secPerTick = L.age_world_seconds && L.tick ? L.age_world_seconds / L.tick : 3600;
+
+  // panneaux
+  const side = document.getElementById('side');
+  side.innerHTML =
+    '<div class="group"><h2>Vie du monde</h2><div class="rows">' +
+      statRow('population', fr(L.population)) +
+      statRow('capacite', fr(L.carrying_capacity)) +
+      statRow('naissances', fr(L.births)) +
+      statRow('morts de faim', fr(L.deaths_starv)) +
+      statRow('morts d\'age', fr(L.deaths_age)) +
+      statRow('age moyen', fr(Math.round(L.mean_age_ticks)) + ' t') +
+      statRow('energie moy.', (L.mean_energy_pct * 100).toFixed(0) + ' %') +
+      statRow('biomasse', fr(Math.round(L.biomass))) +
+    '</div></div>' +
+    '<div class="group"><h2>Evolution</h2><div class="rows">' +
+      statRow('diversite', L.diversity.toFixed(3)) +
+      statRow('generation max', L.generation_max) +
+      statRow('gen. moyenne', L.generation_mean.toFixed(1)) +
+      statRow('lignees vivantes', L.lineages) +
+      statRow('lignee dominante', L.dominant_lineage, 'wide') +
+      statRow('part dominante', (L.dominant_share * 100).toFixed(0) + ' %') +
+    '</div></div>' +
+    '<div class="group"><h2>Ecosysteme</h2><div class="rows">' +
+      statRow('ressource totale', fr(Math.round(L.resource_total))) +
+      statRow('ressource / case', L.resource_mean.toFixed(2)) +
+      statRow('cases epuisees', L.depleted_pct.toFixed(1) + ' %') +
+      statRow('surexploitation', L.strain.toFixed(3)) +
+      statRow('cases occupees', fr(L.occupied_cells)) +
+      statRow('cellules vivantes', fr(L.cells_alive)) +
+    '</div></div>' +
+    '<div class="group"><h2>Cognition</h2><div class="rows">' +
+      statRow('agents vivants', fr(L.agents_alive)) +
+      statRow('eveils (total)', fr(L.agents_awoke_total)) +
+      statRow('souvenirs moy.', L.mean_memories.toFixed(1)) +
+      statRow('derniere naissance', 'tick ' + fr(L.last_birth_tick)) +
+      statRow('derniere mort', 'tick ' + fr(L.last_death_tick)) +
+    '</div></div>';
+
+  // fil
+  document.getElementById('feed').innerHTML = (L.events || []).slice(0, 12).map(e =>
+    '<div class="fe ' + e.kind + '"><span class="t">tick ' + fr(e.tick) + '</span><span class="b">' + e.text + '</span></div>'
+  ).join('');
+
+  // records
+  const R = L.records || {};
+  document.getElementById('recs').innerHTML =
+    rec('population max', fr(R.largest_population)) +
+    rec('creux de population', fr(R.smallest_population)) +
+    rec('generation la plus profonde', R.deepest_generation) +
+    rec('plus d\'agents en meme temps', fr(R.most_agents_at_once)) +
+    rec('plus longue vie d\'agent', fr(R.longest_agent_life_ticks) + ' t') +
+    rec('especes emergees', R.species_count) +
+    rec('diversite record', (R.peak_diversity || 0).toFixed(3));
+
+  // graphe
+  drawHist(L);
+
+  // carte d'un nouveau grand tournant
+  for (const e of (L.events || [])) {
+    if (e.kind !== 'tournant') continue;
+    const key = e.tick + '|' + e.text;
+    if (seenTournants.has(key)) continue;
+    seenTournants.add(key);
+    showCard(e);
+  }
+  if (seenTournants.size > 200) seenTournants = new Set(Array.from(seenTournants).slice(-100));
+}
+function rec(k, v) { return '<div class="rec"><span>' + k + '</span><b>' + v + '</b></div>'; }
+
+function drawHist(L) {
+  const svg = document.getElementById('hist');
+  const ph = L.pop_history || [], cap = L.cap_history || [];
+  if (ph.length < 2) { svg.innerHTML = ''; return; }
+  const W = 520, H = 150;
+  const maxY = Math.max(1, ...ph.map(p => p[1]), ...cap);
+  const t0 = ph[0][0], t1 = ph[ph.length - 1][0] || 1;
+  const X = t => (t - t0) / Math.max(1, t1 - t0) * W;
+  const Y = v => H - (v / maxY) * (H - 6) - 3;
+  let capd = '';
+  for (let i = 0; i < cap.length; i++) capd += (i ? 'L' : 'M') + X(ph[i][0]).toFixed(1) + ',' + Y(cap[i]).toFixed(1) + ' ';
+  let ar = 'M0,' + H + ' ', ln = '';
+  for (let i = 0; i < ph.length; i++) { const x = X(ph[i][0]).toFixed(1), y = Y(ph[i][1]).toFixed(1); ar += 'L' + x + ',' + y + ' '; ln += (i ? 'L' : 'M') + x + ',' + y + ' '; }
+  ar += 'L' + W + ',' + H + ' Z';
+  svg.innerHTML =
+    '<path d="' + capd + '" fill="none" stroke="rgba(126,158,214,.3)" stroke-width="1" stroke-dasharray="3,4"/>' +
+    '<path d="' + ar + '" fill="rgba(82,230,223,.14)"/>' +
+    '<path d="' + ln + '" fill="none" stroke="rgba(82,230,223,.9)" stroke-width="1.6"/>';
+  document.getElementById('histcap').textContent =
+    'de l\'an ' + Math.floor(t0 / (365 * 24 * 3600 / (L.age_world_seconds / Math.max(1, L.tick)) || 8760)) +
+    ' a maintenant  ·  capacite en pointille';
+}
+
+let cardTimer = 0;
+function showCard(e) {
+  const parts = e.text.split(/[,(]/);
+  document.getElementById('cardkind').textContent = 'nouvel evenement';
+  document.getElementById('cardh').textContent = (parts[0] || e.text).trim();
+  document.getElementById('cardsub').textContent = parts.slice(1).join(' ').replace(')', '').trim();
+  document.getElementById('cardtick').textContent = 'tick ' + fr(e.tick);
+  const card = document.getElementById('card');
+  card.classList.add('on');
+  clearTimeout(cardTimer);
+  cardTimer = setTimeout(() => card.classList.remove('on'), 8000);
+}
+
+// --- demarrage : on ne montre pas de carte pour les evenements deja passes ---
+if (LIVE) {
+  for (const e of (LIVE.events || [])) { if (e.kind === 'tournant') seenTournants.add(e.tick + '|' + e.text); }
+  applyLive(LIVE);
+}
+requestAnimationFrame(tickClock);
+requestAnimationFrame(drawScene);
+poll();
+</script>
+</body>
+</html>

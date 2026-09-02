@@ -10,9 +10,12 @@
 //! meme etat final. C'est le moment public de 0.0.1.
 
 mod gallery_html;
+mod http_serve;
 mod index_html;
+mod live;
 mod lives_html;
 mod series_html;
+mod stream_html;
 mod view_html;
 
 use std::collections::HashMap;
@@ -206,9 +209,10 @@ genesis, Nodyx Genesis 0.0.1
       Reprend un monde depuis son dernier instantane et le fait avancer de T ticks.
       Le journal et la serie temporelle continuent ; la scene montre le monde recent.
 
-  genesis serve <dossier-monde> [--chunk <N>] [--for <T>] [--rate <ticks/s>]
+  genesis serve <dossier-monde> [--chunk <N>] [--for <T>] [--rate <ticks/s>] [--port <P>]
       Fait tourner un monde en continu, en refaisant les pages a chaque tranche.
       Ouvre index.html dans un navigateur et rafraichis. Ctrl-C pour arreter.
+      Avec --port, sert le monde en http (overlay du direct : /stream.html).
 
   genesis replay <dossier-monde>
       Rejoue le monde depuis sa graine et verifie l'etat final. Deterministe : OK ou DIFF.
@@ -294,6 +298,7 @@ fn cmd_run(flags: &HashMap<String, String>) -> std::io::Result<()> {
         &sim.notable,
         &sim.lives,
         sim.extinct_at,
+        true,
     )
 }
 
@@ -523,6 +528,7 @@ fn write_world_pages(
     notable: &[Event],
     lives: &std::collections::HashMap<EntityId, AgentLife>,
     extinct_at: Option<u64>,
+    verbose: bool,
 ) -> std::io::Result<()> {
     // Duree comme agent, pour trier les vies : les plus longues d'abord.
     let agent_span = |l: &AgentLife| l.ended_tick.unwrap_or(world.tick).saturating_sub(l.awoke_tick);
@@ -652,6 +658,13 @@ fn write_world_pages(
         std::fs::write(wdir.root.join("index.html"), index_html::render(&digest))?;
     }
 
+    // L'overlay 24/24 : petit etat vivant, derniere image, records.
+    let (live_json, scene_json) = live::write_live(
+        wdir, world, cfg, seed, awoke_total, &world_name, frames, series, notable, &lives_vec,
+    )?;
+    let stream = stream_html::render(&world_name, seed, &live_json, &scene_json);
+    std::fs::write(wdir.root.join("stream.html"), stream)?;
+
     // La bibliotheque : on reconstruit la page de garde du dossier parent (sans faille
     // fatale si ca echoue).
     if let Some(parent) = wdir.root.parent() {
@@ -660,30 +673,32 @@ fn write_world_pages(
         }
     }
 
-    println!("Monde w{seed}");
-    println!("  ticks joues       {}", world.tick);
-    println!("  population finale  {}", world.population());
-    println!("  naissances        {}", world.births_total);
-    println!("  morts             {}", world.deaths_total);
-    println!("  diversite genetique {:.3}", world.genetic_diversity());
-    if let Some(t) = extinct_at {
-        println!("  extinction au tick {t}");
-    }
-    println!("  frames            {}", frames.len());
-    println!("  generation max    {}", series.last().map(|r| r.max_generation).unwrap_or(0));
-    {
+    if verbose {
+        println!("Monde {world_name}");
+        println!("  ticks joues       {}", world.tick);
+        println!("  population finale  {}", world.population());
+        println!("  naissances        {}", world.births_total);
+        println!("  morts             {}", world.deaths_total);
+        println!("  diversite genetique {:.3}", world.genetic_diversity());
+        if let Some(t) = extinct_at {
+            println!("  extinction au tick {t}");
+        }
+        println!("  frames            {}", frames.len());
+        println!(
+            "  generation max    {}",
+            series.last().map(|r| r.max_generation).unwrap_or(0)
+        );
         let (agents_alive, mean_mem) = world.agent_stats();
-        let awoke = lives_vec.len();
-        println!("  agents eveilles   {awoke}");
+        println!("  agents eveilles   {awoke_total}");
         println!("  dont vivants      {agents_alive}");
         println!("  souvenirs (moy.)  {mean_mem:.1}");
+        println!();
+        println!("Ouvre {}", wdir.root.join("index.html").display());
+        println!("      {}", wdir.root.join("view.html").display());
+        println!("      {}", wdir.root.join("series.html").display());
+        println!("      {}", wdir.root.join("lives.html").display());
+        genesis_core::profile_dump();
     }
-    println!();
-    println!("Ouvre {}", wdir.root.join("index.html").display());
-    println!("      {}", wdir.root.join("view.html").display());
-    println!("      {}", wdir.root.join("series.html").display());
-    println!("      {}", wdir.root.join("lives.html").display());
-    genesis_core::profile_dump();
     Ok(())
 }
 
@@ -726,7 +741,7 @@ fn cmd_continue(
         r.world.tick,
         r.world.tick - from_tick
     );
-    r.write_pages()
+    r.write_pages(true)
 }
 
 /// `genesis serve <dossier> [--chunk N] [--for T] [--rate ticks/s]` : fait tourner un monde
@@ -751,6 +766,8 @@ fn cmd_serve(
         .get("pages-every")
         .and_then(|s| s.parse().ok())
         .unwrap_or(10.0);
+    // Serveur de fichiers pour l'overlay du direct. 0 (defaut) = coupe.
+    let port: u16 = flags.get("port").and_then(|s| s.parse().ok()).unwrap_or(0);
 
     let mut r = Resume::load(&out)?;
     let start = r.world.tick;
@@ -760,6 +777,12 @@ fn cmd_serve(
         start
     );
     println!("Ouvre {}", r.wdir.root.join("index.html").display());
+    if port > 0 {
+        match http_serve::spawn(r.wdir.root.clone(), port) {
+            Ok(p) => println!("Overlay du direct : http://localhost:{p}/stream.html"),
+            Err(e) => eprintln!("serveur http non demarre ({e})"),
+        }
+    }
 
     let mut last_pages = std::time::Instant::now()
         - std::time::Duration::from_secs_f64(pages_every.max(0.0) + 1.0);
@@ -772,7 +795,7 @@ fn cmd_serve(
         let done = r.world.entities.is_empty()
             || limit.is_some_and(|l| r.world.tick - start >= l);
         if done || last_pages.elapsed().as_secs_f64() >= pages_every {
-            r.write_pages()?;
+            r.write_pages(false)?;
             last_pages = std::time::Instant::now();
         }
 
@@ -884,7 +907,7 @@ impl Resume {
         Ok(Resume { wdir, cfg, seed: meta.seed, world, sim, awoke_before, from_tick })
     }
 
-    fn write_pages(&self) -> std::io::Result<()> {
+    fn write_pages(&self, verbose: bool) -> std::io::Result<()> {
         let new_awoke = self
             .sim
             .lives
@@ -902,6 +925,7 @@ impl Resume {
             &self.sim.notable,
             &self.sim.lives,
             self.sim.extinct_at,
+            verbose,
         )
     }
 }
@@ -1135,3 +1159,5 @@ fn parse_flags(args: &[String]) -> HashMap<String, String> {
 fn err(msg: &str) -> std::io::Error {
     std::io::Error::new(std::io::ErrorKind::InvalidInput, msg.to_string())
 }
+
+
