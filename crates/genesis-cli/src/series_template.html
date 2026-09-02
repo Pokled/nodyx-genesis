@@ -10,39 +10,39 @@
     --ground:#14150f; --raised:#1c1d16; --ink:#e9e6da; --ink-soft:#b7b2a2; --muted:#867f6d;
     --line:#2c2d22; --grid:#22231b; --up:#8fbfa0; --down:#d98a8a; } }
   * { box-sizing:border-box; }
-  body { margin:0; background:var(--ground); color:var(--ink); font:16px/1.62 Georgia, "Times New Roman", serif; }
-  .wrap { max-width:1060px; margin:0 auto; padding:44px 26px 110px; }
-  h1 { font-size:1.7rem; margin:0 0 .3rem; }
-  h2 { font-size:1.2rem; margin:2.8rem 0 .25rem; }
-  .sub { color:var(--muted); font-family:ui-monospace, monospace; font-size:.78rem;
-    letter-spacing:.09em; text-transform:uppercase; margin-bottom:1.6rem; }
-  p { max-width:70ch; color:var(--ink-soft); }
-  .headline { font-family:ui-monospace, monospace; font-size:.82rem; color:var(--ink);
+  body { margin:0; background:var(--ground); color:var(--ink); font:18px/1.65 Georgia, "Times New Roman", serif; }
+  .wrap { max-width:1120px; margin:0 auto; padding:48px 28px 120px; }
+  h1 { font-size:2rem; margin:0 0 .3rem; }
+  h2 { font-size:1.45rem; margin:3rem 0 .3rem; }
+  .sub { color:var(--muted); font-family:ui-monospace, monospace; font-size:.92rem;
+    letter-spacing:.08em; text-transform:uppercase; margin-bottom:1.7rem; }
+  p { max-width:72ch; color:var(--ink-soft); }
+  .headline { font-family:ui-monospace, monospace; font-size:1rem; color:var(--ink);
     background:var(--raised); border:1px solid var(--line); border-radius:10px;
-    padding:.7rem 1rem; margin:.4rem 0 1.4rem; display:flex; flex-wrap:wrap; gap:.5rem 1.6rem; }
+    padding:.9rem 1.1rem; margin:.5rem 0 1.6rem; display:flex; flex-wrap:wrap; gap:.6rem 1.8rem; }
   .headline b { color:var(--muted); font-weight:400; }
-  figure { margin:.8rem 0 0; background:var(--raised); border:1px solid var(--line);
-    border-radius:10px; padding:1rem 1.1rem 1.2rem; }
-  .chart { width:100%; height:auto; display:block; }
-  .legend { display:flex; flex-wrap:wrap; gap:.45rem 1.3rem; margin:.7rem 0 0;
-    font-family:ui-monospace, monospace; font-size:.78rem; color:var(--ink-soft); }
-  .lg-item { display:inline-flex; align-items:center; gap:.4rem; }
-  .sw { width:15px; height:15px; border-radius:3px; flex:none; }
-  .spark-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(250px, 1fr));
-    gap:.8rem; margin-top:.9rem; }
-  .spark { background:var(--raised); border:1px solid var(--line); border-radius:10px; padding:.7rem .85rem; }
-  .spark .t { font-family:ui-monospace, monospace; font-size:.74rem; text-transform:uppercase;
-    letter-spacing:.05em; color:var(--muted); margin-bottom:.25rem; }
-  table { border-collapse:collapse; width:100%; font-family:ui-monospace, monospace; font-size:.84rem;
-    background:var(--raised); border:1px solid var(--line); border-radius:10px; overflow:hidden; margin:.9rem 0 0; }
-  th,td { text-align:right; padding:.55rem .8rem; border-bottom:1px solid var(--line); }
+  figure { margin:.9rem 0 0; background:var(--raised); border:1px solid var(--line);
+    border-radius:10px; padding:1.1rem 1.2rem 1.3rem; }
+  .chart { width:100%; max-width:920px; height:auto; display:block; margin:0 auto; }
+  .legend { display:flex; flex-wrap:wrap; gap:.55rem 1.5rem; margin:.8rem 0 0;
+    font-family:ui-monospace, monospace; font-size:.95rem; color:var(--ink-soft); }
+  .lg-item { display:inline-flex; align-items:center; gap:.45rem; }
+  .sw { width:17px; height:17px; border-radius:3px; flex:none; }
+  .spark-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(300px, 1fr));
+    gap:1rem; margin-top:1rem; }
+  .spark { background:var(--raised); border:1px solid var(--line); border-radius:10px; padding:.85rem 1rem; }
+  .spark .t { font-family:ui-monospace, monospace; font-size:.9rem; text-transform:uppercase;
+    letter-spacing:.04em; color:var(--muted); margin-bottom:.3rem; }
+  table { border-collapse:collapse; width:100%; font-family:ui-monospace, monospace; font-size:1rem;
+    background:var(--raised); border:1px solid var(--line); border-radius:10px; overflow:hidden; margin:1rem 0 0; }
+  th,td { text-align:right; padding:.65rem .9rem; border-bottom:1px solid var(--line); }
   th:first-child, td:first-child { text-align:left; }
-  th { background:var(--ground); text-transform:uppercase; font-size:.68rem; letter-spacing:.05em;
+  th { background:var(--ground); text-transform:uppercase; font-size:.82rem; letter-spacing:.04em;
     color:var(--muted); cursor:pointer; user-select:none; position:relative; }
-  th.sort-asc::after { content:''; border:4px solid transparent; border-bottom-color:currentColor;
-    position:absolute; margin-left:5px; margin-top:4px; }
-  th.sort-desc::after { content:''; border:4px solid transparent; border-top-color:currentColor;
-    position:absolute; margin-left:5px; margin-top:8px; }
+  th.sort-asc::after { content:''; border:5px solid transparent; border-bottom-color:currentColor;
+    position:absolute; margin-left:6px; margin-top:4px; }
+  th.sort-desc::after { content:''; border:5px solid transparent; border-top-color:currentColor;
+    position:absolute; margin-left:6px; margin-top:9px; }
   tr:last-child td { border-bottom:none; }
   .up { color:var(--up); } .down { color:var(--down); }
 </style></head><body><div class="wrap">
@@ -94,7 +94,7 @@ function draw(svgId, opt) {
   const svg = document.getElementById(svgId);
   const vb = svg.viewBox.baseVal;
   const W = vb.width, H = vb.height;
-  const m = { l: 52, r: 12, t: 12, b: 30 };
+  const m = { l: 54, r: 12, t: 12, b: 30 };
   const iw = W - m.l - m.r, ih = H - m.t - m.b;
   const xs = opt.x, xmin = Math.min(...xs), xmax = Math.max(...xs);
   const ymin = opt.ymin, ymax = opt.ymax;
@@ -106,12 +106,12 @@ function draw(svgId, opt) {
   for (let i = 0; i <= 4; i++) {
     const yv = ymin + (ymax - ymin) * i / 4, y = Y(yv);
     out += `<line x1="${m.l}" y1="${y.toFixed(1)}" x2="${W - m.r}" y2="${y.toFixed(1)}" stroke="${gc}" stroke-width="1"/>`;
-    out += `<text x="${m.l - 7}" y="${(y + 4).toFixed(1)}" text-anchor="end" font-size="12" font-family="ui-monospace,monospace" fill="${mc}">${opt.yfmt ? opt.yfmt(yv) : yv.toFixed(2)}</text>`;
+    out += `<text x="${m.l - 7}" y="${(y + 4).toFixed(1)}" text-anchor="end" font-size="13" font-family="ui-monospace,monospace" fill="${mc}">${opt.yfmt ? opt.yfmt(yv) : yv.toFixed(2)}</text>`;
   }
   // graduations x
   for (let i = 0; i <= 4; i++) {
     const xv = xmin + (xmax - xmin) * i / 4, x = X(xv);
-    out += `<text x="${x.toFixed(1)}" y="${H - 8}" text-anchor="middle" font-size="12" font-family="ui-monospace,monospace" fill="${mc}">${opt.xfmt ? opt.xfmt(xv) : Math.round(xv)}</text>`;
+    out += `<text x="${x.toFixed(1)}" y="${H - 9}" text-anchor="middle" font-size="13" font-family="ui-monospace,monospace" fill="${mc}">${opt.xfmt ? opt.xfmt(xv) : Math.round(xv)}</text>`;
   }
   out += `<line x1="${m.l}" y1="${m.t}" x2="${m.l}" y2="${m.t + ih}" stroke="${lc}" stroke-width="1"/>`;
   // bandes
@@ -165,7 +165,7 @@ const sg = document.getElementById('sparks');
 TRAITS.forEach((t, k) => {
   const d = document.createElement('div');
   d.className = 'spark';
-  d.innerHTML = `<div class="t">${t}</div><svg class="chart" viewBox="0 0 300 110" id="sp-${k}" role="img"></svg>`;
+  d.innerHTML = `<div class="t">${t}</div><svg class="chart" viewBox="0 0 320 140" id="sp-${k}" role="img"></svg>`;
   sg.appendChild(d);
   draw(`sp-${k}`, {
     x: gens, ymin: 0, ymax: 1,

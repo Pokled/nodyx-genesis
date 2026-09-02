@@ -300,7 +300,6 @@ fn cmd_run(flags: &HashMap<String, String>) -> std::io::Result<()> {
         // Echantillon de vie : position, energie, memoire de chaque agent suivi.
         if world.tick % BIO_SAMPLE == 0 {
             let ceiling = cfg.reproduction.energy_threshold * 2.0;
-            let with_mem = (world.tick / BIO_SAMPLE) % 2 == 0;
             for l in lives.values_mut() {
                 if l.ended_tick.is_some() {
                     continue;
@@ -318,6 +317,9 @@ fn cmd_run(flags: &HashMap<String, String>) -> std::io::Result<()> {
                             })
                             .collect()
                     });
+                    // Un echantillon sur deux porte le detail memoire, pour ne pas gonfler
+                    // lives.jsonl : la parite suit le compte de battements de cette vie.
+                    let with_mem = l.beats.len() % 2 == 0;
                     let pct = |v: f32| (v.clamp(0.0, 1.0) * 100.0) as u8;
                     let (n, md) = x.mind.as_deref().map_or(([0, 0, 0], "forage"), |m| {
                         (
@@ -334,7 +336,15 @@ fn cmd_run(flags: &HashMap<String, String>) -> std::io::Result<()> {
                         mem: if with_mem { snap } else { Vec::new() },
                     });
                     if l.beats.len() > BIO_MAX_BEATS {
-                        l.beats.remove(0);
+                        // On garde la vie sur toute sa longueur : on retire une paire de
+                        // battements sur deux (donc un battement avec detail memoire et un
+                        // sans, dans chaque paire conservee). La resolution s'adapte a la duree.
+                        let mut k = 0usize;
+                        l.beats.retain(|_| {
+                            let keep = k % 4 < 2;
+                            k += 1;
+                            keep
+                        });
                     }
                     if let Some(m) = x.mind.as_deref() {
                         l.memories = m.episodic.clone();
