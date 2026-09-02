@@ -124,31 +124,29 @@ comportement depend vraiment du souvenir.
 
 Le depot definit quatre mondes de reference par leur graine. Ils ne sont pas versionnes,
 trop gros, mais toujours regenerables a l'identique : `genesis run --seed <N> --ticks 60000
---out worlds/<nom>`. La commande `genesis gallery` reconstruit `worlds/index.html`, la grille
-qui les rassemble.
+--out worlds/<nom>`. La grille par defaut est 192x192, capacite de charge autour de cinq mille
+cent. La commande `genesis gallery` reconstruit `worlds/index.html`, la grille qui les
+rassemble.
 
 ![La bibliotheque des mondes](docs/images/gallery.png)
 
-Le monde **w2**, graine 1, est le monde de reference du projet. A soixante mille ticks il a
-vecu pres de sept annees-monde et atteint dix-huit generations. Une espece, Khidra, emerge
-dans la premiere annee. La lignee Tebris s'eteint, Drikher reste seule ; la plus longue vie
-d'agent y dure pres de trente-trois mille ticks, dans cette lignee. Les cellules y fusionnent
-cent vingt fois. On y meurt a peu pres deux fois plus de faim que de vieillesse. C'est aussi
-le monde tenu en direct : sur la capture de la bibliotheque ci-dessus il tourne depuis
-plusieurs dizaines d'annees-monde, toujours la meme graine.
+Le monde **w2**, graine 1, est le monde de reference du projet et celui tenu en direct. A
+soixante mille ticks il a vecu pres de sept annees-monde, atteint dix-huit generations et sa
+population plafonne vers cinq mille cent cinquante. Quatre especes emergent, le genome
+dominant bascule une fois, une lignee fondatrice s'eteint, les cellules fusionnent pres de
+cent quatre-vingts fois. On y meurt a peu pres deux fois plus de faim que de vieillesse.
 
-Le monde **w1**, graine 7, atteint la meme population de plateau mais reste dur : plus de six
-mille morts de faim, une efficacite metabolique qui ne decolle jamais vraiment. Un monde
-stable et pauvre.
+Le monde **w1**, graine 7, atteint le meme plateau mais reste dur : pres de douze mille morts
+de faim en sept ans, une longevite et une fertilite basses. Un monde stable et pauvre.
 
-Le monde **w4**, graine 42, est le plus profond et le plus varie : vingt generations, la
-plus haute diversite genetique des quatre, une perception et une efficacite qui grimpent
-toutes les deux. Une lignee fondatrice s'y eteint.
+Le monde **w4**, graine 42, est le plus varie : vingt-deux generations, la plus haute
+diversite genetique des quatre, une longevite et une fertilite qui montent ensemble. Une
+lignee fondatrice s'y eteint.
 
-Le monde **w3**, graine 12, ne prend pas. Les deux fondateurs se divisent quelques fois, la
-population plafonne a cinq, puis les deux lignees s'eteignent l'une apres l'autre avant la
-premiere annee-monde. Toutes les graines ne donnent pas un monde viable, et c'est voulu. Sa
-page de garde le dit sans detour.
+Le monde **w3**, graine 12, ne prend pas. Les deux fondateurs se divisent une poignee de
+fois, puis les deux lignees s'eteignent l'une apres l'autre avant meme la fin de la premiere
+annee-monde. Toutes les graines ne donnent pas un monde viable, et c'est voulu. Sa page de
+garde le dit sans detour.
 
 ## Installer et lancer
 
