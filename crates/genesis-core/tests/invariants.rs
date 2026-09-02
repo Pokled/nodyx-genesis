@@ -9,6 +9,17 @@ fn small_cfg() -> SimConfig {
     c
 }
 
+/// Config de reference historique : grille 128x128 (capacite de charge ~2293). La grille par
+/// defaut est passee a 192x192 le 2026-09-02 ; les tests dont les seuils sont calibres sur la
+/// dynamique du plateau ~2293, ou qui n'ont pas besoin d'un grand monde, s'y epinglent pour
+/// rester stables et rapides. Le mecanisme teste ne depend pas de la taille de grille.
+fn ref_cfg() -> SimConfig {
+    let mut c = SimConfig::default();
+    c.world.grid_width = 128;
+    c.world.grid_height = 128;
+    c
+}
+
 fn state_json(w: &WorldState) -> String {
     serde_json::to_string(w).unwrap()
 }
@@ -566,7 +577,7 @@ fn dominant_genome_shift_is_watched() {
     // cle etablie et le compteur restent coherents. `genome_shift_persist_checks = 0` coupe.
     use genesis_core::event::EventKind;
 
-    let mut stressed = SimConfig::default();
+    let mut stressed = ref_cfg();
     stressed.planet.temperature_c = 1.0; // 14 degres sous l'optimum : selection dure
 
     let mut w = WorldState::new(1, &stressed);
@@ -611,7 +622,7 @@ fn climate_shapes_the_world() {
     // Le climat (schema : config seulement, pas d'etat) agit vraiment sur le monde : un
     // monde loin de sa temperature optimale voit plus de morts de faim. Effet inerte au
     // defaut (`temperature_c == temp_optimal_c`), donc pas de regression. Deterministe.
-    let mut warm = SimConfig::default();
+    let mut warm = ref_cfg();
     warm.planet.temperature_c = 15.0;
     warm.planet.temp_optimal_c = 15.0;
     let mut cold = warm.clone();
@@ -649,7 +660,7 @@ fn cells_merge_when_membranes_overlap() {
     // et `fuse = false` en produit zero.
     use genesis_core::event::EventKind;
 
-    let cfg = SimConfig::default();
+    let cfg = ref_cfg();
     let mut w = WorldState::new(1, &cfg);
     let mut merges = 0u64;
     for _ in 0..30_000 {
@@ -700,7 +711,7 @@ fn bounty_calls_are_heard() {
     // de la population, donc le monde diverge de la variante ou l'appel est visible mais inerte.
     use genesis_core::SignalKind;
 
-    let cfg = SimConfig::default();
+    let cfg = ref_cfg();
     let mut w = WorldState::new(1, &cfg);
     let mut bounty_seen = 0u64;
     for _ in 0..40_000 {
@@ -738,7 +749,7 @@ fn bounty_calls_are_heard() {
     // Appel entendu contre appel inerte : les appels sont emis dans les deux cas, mais seul le
     // premier inflechit les cibles. Les mondes doivent diverger.
     let run_pop = |pull: f32| {
-        let mut c = SimConfig::default();
+        let mut c = ref_cfg();
         c.voice.bounty_pull = pull;
         let mut w = WorldState::new(1, &c);
         for _ in 0..40_000 {

@@ -4,8 +4,8 @@
 # Périmètre : Genesis 0.0.1.
 
 [world]
-grid_width  = 128
-grid_height = 128
+grid_width  = 192
+grid_height = 192
 bounded     = true          # des bords, pas de repli toroïdal
 
 [planet]
@@ -49,7 +49,7 @@ regen_every  = 4      # la régénération ne tourne qu'un tick sur N (taux mult
 # calent, des morts libèrent de la matière, ça repart). Distinct de l'énergie (le carburant)
 # et de la surexploitation (la fatigue du sol). Non spatial en 0.0.2 : une géographie de la
 # matière viendra avec les biomes.
-matter_per_cell = 0.14   # matière totale du monde = ceci x nombre de cases (128x128 -> ~2290)
+matter_per_cell = 0.14   # matière totale du monde = ceci x nombre de cases (192x192 -> ~5160)
 body_matter     = 1.0    # matière immobilisée par un corps vivant, libérée à la mort
 comfort_frac    = 0.06   # V2 : sous ce coussin (fraction de la matière totale), la division
                          # devient probabiliste. La population respire dans cette bande au

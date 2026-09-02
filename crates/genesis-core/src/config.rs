@@ -76,7 +76,7 @@ pub struct WorldCfg {
 }
 impl Default for WorldCfg {
     fn default() -> Self {
-        WorldCfg { grid_width: 128, grid_height: 128, bounded: true }
+        WorldCfg { grid_width: 192, grid_height: 192, bounded: true }
     }
 }
 
