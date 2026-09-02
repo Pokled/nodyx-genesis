@@ -20,6 +20,22 @@ pub struct Records {
     pub peak_diversity: f32,
 }
 
+/// Le pouls du monde : cinq jauges de 0 a 1, chacune racontant quelque chose de l'etat
+/// general (le brief : pas de chiffre decoratif).
+#[derive(Debug, Clone, Serialize)]
+pub struct Pulse {
+    /// population / capacite de charge : a quel point le monde est plein.
+    pub fill: f32,
+    /// part de la carte qui porte encore de la ressource.
+    pub resources: f32,
+    /// diversite genetique rapportee au record du monde.
+    pub diversity: f32,
+    /// part des evenements vitaux recents qui sont des naissances (0,5 = a l'equilibre).
+    pub renewal: f32,
+    /// surexploitation moyenne du sol.
+    pub strain: f32,
+}
+
 /// L'etat vivant du monde, relu en boucle par l'overlay.
 #[derive(Debug, Clone, Serialize)]
 pub struct LiveState {
@@ -28,6 +44,10 @@ pub struct LiveState {
     pub tick: u64,
     /// Age du monde en secondes-monde (tick * duree du tick).
     pub age_world_seconds: u64,
+    /// Le stade de la simulation, dit sans le farder.
+    pub stage: &'static str,
+    /// STABLE | EN CROISSANCE | EN DECLIN | ETEINT, d'apres la tendance recente.
+    pub status: &'static str,
 
     // -- Vie du monde
     pub population: u32,
@@ -60,16 +80,25 @@ pub struct LiveState {
     pub mean_memories: f32,
     pub cells_alive: u32,
 
+    // -- Pouls
+    pub pulse: Pulse,
+
     // -- Evenements
-    /// Les derniers evenements, du plus recent au plus ancien : [tick, genre, phrase].
+    /// Les derniers evenements, du plus recent au plus ancien.
     pub events: Vec<LiveEvent>,
     pub last_birth_tick: u64,
     pub last_death_tick: u64,
+    /// Evenements vitaux (naissances + morts) par tick, sur la fenetre recente.
+    pub events_per_tick: f32,
+    /// Nombre de grands tournants depuis la genese, et le tick du dernier.
+    pub notable_count: u32,
+    pub last_notable_tick: u64,
 
-    // -- Histoire (echantillonnee, ~160 points)
+    // -- Histoire (echantillonnee, ~170 points)
     pub pop_history: Vec<[u64; 2]>,
     pub cap_history: Vec<u64>,
     pub div_history: Vec<f32>,
+    pub gen_history: Vec<u32>,
     pub tick_history: Vec<u64>,
 
     pub records: Records,
@@ -79,7 +108,20 @@ pub struct LiveState {
 pub struct LiveEvent {
     pub tick: u64,
     pub kind: &'static str,
+    /// Une ligne pour le fil.
     pub text: String,
+    /// Presente pour les grands tournants : de quoi faire une carte a l'ecran.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub card: Option<EventCard>,
+}
+
+/// La carte plein ecran d'un grand tournant.
+#[derive(Debug, Clone, Serialize)]
+pub struct EventCard {
+    pub badge: &'static str,
+    pub head: String,
+    pub sub: String,
+    pub tone: &'static str,
 }
 
 use genesis_core::event::{Event, EventKind};
@@ -126,6 +168,74 @@ fn ev_label(kind: &str, subjects: &[genesis_core::EntityId]) -> Option<(&'static
         "agent_eveille" => Some(("eveil", format!("l'individu{who} s'eveille"))),
         _ => None,
     }
+}
+
+/// Un grand tournant de la chronique en (genre pour le fil, ligne du fil, carte).
+fn chronicle(e: &Event) -> Option<(&'static str, String, EventCard)> {
+    let (kind, text, card) = match &e.kind {
+        EventKind::WorldCreated => (
+            "genese",
+            "genese du monde".to_string(),
+            EventCard {
+                badge: "GENESE",
+                head: "Le monde commence".into(),
+                sub: "deux organismes, une graine, rien d'ecrit pour la suite".into(),
+                tone: "genese",
+            },
+        ),
+        EventKind::SpeciesEmerged { species, size } => {
+            let name = names::species_name(*species);
+            (
+                "espece",
+                format!("{name} apparait, {size} individus"),
+                EventCard {
+                    badge: "NOUVELLE ESPECE",
+                    head: name,
+                    sub: format!("{size} individus se detachent du genome dominant"),
+                    tone: "espece",
+                },
+            )
+        }
+        EventKind::LineageExtinct { lineage } => {
+            let name = names::lineage_name(*lineage);
+            (
+                "extinction",
+                format!("la lignee {name} s'eteint"),
+                EventCard {
+                    badge: "LIGNEE ETEINTE",
+                    head: name,
+                    sub: "plus aucun descendant vivant".into(),
+                    tone: "extinction",
+                },
+            )
+        }
+        EventKind::PopulationCrash { from, to } => {
+            let lost = from.saturating_sub(*to);
+            let pct = if *from > 0 { lost * 100 / from } else { 0 };
+            (
+                "effondrement",
+                format!("effondrement, {from} vers {to}"),
+                EventCard {
+                    badge: "EFFONDREMENT",
+                    head: format!("{from} vers {to}"),
+                    sub: format!("la population perd {lost} individus, {pct} %"),
+                    tone: "effondrement",
+                },
+            )
+        }
+        EventKind::PopulationMilestone { level } => (
+            "palier",
+            format!("la population franchit {level}"),
+            EventCard {
+                badge: "CAP FRANCHI",
+                head: format!("{level} individus"),
+                sub: "la population n'avait jamais ete aussi nombreuse".into(),
+                tone: "palier",
+            },
+        ),
+        _ => return None,
+    };
+    Some((kind, text, card))
 }
 
 /// Ecrit `live.json`, `scene.json`, met a jour `records.json`, et renvoie
@@ -204,48 +314,91 @@ pub fn write_live(
                         continue;
                     }
                 }
-                events.push(LiveEvent { tick: e.tick, kind: k, text });
+                events.push(LiveEvent { tick: e.tick, kind: k, text, card: None });
             }
         }
     }
-    for e in notable.iter().rev().take(6) {
-        let (k, text): (&'static str, String) = match &e.kind {
-            EventKind::WorldCreated => ("tournant", "genese du monde".into()),
-            EventKind::SpeciesEmerged { species, size } => (
-                "tournant",
-                format!("{} apparait, {size} individus", names::species_name(*species)),
-            ),
-            EventKind::LineageExtinct { lineage } => (
-                "tournant",
-                format!("la lignee {} s'eteint", names::lineage_name(*lineage)),
-            ),
-            EventKind::PopulationCrash { from, to } => {
-                ("tournant", format!("effondrement : {from} vers {to}"))
-            }
-            EventKind::PopulationMilestone { level } => {
-                ("tournant", format!("la population franchit {level}"))
-            }
-            _ => continue,
-        };
-        events.push(LiveEvent { tick: e.tick, kind: k, text });
+    let mut last_notable = 0u64;
+    for e in notable.iter().rev().take(8) {
+        if let Some((kind, text, card)) = chronicle(e) {
+            last_notable = last_notable.max(e.tick);
+            events.push(LiveEvent { tick: e.tick, kind, text, card: Some(card) });
+        }
     }
     events.sort_by_key(|a| std::cmp::Reverse(a.tick));
     events.dedup_by(|a, b| a.tick == b.tick && a.text == b.text);
-    events.truncate(22);
+    events.truncate(24);
 
     let pop_hist: Vec<u32> = series.iter().map(|r| r.population).collect();
     let cap_hist: Vec<u32> = series.iter().map(|r| r.carrying_capacity).collect();
     let div_hist: Vec<f32> = series.iter().map(|r| r.genetic_diversity).collect();
+    let gen_hist: Vec<u32> = series.iter().map(|r| r.max_generation).collect();
     let tick_hist: Vec<u64> = series.iter().map(|r| r.tick).collect();
     let n = 170;
 
     let (agents_alive, mean_mem) = world.agent_stats();
+
+    // --- Fenetre recente : tendance de population, cadence des evenements vitaux.
+    let win = series.len().saturating_sub(9);
+    let (ref_row, cur_row) = (series.get(win), series.last());
+    let (dpop_pct, ev_per_tick, births_w, deaths_w) = match (ref_row, cur_row) {
+        (Some(a), Some(b)) if b.tick > a.tick => {
+            let dt = (b.tick - a.tick) as f32;
+            let db = b.births_total.saturating_sub(a.births_total) as f32;
+            let dd = b.deaths_total.saturating_sub(a.deaths_total) as f32;
+            let dp = if a.population > 0 {
+                (b.population as f32 - a.population as f32) / a.population as f32
+            } else {
+                0.0
+            };
+            (dp, (db + dd) / dt, db, dd)
+        }
+        _ => (0.0, 0.0, 0.0, 0.0),
+    };
+    let status = if st.population == 0 {
+        "ETEINT"
+    } else if dpop_pct > 0.05 {
+        "EN CROISSANCE"
+    } else if dpop_pct < -0.05 {
+        "EN DECLIN"
+    } else {
+        "STABLE"
+    };
+    // Genesis, dit sans le farder : molecules, premieres cellules, premiers signaux.
+    let stage = if agents_alive > 0 {
+        "Vie moleculaire, cellules et premiers signaux"
+    } else if st.cells_alive > 0 {
+        "Vie moleculaire, premieres cellules"
+    } else {
+        "Vie moleculaire"
+    };
+    let pulse = Pulse {
+        fill: if st.carrying_capacity > 0 {
+            (st.population as f32 / st.carrying_capacity as f32).clamp(0.0, 1.0)
+        } else {
+            0.0
+        },
+        resources: (1.0 - st.depleted_fraction).clamp(0.0, 1.0),
+        diversity: if rec.peak_diversity > 0.0 {
+            (st.genetic_diversity / rec.peak_diversity).clamp(0.0, 1.0)
+        } else {
+            0.0
+        },
+        renewal: if births_w + deaths_w > 0.0 {
+            births_w / (births_w + deaths_w)
+        } else {
+            0.5
+        },
+        strain: st.mean_strain.clamp(0.0, 1.0),
+    };
 
     let live = LiveState {
         world: world_name.to_string(),
         seed,
         tick: world.tick,
         age_world_seconds: world.tick.saturating_mul(cfg.time.tick_duration_seconds),
+        stage,
+        status,
         population: st.population,
         births: st.births_total,
         deaths_starv: st.deaths_starvation,
@@ -269,9 +422,13 @@ pub fn write_live(
         agents_awoke_total: awoke_total,
         mean_memories: mean_mem,
         cells_alive: st.cells_alive,
+        pulse,
         events,
         last_birth_tick: last_birth,
         last_death_tick: last_death,
+        events_per_tick: ev_per_tick,
+        notable_count: notable.iter().filter(|e| chronicle(e).is_some()).count() as u32,
+        last_notable_tick: last_notable,
         pop_history: downsample(&pop_hist, n)
             .into_iter()
             .zip(downsample(&tick_hist, n))
@@ -279,6 +436,7 @@ pub fn write_live(
             .collect(),
         cap_history: downsample(&cap_hist, n).into_iter().map(|c| c as u64).collect(),
         div_history: downsample(&div_hist, n),
+        gen_history: downsample(&gen_hist, n),
         tick_history: downsample(&tick_hist, n),
         records: rec,
     };
@@ -289,5 +447,3 @@ pub fn write_live(
     std::fs::write(wdir.root.join("scene.json"), &scene_json)?;
     Ok((live_json, scene_json))
 }
-
-

@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="fr">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=1920, initial-scale=1">
@@ -24,7 +24,7 @@
   .grid {
     width:1920px; height:1080px; display:grid;
     grid-template-columns:1180px 740px;
-    grid-template-rows:78px 1fr 286px 40px;
+    grid-template-rows:74px 1fr 300px 38px;
     grid-template-areas:
       "head head"
       "scene side"
@@ -34,18 +34,19 @@
 
   /* --- header --- */
   header {
-    grid-area:head; display:flex; align-items:center; gap:26px; padding:0 34px;
+    grid-area:head; display:flex; align-items:center; gap:24px; padding:0 34px;
     border-bottom:1px solid var(--line); background:rgba(6,9,15,.55);
   }
-  header .logo { font-family:var(--serif); font-weight:600; font-size:1.9rem; letter-spacing:.03em; }
-  header .tag { color:var(--soft); font-size:.9rem; letter-spacing:.14em; text-transform:uppercase; }
+  header .logo { font-family:var(--serif); font-weight:600; font-size:1.9rem; letter-spacing:.04em; }
+  header .tag { color:var(--soft); font-size:.86rem; letter-spacing:.16em; text-transform:uppercase; }
+  header .spacer { flex:1; }
+  header .session { color:var(--muted); font-size:.82rem; letter-spacing:.08em; font-variant-numeric:tabular-nums; }
   header .live {
-    margin-left:auto; display:flex; align-items:center; gap:10px;
-    font-family:var(--serif); font-weight:600; font-size:1.1rem; letter-spacing:.18em;
-    color:var(--rose);
+    display:flex; align-items:center; gap:10px;
+    font-family:var(--serif); font-weight:600; font-size:1.05rem; letter-spacing:.2em; color:var(--rose);
   }
   header .live .dot {
-    width:12px; height:12px; border-radius:50%; background:var(--rose);
+    width:11px; height:11px; border-radius:50%; background:var(--rose);
     box-shadow:0 0 12px var(--rose); animation:pulse 1.6s ease-in-out infinite;
   }
   @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.45;transform:scale(.82)} }
@@ -54,83 +55,139 @@
   .scene { grid-area:scene; position:relative; overflow:hidden; }
   .scene canvas { position:absolute; inset:0; width:100%; height:100%; }
   .scene::before {
-    content:''; position:absolute; left:0; top:0; width:560px; height:340px; z-index:2;
-    background:linear-gradient(150deg, rgba(4,6,11,.88) 0%, rgba(4,6,11,.5) 45%, rgba(4,6,11,0) 78%); pointer-events:none;
+    content:''; position:absolute; left:0; top:0; width:620px; height:430px; z-index:2;
+    background:linear-gradient(146deg, rgba(4,6,11,.9) 0%, rgba(4,6,11,.55) 44%, rgba(4,6,11,0) 80%); pointer-events:none;
   }
-  .scene .clock {
-    position:absolute; left:34px; top:28px; z-index:3;
+  .scene::after {
+    content:''; position:absolute; right:0; top:0; width:340px; height:150px; z-index:2;
+    background:linear-gradient(215deg, rgba(4,6,11,.82) 0%, rgba(4,6,11,0) 75%); pointer-events:none;
   }
-  .scene .clock .k { font-size:.72rem; letter-spacing:.24em; text-transform:uppercase; color:var(--cyan); }
-  .scene .clock .age { font-family:var(--serif); font-weight:500; font-size:3.6rem; line-height:1; letter-spacing:.02em; margin-top:6px; font-variant-numeric:tabular-nums; }
-  .scene .clock .ticks { color:var(--soft); font-size:1rem; margin-top:8px; letter-spacing:.05em; }
-  .scene .manifesto {
-    position:absolute; left:34px; top:210px; z-index:3; max-width:470px;
-    font-family:var(--serif); color:var(--soft); font-size:1.02rem; line-height:1.7;
-  }
-  .scene .manifesto b { color:var(--ink); font-weight:500; }
+  .clock { position:absolute; left:34px; top:26px; z-index:3; }
+  .clock .k { font-size:.7rem; letter-spacing:.26em; text-transform:uppercase; color:var(--cyan); }
+  .clock .age { font-family:var(--serif); font-weight:500; font-size:3.5rem; line-height:1; letter-spacing:.02em; margin-top:6px; font-variant-numeric:tabular-nums; }
+  .clock .sub { color:var(--soft); font-size:1rem; margin-top:8px; letter-spacing:.04em; font-variant-numeric:tabular-nums; }
+  .clock .sub b { color:var(--ink); font-weight:500; }
+  .clock .tk { color:var(--muted); font-size:.86rem; margin-top:3px; letter-spacing:.06em; font-variant-numeric:tabular-nums; }
 
-  /* --- side stats --- */
-  .side { grid-area:side; border-left:1px solid var(--line); background:var(--panel);
-    backdrop-filter:blur(10px); padding:20px 24px; display:flex; flex-direction:column; gap:16px; overflow:hidden; }
-  .group h2 {
-    font-family:var(--serif); font-weight:500; font-size:1.05rem; color:var(--ink);
-    display:flex; align-items:baseline; gap:10px; margin-bottom:8px;
+  .ident {
+    position:absolute; left:30px; top:228px; z-index:3; max-width:470px;
+    background:rgba(5,8,13,.6); backdrop-filter:blur(4px);
+    border:1px solid var(--line); border-radius:13px; padding:15px 18px;
   }
-  .group h2::after { content:''; flex:1; height:1px; background:linear-gradient(90deg,var(--line),transparent); align-self:center; }
-  .rows { display:grid; grid-template-columns:1fr 1fr; gap:3px 22px; }
-  .r { display:flex; justify-content:space-between; align-items:baseline; padding:2px 0; font-size:.86rem; }
+  .ident .line1 { font-family:var(--serif); font-weight:600; font-size:1.12rem; letter-spacing:.03em; }
+  .ident .stage { color:var(--cyan); font-size:.8rem; letter-spacing:.05em; margin-top:5px; }
+  .ident .creed { color:var(--muted); font-size:.72rem; letter-spacing:.08em; text-transform:uppercase; margin-top:7px; line-height:1.5; }
+  .ident .no { font-family:var(--serif); color:var(--soft); font-size:.98rem; line-height:1.55; margin-top:10px; }
+  .ident .no b { color:var(--ink); font-weight:500; }
+
+  .statuschip {
+    position:absolute; right:30px; top:24px; z-index:3; text-align:right;
+  }
+  .statuschip .k { font-size:.66rem; letter-spacing:.24em; text-transform:uppercase; color:var(--muted); }
+  .statuschip .v {
+    font-family:var(--serif); font-weight:600; font-size:1.5rem; letter-spacing:.03em; margin-top:2px;
+    display:flex; align-items:center; gap:10px; justify-content:flex-end;
+  }
+  .statuschip .v .d { width:10px; height:10px; border-radius:50%; background:var(--soft); box-shadow:0 0 10px currentColor; }
+  .statuschip.grow .v { color:var(--green); } .statuschip.grow .v .d { background:var(--green); }
+  .statuschip.decl .v { color:var(--rose); } .statuschip.decl .v .d { background:var(--rose); }
+  .statuschip.dead .v { color:var(--muted); } .statuschip.dead .v .d { background:var(--muted); }
+  .statuschip.stable .v { color:var(--cyan); } .statuschip.stable .v .d { background:var(--cyan); }
+
+  /* --- side : pouls + stats --- */
+  .side { grid-area:side; border-left:1px solid var(--line); background:var(--panel);
+    backdrop-filter:blur(10px); padding:18px 24px; display:flex; flex-direction:column; gap:16px; overflow:hidden; }
+  .side-groups { display:flex; flex-direction:column; gap:12px; }
+  .side-groups .h2 { margin-bottom:5px; }
+  .h2 {
+    font-family:var(--serif); font-weight:500; font-size:1rem; color:var(--ink);
+    display:flex; align-items:baseline; gap:10px; margin-bottom:7px;
+  }
+  .h2::after { content:''; flex:1; height:1px; background:linear-gradient(90deg,var(--line),transparent); align-self:center; }
+
+  #pulse .pr { display:grid; grid-template-columns:118px 1fr 46px; align-items:center; gap:10px; padding:2px 0; font-size:.8rem; }
+  #pulse .pr span { color:var(--soft); }
+  #pulse .pr .track { height:7px; border-radius:4px; background:rgba(126,158,214,.12); overflow:hidden; }
+  #pulse .pr .fill { height:100%; border-radius:4px; transition:width .8s cubic-bezier(.4,0,.2,1); }
+  #pulse .pr b { text-align:right; color:var(--ink); font-weight:500; font-variant-numeric:tabular-nums; }
+
+  .rows { display:grid; grid-template-columns:1fr 1fr; gap:2px 22px; }
+  .r { display:flex; justify-content:space-between; align-items:baseline; padding:1px 0; font-size:.84rem; }
   .r span { color:var(--soft); }
   .r b { color:var(--ink); font-weight:500; font-variant-numeric:tabular-nums; }
-  .r b.up { color:var(--green); } .r b.down { color:var(--rose); }
   .r.wide { grid-column:1 / -1; }
 
   /* --- bottom left : events --- */
   .foot-l { grid-area:foot-l; border-top:1px solid var(--line); background:rgba(6,9,15,.5);
     padding:14px 24px; overflow:hidden; }
-  .foot-l h2, .foot-r h2 { font-family:var(--serif); font-weight:500; font-size:1rem; color:var(--soft);
+  .foot-l .h2s, .foot-r .h2s { font-family:var(--serif); font-weight:500; font-size:.98rem; color:var(--soft);
     letter-spacing:.06em; text-transform:uppercase; margin-bottom:10px; }
-  #feed { display:flex; flex-direction:column; gap:5px; }
-  .fe { display:flex; gap:12px; font-size:.84rem; color:var(--soft); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
-    opacity:0; transform:translateY(4px); animation:fein .35s ease forwards; }
-  @keyframes fein { to { opacity:1; transform:none; } }
-  .fe .t { color:var(--muted); font-variant-numeric:tabular-nums; min-width:96px; }
+  #feed { display:flex; flex-direction:column; gap:4px; }
+  .fe { display:flex; gap:14px; font-size:.85rem; color:var(--soft); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .fe .t { color:var(--soft); opacity:.6; font-variant-numeric:tabular-nums; min-width:104px; }
   .fe .b { color:var(--ink); }
   .fe.naissance .b { color:var(--green); }
   .fe.mort .b { color:var(--rose); }
   .fe.division .b { color:var(--blue); }
-  .fe.tournant .b { color:var(--amber); }
   .fe.eveil .b { color:var(--violet); }
+  .fe.genese .b, .fe.palier .b { color:var(--amber); }
+  .fe.espece .b { color:var(--green); }
+  .fe.effondrement .b { color:var(--rose); }
+  .fe.extinction .b { color:var(--violet); }
+  .fe.genese .t, .fe.palier .t, .fe.espece .t, .fe.effondrement .t, .fe.extinction .t { color:var(--amber); }
 
   /* --- bottom right : history + records --- */
   .foot-r { grid-area:foot-r; border-top:1px solid var(--line); border-left:1px solid var(--line);
-    background:rgba(6,9,15,.5); padding:14px 24px; display:grid; grid-template-columns:1.15fr 1fr; gap:22px; }
-  .hist svg { width:100%; height:150px; display:block; }
-  .hist .cap { color:var(--muted); font-size:.72rem; margin-top:4px; letter-spacing:.03em; }
-  .records .rec { display:flex; justify-content:space-between; align-items:baseline; font-size:.82rem; padding:3px 0; border-bottom:1px solid var(--line); }
+    background:rgba(6,9,15,.5); padding:14px 24px; display:grid; grid-template-columns:1.1fr 1fr; gap:24px; }
+  .hist svg.big { width:100%; height:150px; display:block; }
+  .hist .spark { display:flex; gap:18px; margin-top:8px; }
+  .hist .spark .sp { flex:1; }
+  .hist .spark .sp .lab { color:var(--muted); font-size:.68rem; letter-spacing:.05em; text-transform:uppercase; }
+  .hist .spark .sp svg { width:100%; height:26px; display:block; margin-top:2px; }
+  .hist .cap { color:var(--muted); font-size:.7rem; margin-top:6px; letter-spacing:.03em; }
+  .records .rec { display:flex; justify-content:space-between; align-items:baseline; font-size:.8rem; padding:3px 0; border-bottom:1px solid var(--line); }
   .records .rec:last-child { border-bottom:none; }
   .records .rec span { color:var(--soft); }
   .records .rec b { color:var(--amber); font-weight:500; font-variant-numeric:tabular-nums; }
+  .records .rec.hit b { color:var(--ink); }
+  .records .rec.hit { animation:recflash 2.4s ease; }
+  @keyframes recflash { 0%,100%{background:transparent} 20%{background:rgba(255,207,114,.16)} }
 
   /* --- footer bar --- */
   .bar { grid-area:bar; display:flex; align-items:center; justify-content:center;
     border-top:1px solid var(--line); background:rgba(6,9,15,.65);
-    color:var(--muted); font-size:.78rem; letter-spacing:.22em; text-transform:uppercase; }
-  .bar b { color:var(--soft); font-weight:400; margin:0 6px; }
+    color:var(--muted); font-size:.76rem; letter-spacing:.2em; text-transform:uppercase; }
+  .bar b { color:var(--soft); font-weight:400; margin:0 5px; }
 
-  /* --- big event card --- */
+  /* --- grand carton d'evenement --- */
   #card {
-    position:fixed; left:50%; top:46%; transform:translate(-50%,-50%) scale(.94);
-    z-index:20; min-width:420px; text-align:center;
-    background:rgba(8,11,18,.92); border:1px solid var(--glass-line,rgba(126,158,214,.24));
-    border-radius:18px; padding:34px 46px; box-shadow:0 30px 80px rgba(0,0,0,.6);
-    opacity:0; pointer-events:none; transition:opacity .4s, transform .4s;
+    position:fixed; left:50%; top:45%; transform:translate(-50%,-50%) scale(.94);
+    z-index:20; min-width:460px; max-width:640px; text-align:center;
+    background:rgba(7,10,17,.94); border:1px solid rgba(126,158,214,.24);
+    border-radius:18px; padding:36px 52px; box-shadow:0 30px 90px rgba(0,0,0,.65);
+    opacity:0; pointer-events:none; transition:opacity .45s, transform .45s;
   }
   #card.on { opacity:1; transform:translate(-50%,-50%) scale(1); }
-  #card .rule { width:60px; height:2px; background:var(--amber); margin:0 auto 18px; }
-  #card .kind { font-size:.74rem; letter-spacing:.28em; text-transform:uppercase; color:var(--amber); }
-  #card .h { font-family:var(--serif); font-weight:600; font-size:2.1rem; margin:10px 0 6px; }
-  #card .sub { color:var(--soft); font-size:1rem; }
-  #card .tick { color:var(--muted); font-size:.8rem; margin-top:14px; letter-spacing:.06em; }
+  #card .rule { width:64px; height:2px; margin:0 auto 18px; background:var(--cyan); }
+  #card .badge { font-size:.74rem; letter-spacing:.3em; text-transform:uppercase; color:var(--cyan); }
+  #card .h { font-family:var(--serif); font-weight:600; font-size:2.2rem; margin:12px 0 8px; letter-spacing:.01em; }
+  #card .sub { color:var(--soft); font-size:1.02rem; }
+  #card .tick { color:var(--muted); font-size:.8rem; margin-top:16px; letter-spacing:.08em; }
+  #card.espece .rule, #card.palier .rule { background:var(--green); } #card.espece .badge, #card.palier .badge { color:var(--green); }
+  #card.effondrement .rule { background:var(--rose); } #card.effondrement .badge { color:var(--rose); }
+  #card.extinction .rule { background:var(--violet); } #card.extinction .badge { color:var(--violet); }
+  #card.genese .rule { background:var(--amber); } #card.genese .badge { color:var(--amber); }
+
+  /* --- banniere record --- */
+  #record {
+    position:fixed; left:50%; top:26px; transform:translate(-50%,-24px);
+    z-index:21; padding:12px 30px; border-radius:999px;
+    background:rgba(255,207,114,.14); border:1px solid rgba(255,207,114,.5);
+    color:var(--amber); font-family:var(--serif); font-weight:600; font-size:1rem; letter-spacing:.16em; text-transform:uppercase;
+    opacity:0; transition:opacity .4s, transform .4s; pointer-events:none;
+  }
+  #record.on { opacity:1; transform:translate(-50%,0); }
+  #record small { display:block; text-align:center; color:var(--soft); font-family:var(--mono); font-weight:400; font-size:.76rem; letter-spacing:.05em; text-transform:none; margin-top:3px; }
 </style>
 </head>
 <body>
@@ -138,6 +195,8 @@
   <header>
     <span class="logo">Genesis</span>
     <span class="tag">A world that lives on its own</span>
+    <span class="spacer"></span>
+    <span class="session">en direct depuis <b id="session">00:00:00</b></span>
     <span class="live"><span class="dot"></span>LIVE 24/7</span>
   </header>
 
@@ -146,43 +205,62 @@
     <div class="clock">
       <div class="k">Age du monde</div>
       <div class="age" id="age">--</div>
-      <div class="ticks"><b id="agesub">--</b> &nbsp;/&nbsp; tick <b id="tick">--</b></div>
+      <div class="sub" id="agesub">--</div>
+      <div class="tk">tick <span id="tick">--</span></div>
     </div>
-    <div class="manifesto">
-      <b>Pas de joueur. Pas d'histoire ecrite. Pas de pause.</b><br>
-      Chaque tick change le monde. Meme graine, meme monde, pour toujours.
+    <div class="ident">
+      <div class="line1">Genesis &nbsp;&middot;&nbsp; Monde __WNAME__</div>
+      <div class="stage" id="stage">Vie moleculaire</div>
+      <div class="creed">Simulation en direct &middot; aucun LLM &middot; aucun evenement scripte &middot; graine deterministe</div>
+      <div class="no"><b>Pas de joueur. Pas d'histoire ecrite. Pas de pause.</b><br>Chaque tick change le monde.</div>
+    </div>
+    <div class="statuschip stable" id="statuschip">
+      <div class="k">Etat du monde</div>
+      <div class="v"><span class="d"></span><span id="statusv">STABLE</span></div>
     </div>
   </div>
 
-  <div class="side" id="side"></div>
+  <div class="side">
+    <div id="pulse">
+      <div class="h2">Pouls du monde</div>
+      <div id="pulserows"></div>
+    </div>
+    <div class="side-groups" id="side"></div>
+  </div>
 
   <div class="foot-l">
-    <h2>Live events</h2>
+    <div class="h2s">Live events</div>
     <div id="feed"></div>
   </div>
 
   <div class="foot-r">
     <div class="hist">
-      <h2>Population history</h2>
-      <svg id="hist" viewBox="0 0 520 150" preserveAspectRatio="none" role="img"></svg>
+      <div class="h2s">Histoire de la population</div>
+      <svg class="big" id="hist" viewBox="0 0 520 150" preserveAspectRatio="none" role="img"></svg>
+      <div class="spark">
+        <div class="sp"><div class="lab">Diversite genetique</div><svg id="spdiv" viewBox="0 0 200 26" preserveAspectRatio="none"></svg></div>
+        <div class="sp"><div class="lab">Generations</div><svg id="spgen" viewBox="0 0 200 26" preserveAspectRatio="none"></svg></div>
+      </div>
       <div class="cap" id="histcap"></div>
     </div>
     <div class="records">
-      <h2>World records</h2>
+      <div class="h2s">World records</div>
       <div id="recs"></div>
     </div>
   </div>
 
-  <div class="bar" id="bar">Deterministic simulation<b>&middot;</b>seed __SEED__<b>&middot;</b>world __WNAME__<b>&middot;</b>running 24/7</div>
+  <div class="bar" id="bar">Simulation deterministe<b>&middot;</b>graine __SEED__<b>&middot;</b>monde __WNAME__<b>&middot;</b>replay disponible<b>&middot;</b>24/7</div>
 </div>
 
 <div id="card">
   <div class="rule"></div>
-  <div class="kind" id="cardkind"></div>
+  <div class="badge" id="cardbadge"></div>
   <div class="h" id="cardh"></div>
   <div class="sub" id="cardsub"></div>
   <div class="tick" id="cardtick"></div>
 </div>
+
+<div id="record">Nouveau record du monde<small id="recordsub"></small></div>
 
 <script id="boot-live" type="application/json">__LIVE__</script>
 <script id="boot-scene" type="application/json">__SCENE__</script>
@@ -197,15 +275,16 @@ const DPR = Math.min(window.devicePixelRatio || 1, 2);
 function resize() { cv.width = cv.clientWidth * DPR; cv.height = cv.clientHeight * DPR; }
 window.addEventListener('resize', resize); resize();
 
-const fr = n => Number(n || 0).toLocaleString('fr');
-// Age du monde en temps-monde (1 tick = 1 heure). Gros chiffre = annees ou jours.
+const fr = n => Number(n || 0).toLocaleString('fr-FR');
+const pad = n => String(n).padStart(2, '0');
+
+// Age du monde en temps-monde (1 tick = 1 heure-monde). Gros chiffre = annees ou jours.
 function worldAge(sec) {
   sec = Math.max(0, Math.floor(sec));
   const years = Math.floor(sec / (365 * 86400));
   const days = Math.floor(sec % (365 * 86400) / 86400);
-  const hours = Math.floor(sec % 86400 / 3600);
-  if (years >= 1) return { big: 'an ' + fr(years), sub: 'jour ' + days + ', ' + hours + ' h' };
-  return { big: 'jour ' + fr(days), sub: hours + ' h de l\'an 0' };
+  if (years >= 1) return { big: 'an ' + fr(years), sub: 'jour ' + fr(days) + ' sur 365' };
+  return { big: 'jour ' + fr(days), sub: 'premier cycle' };
 }
 
 // --- polling : fetch quand servi en http, sinon on garde le repli embarque ---
@@ -221,17 +300,26 @@ async function poll() {
 }
 setInterval(poll, 3000);
 
-// --- horloge : tick fluide entre deux sondages ---
+// --- horloge de session (temps reel ecoule devant l'overlay) ---
+const sessionStart = Date.now();
+setInterval(() => {
+  const t = Math.floor((Date.now() - sessionStart) / 1000);
+  document.getElementById('session').textContent = pad(Math.floor(t / 3600)) + ':' + pad(Math.floor(t % 3600 / 60)) + ':' + pad(t % 60);
+}, 1000);
+
+// --- horloge du monde : tick fluide entre deux sondages ---
 let ageBase = 0, ageAt = performance.now(), tickBase = 0, secPerTick = 3600;
+let apparentRate = 0, apparentTickRate = 0, lastTick = 0, lastPollMs = performance.now();
 function tickClock() {
   const extra = (performance.now() - ageAt) / 1000;
-  const a = worldAge(ageBase + extra * apparentRate);
+  // Interpolation lisible : au-dela de ~2 jours-monde par seconde reelle, l'horloge
+  // se resynchronise a chaque sondage plutot que de defiler trop vite.
+  const a = worldAge(ageBase + extra * Math.min(apparentRate, 172800));
   document.getElementById('age').textContent = a.big;
-  document.getElementById('agesub').textContent = a.sub;
+  document.getElementById('agesub').innerHTML = a.sub;
   document.getElementById('tick').textContent = fr(tickBase + Math.floor(extra * apparentTickRate));
   requestAnimationFrame(tickClock);
 }
-let apparentRate = 0, apparentTickRate = 0, lastTick = 0, lastAgeSec = 0, lastPollMs = performance.now();
 
 // --- rendu de la scene ---
 const PS = 4;
@@ -251,8 +339,8 @@ function drawScene() {
   const gw = S.grid[0], gh = S.grid[1];
   // Centre sur la vie : la scene suit le centre de masse de la population.
   let sx = 0, sy = 0, sw = 0;
-  const src = (S.clusters && S.clusters.length) ? S.clusters : (S.entities || []);
-  for (const e of src) { const w = e.count || 1; sx += e.pos[0] / PS * w; sy += e.pos[1] / PS * w; sw += w; }
+  const srcpts = (S.clusters && S.clusters.length) ? S.clusters : (S.entities || []);
+  for (const e of srcpts) { const w = e.count || 1; sx += e.pos[0] / PS * w; sy += e.pos[1] / PS * w; sw += w; }
   let cx = sw ? sx / sw : gw / 2, cy = sw ? sy / sw : gh / 2;
   // Cadrage "cover" : le monde couvre toute la scene, la camera choisit quoi montrer.
   const s = Math.max(W / gw, H / gh) * 1.06;
@@ -267,7 +355,7 @@ function drawScene() {
   // champ de ressources
   const rv = S.resources;
   if (rv && rv.cells) {
-    const cw = rv.w, ch = rv.h, cs = s * gw / cw;
+    const cw = rv.w, cs = s * gw / cw;
     for (let i = 0; i < rv.cells.length; i++) {
       const v = rv.cells[i] / 255; if (v < 0.04) continue;
       const x = ox + (i % cw) * cs, y = oy + Math.floor(i / cw) * cs;
@@ -294,7 +382,7 @@ function drawScene() {
     ctx.setLineDash([1, 3]); ctx.lineDashOffset = -tsec * 6;
     ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.stroke(); ctx.setLineDash([]);
   }
-  // entites (agents en region, tout le monde en detail)
+  // entites
   for (const en of (S.entities || [])) {
     const x = ox + (en.pos[0] / PS) * s, y = oy + (en.pos[1] / PS) * s;
     const ep = (en.energy || 50) / 100;
@@ -313,8 +401,6 @@ function drawScene() {
     ctx.beginPath(); ctx.arc(x, y, (2 + a * 9) * Math.max(0.7, s / 5), 0, 6.2832); ctx.stroke();
     ctx.globalAlpha = 1;
   }
-  ctx.strokeStyle = 'rgba(126,158,214,.1)'; ctx.lineWidth = 1;
-  ctx.strokeRect(ox, oy, s * gw, s * gh);
   requestAnimationFrame(drawScene);
 }
 
@@ -322,87 +408,116 @@ function drawScene() {
 function statRow(label, val, cls) {
   return '<div class="r ' + (cls || '') + '"><span>' + label + '</span><b>' + val + '</b></div>';
 }
+const PULSE_DEFS = [
+  ['fill', 'remplissage', 'var(--cyan)'],
+  ['resources', 'ressources', 'var(--green)'],
+  ['diversity', 'diversite', 'var(--violet)'],
+  ['renewal', 'renouvellement', 'var(--amber)'],
+  ['strain', 'surexploitation', 'var(--rose)'],
+];
 let seenTournants = new Set();
+let prevRecords = null;
 function applyLive(L) {
   LIVE = L;
-  // horloge
+  // horloge du monde
   const now = performance.now();
   const realDelta = (now - lastPollMs) / 1000;
-  if (lastTick) {
-    apparentTickRate = Math.max(0, (L.tick - lastTick) / Math.max(1, realDelta));
+  if (lastTick && realDelta > 0.1) {
+    apparentTickRate = Math.max(0, (L.tick - lastTick) / realDelta);
     apparentRate = apparentTickRate * secPerTick;
   }
   lastTick = L.tick; lastPollMs = now;
   ageBase = L.age_world_seconds; tickBase = L.tick; ageAt = now;
   secPerTick = L.age_world_seconds && L.tick ? L.age_world_seconds / L.tick : 3600;
 
+  // identite / etat
+  document.getElementById('stage').textContent = 'Stade : ' + (L.stage || 'vie moleculaire').toLowerCase();
+  const sc = document.getElementById('statuschip');
+  const map = { 'EN CROISSANCE': 'grow', 'EN DECLIN': 'decl', 'ETEINT': 'dead', 'STABLE': 'stable' };
+  sc.className = 'statuschip ' + (map[L.status] || 'stable');
+  document.getElementById('statusv').textContent = L.status || 'STABLE';
+
+  // pouls
+  const P = L.pulse || {};
+  document.getElementById('pulserows').innerHTML = PULSE_DEFS.map(([k, lab, col]) => {
+    const v = Math.max(0, Math.min(1, P[k] || 0));
+    return '<div class="pr"><span>' + lab + '</span><div class="track"><div class="fill" style="width:' +
+      (v * 100).toFixed(0) + '%;background:' + col + '"></div></div><b>' + (v * 100).toFixed(0) + '%</b></div>';
+  }).join('');
+
   // panneaux
-  const side = document.getElementById('side');
-  side.innerHTML =
-    '<div class="group"><h2>Vie du monde</h2><div class="rows">' +
+  document.getElementById('side').innerHTML =
+    '<div class="h2">Vie du monde</div><div class="rows">' +
       statRow('population', fr(L.population)) +
       statRow('capacite', fr(L.carrying_capacity)) +
       statRow('naissances', fr(L.births)) +
       statRow('morts de faim', fr(L.deaths_starv)) +
       statRow('morts d\'age', fr(L.deaths_age)) +
-      statRow('age moyen', fr(Math.round(L.mean_age_ticks)) + ' t') +
       statRow('energie moy.', (L.mean_energy_pct * 100).toFixed(0) + ' %') +
-      statRow('biomasse', fr(Math.round(L.biomass))) +
-    '</div></div>' +
-    '<div class="group"><h2>Evolution</h2><div class="rows">' +
+    '</div>' +
+    '<div class="h2">Evolution</div><div class="rows">' +
       statRow('diversite', L.diversity.toFixed(3)) +
       statRow('generation max', L.generation_max) +
       statRow('gen. moyenne', L.generation_mean.toFixed(1)) +
       statRow('lignees vivantes', L.lineages) +
       statRow('lignee dominante', L.dominant_lineage, 'wide') +
       statRow('part dominante', (L.dominant_share * 100).toFixed(0) + ' %') +
-    '</div></div>' +
-    '<div class="group"><h2>Ecosysteme</h2><div class="rows">' +
-      statRow('ressource totale', fr(Math.round(L.resource_total))) +
+    '</div>' +
+    '<div class="h2">Ecosysteme</div><div class="rows">' +
       statRow('ressource / case', L.resource_mean.toFixed(2)) +
       statRow('cases epuisees', L.depleted_pct.toFixed(1) + ' %') +
-      statRow('surexploitation', L.strain.toFixed(3)) +
       statRow('cases occupees', fr(L.occupied_cells)) +
       statRow('cellules vivantes', fr(L.cells_alive)) +
-    '</div></div>' +
-    '<div class="group"><h2>Cognition</h2><div class="rows">' +
+    '</div>' +
+    '<div class="h2">Cognition et voix</div><div class="rows">' +
       statRow('agents vivants', fr(L.agents_alive)) +
       statRow('eveils (total)', fr(L.agents_awoke_total)) +
       statRow('souvenirs moy.', L.mean_memories.toFixed(1)) +
-      statRow('derniere naissance', 'tick ' + fr(L.last_birth_tick)) +
+      statRow('even. / tick', (L.events_per_tick || 0).toFixed(2)) +
+      statRow('grands tournants', L.notable_count || 0) +
       statRow('derniere mort', 'tick ' + fr(L.last_death_tick)) +
-    '</div></div>';
+    '</div>';
 
   // fil
-  document.getElementById('feed').innerHTML = (L.events || []).slice(0, 12).map(e =>
+  document.getElementById('feed').innerHTML = (L.events || []).slice(0, 14).map(e =>
     '<div class="fe ' + e.kind + '"><span class="t">tick ' + fr(e.tick) + '</span><span class="b">' + e.text + '</span></div>'
   ).join('');
 
   // records
   const R = L.records || {};
-  document.getElementById('recs').innerHTML =
-    rec('population max', fr(R.largest_population)) +
-    rec('creux de population', fr(R.smallest_population)) +
-    rec('generation la plus profonde', R.deepest_generation) +
-    rec('plus d\'agents en meme temps', fr(R.most_agents_at_once)) +
-    rec('plus longue vie d\'agent', fr(R.longest_agent_life_ticks) + ' t') +
-    rec('especes emergees', R.species_count) +
-    rec('diversite record', (R.peak_diversity || 0).toFixed(3));
+  const recDefs = [
+    ['largest_population', 'population max', v => fr(v)],
+    ['smallest_population', 'creux de population', v => fr(v)],
+    ['deepest_generation', 'generation la plus profonde', v => v],
+    ['most_agents_at_once', 'plus d\'agents en meme temps', v => fr(v)],
+    ['longest_agent_life_ticks', 'plus longue vie d\'agent', v => fr(v) + ' t'],
+    ['species_count', 'especes emergees', v => v],
+    ['peak_diversity', 'diversite record', v => (v || 0).toFixed(3)],
+  ];
+  let broke = null;
+  document.getElementById('recs').innerHTML = recDefs.map(([k, lab, f]) => {
+    const hit = prevRecords && k !== 'smallest_population' && (R[k] || 0) > (prevRecords[k] || 0);
+    if (hit) broke = lab;
+    return '<div class="rec' + (hit ? ' hit' : '') + '"><span>' + lab + '</span><b>' + f(R[k]) + '</b></div>';
+  }).join('');
+  if (broke && prevRecords) showRecord(broke);
+  prevRecords = Object.assign({}, R);
 
-  // graphe
+  // graphes
   drawHist(L);
+  drawSpark('spdiv', (L.div_history || []), '#b9a0ff');
+  drawSpark('spgen', (L.gen_history || []), '#52e6df');
 
   // carte d'un nouveau grand tournant
   for (const e of (L.events || [])) {
-    if (e.kind !== 'tournant') continue;
-    const key = e.tick + '|' + e.text;
+    if (!e.card) continue;
+    const key = e.tick + '|' + (e.card.head || e.text);
     if (seenTournants.has(key)) continue;
     seenTournants.add(key);
     showCard(e);
   }
   if (seenTournants.size > 200) seenTournants = new Set(Array.from(seenTournants).slice(-100));
 }
-function rec(k, v) { return '<div class="rec"><span>' + k + '</span><b>' + v + '</b></div>'; }
 
 function drawHist(L) {
   const svg = document.getElementById('hist');
@@ -422,27 +537,49 @@ function drawHist(L) {
     '<path d="' + capd + '" fill="none" stroke="rgba(126,158,214,.3)" stroke-width="1" stroke-dasharray="3,4"/>' +
     '<path d="' + ar + '" fill="rgba(82,230,223,.14)"/>' +
     '<path d="' + ln + '" fill="none" stroke="rgba(82,230,223,.9)" stroke-width="1.6"/>';
+  const secPer = (L.age_world_seconds / Math.max(1, L.tick)) || 3600;
   document.getElementById('histcap').textContent =
-    'de l\'an ' + Math.floor(t0 / (365 * 24 * 3600 / (L.age_world_seconds / Math.max(1, L.tick)) || 8760)) +
-    ' a maintenant  ·  capacite en pointille';
+    'an ' + Math.floor(t0 * secPer / (365 * 86400)) + ' a aujourd\'hui  ·  capacite en pointille';
+}
+
+function drawSpark(id, arr, col) {
+  const svg = document.getElementById(id);
+  if (!arr || arr.length < 2) { svg.innerHTML = ''; return; }
+  const W = 200, H = 26;
+  const mn = Math.min(...arr), mx = Math.max(...arr);
+  const Y = v => H - 2 - (mx > mn ? (v - mn) / (mx - mn) : 0.5) * (H - 4);
+  let ln = '';
+  for (let i = 0; i < arr.length; i++) ln += (i ? 'L' : 'M') + (i / (arr.length - 1) * W).toFixed(1) + ',' + Y(arr[i]).toFixed(1) + ' ';
+  svg.innerHTML = '<path d="' + ln + '" fill="none" stroke="' + col + '" stroke-width="1.4" opacity=".9"/>';
 }
 
 let cardTimer = 0;
 function showCard(e) {
-  const parts = e.text.split(/[,(]/);
-  document.getElementById('cardkind').textContent = 'nouvel evenement';
-  document.getElementById('cardh').textContent = (parts[0] || e.text).trim();
-  document.getElementById('cardsub').textContent = parts.slice(1).join(' ').replace(')', '').trim();
-  document.getElementById('cardtick').textContent = 'tick ' + fr(e.tick);
+  const c = e.card;
   const card = document.getElementById('card');
+  card.className = c.tone || '';
+  document.getElementById('cardbadge').textContent = c.badge || 'nouvel evenement';
+  document.getElementById('cardh').textContent = c.head || e.text;
+  document.getElementById('cardsub').textContent = c.sub || '';
+  document.getElementById('cardtick').textContent = 'tick ' + fr(e.tick);
   card.classList.add('on');
   clearTimeout(cardTimer);
-  cardTimer = setTimeout(() => card.classList.remove('on'), 8000);
+  cardTimer = setTimeout(() => card.classList.remove('on'), 8500);
 }
 
-// --- demarrage : on ne montre pas de carte pour les evenements deja passes ---
+let recordTimer = 0;
+function showRecord(label) {
+  document.getElementById('recordsub').textContent = label;
+  const el = document.getElementById('record');
+  el.classList.add('on');
+  clearTimeout(recordTimer);
+  recordTimer = setTimeout(() => el.classList.remove('on'), 6500);
+}
+
+// --- demarrage : on ne rejoue pas les cartes des evenements deja passes ---
 if (LIVE) {
-  for (const e of (LIVE.events || [])) { if (e.kind === 'tournant') seenTournants.add(e.tick + '|' + e.text); }
+  for (const e of (LIVE.events || [])) { if (e.card) seenTournants.add(e.tick + '|' + (e.card.head || e.text)); }
+  prevRecords = Object.assign({}, LIVE.records || {});
   applyLive(LIVE);
 }
 requestAnimationFrame(tickClock);
