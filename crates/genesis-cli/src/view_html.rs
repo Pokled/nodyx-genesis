@@ -12,7 +12,7 @@ use genesis_view::ViewFrame;
 
 const TEMPLATE: &str = include_str!("view_template.html");
 
-pub fn render(meta: &WorldMeta, cfg: &SimConfig, frames: &[ViewFrame]) -> String {
+pub fn render(name: &str, meta: &WorldMeta, cfg: &SimConfig, frames: &[ViewFrame]) -> String {
     // La fertilite du sol est statique : on l'extrait une fois et on la retire de chaque
     // frame. Sur un long run c'est la moitie du poids du fichier en moins.
     let mut value = serde_json::to_value(frames).unwrap_or_else(|_| serde_json::json!([]));
@@ -47,6 +47,7 @@ pub fn render(meta: &WorldMeta, cfg: &SimConfig, frames: &[ViewFrame]) -> String
     .replace("</", "<\\/");
 
     TEMPLATE
+        .replace("__WNAME__", name)
         .replace("__SEED__", &meta.seed.to_string())
         .replace("__ENGINE__", &meta.engine_version)
         .replace("__GW__", &cfg.world.grid_width.to_string())

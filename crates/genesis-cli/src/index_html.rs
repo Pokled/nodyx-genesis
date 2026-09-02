@@ -12,6 +12,8 @@ const TEMPLATE: &str = include_str!("index_template.html");
 /// Le condense d'un monde, calcule par la CLI et injecte dans le gabarit.
 #[derive(Serialize)]
 pub struct Digest {
+    /// nom du dossier du monde, ex. "w2".
+    pub name: String,
     pub seed: u64,
     pub engine: String,
     pub ticks: u64,
@@ -48,6 +50,7 @@ pub fn render(digest: &Digest) -> String {
         .unwrap_or_else(|_| "{}".to_string())
         .replace("</", "<\\/");
     TEMPLATE
+        .replace("__WNAME__", &digest.name)
         .replace("__SEED__", &digest.seed.to_string())
         .replace("__DIGEST__", &json)
 }

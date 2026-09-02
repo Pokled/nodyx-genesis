@@ -451,15 +451,22 @@ fn cmd_run(flags: &HashMap<String, String>) -> std::io::Result<()> {
     };
     wdir.write_meta(&meta)?;
 
+    // Nom d'affichage du monde : le dossier de sortie (ex. "w2"), pas la graine.
+    let world_name = wdir
+        .root
+        .file_name()
+        .map(|s| s.to_string_lossy().into_owned())
+        .unwrap_or_else(|| format!("w{seed}"));
+
     write_frames_jsonl(&wdir.root, &frames)?;
     write_jsonl(&wdir.root.join("notable.jsonl"), &notable)?;
     write_jsonl(&wdir.root.join("series.jsonl"), &series)?;
     write_jsonl(&wdir.root.join("lives.jsonl"), &lives_vec)?;
-    let html = view_html::render(&meta, &cfg, &frames);
+    let html = view_html::render(&world_name, &meta, &cfg, &frames);
     std::fs::write(wdir.root.join("view.html"), html)?;
-    let series_html = series_html::render(&meta, &cfg, &series);
+    let series_html = series_html::render(&world_name, &meta, &cfg, &series);
     std::fs::write(wdir.root.join("series.html"), series_html)?;
-    let lives_html = lives_html::render(&meta, &cfg, &lives_vec, BIO_EMBED, BIO_FEATURE);
+    let lives_html = lives_html::render(&world_name, &meta, &cfg, &lives_vec, BIO_EMBED, BIO_FEATURE);
     std::fs::write(wdir.root.join("lives.html"), lives_html)?;
 
     // --- Page de garde du monde ---
@@ -496,6 +503,7 @@ fn cmd_run(flags: &HashMap<String, String>) -> std::io::Result<()> {
             }
         }
         let digest = index_html::Digest {
+            name: world_name.clone(),
             seed,
             engine: genesis_core::ENGINE_VERSION.to_string(),
             ticks: world.tick,
