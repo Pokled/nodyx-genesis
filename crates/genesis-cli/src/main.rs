@@ -462,7 +462,8 @@ fn cmd_run(flags: &HashMap<String, String>) -> std::io::Result<()> {
         let sec_year = (cfg.time.tick_duration_seconds as f64) / (3600.0 * 24.0 * 365.0);
         let years = (world.tick as f64 * sec_year) as u64;
         let (agents_alive, mean_mem) = world.agent_stats();
-        let longest = lives_vec.first();
+        // La plus longue vie d'agent (lives_vec est re-trie pour les chapitres, pas par duree).
+        let longest = lives_vec.iter().max_by_key(|l| agent_span(l));
         let mut species: Vec<String> = Vec::new();
         let mut extinct: Vec<String> = Vec::new();
         let mut chronicle: Vec<(u64, String)> = Vec::new();

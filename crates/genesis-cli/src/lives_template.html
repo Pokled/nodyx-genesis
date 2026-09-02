@@ -2,22 +2,22 @@
 <html lang="fr"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Monde w__SEED__, vies d'agents</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500&display=swap">
 <style>
-  :root { color-scheme:light;
-    --ground:#f3f2ee; --raised:#fff; --ink:#1b1a17; --ink-soft:#4a463e; --muted:#7d7869;
-    --line:#ddd8cc; --grid:#ebe8df;
-    --peril:#9a3b3b; --bounty:#3b6f4e; --path:#3b6f9a; --wake:#8a7fc0;
-    --faim:#c8863c; --alive:#3b6f4e; --lapse:#7d7869; }
-  @media (prefers-color-scheme:dark) { :root { color-scheme:dark;
-    --ground:#14150f; --raised:#1c1d16; --ink:#e9e6da; --ink-soft:#b7b2a2; --muted:#867f6d;
-    --line:#2c2d22; --grid:#22231b;
-    --peril:#d98a8a; --bounty:#8fbfa0; --path:#8ab0d0; --wake:#b0a6de;
-    --faim:#dda86a; --alive:#8fbfa0; --lapse:#9a9280; } }
+  :root { color-scheme:dark;
+    --ground:#04060b; --raised:#0b1019; --ink:#e9edf7; --ink-soft:#b7bccb; --muted:#59637a;
+    --line:rgba(126,158,214,0.16); --grid:rgba(126,158,214,0.09);
+    --peril:#ff8fa0; --bounty:#7ef0a6; --path:#74a8ff; --wake:#b9a0ff;
+    --faim:#ffcf72; --alive:#7ef0a6; --lapse:#9aa6be;
+    --serif:"Fraunces","Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif; }
   * { box-sizing:border-box; }
-  body { margin:0; background:var(--ground); color:var(--ink); font:18px/1.65 Georgia, "Times New Roman", serif; }
+  body { margin:0; color:var(--ink); font:18px/1.68 Georgia,"Times New Roman",serif;
+    background:radial-gradient(120% 80% at 50% 0%, #101826 0%, #070a11 55%, #04060b 100%) fixed; min-height:100vh; }
   .wrap { max-width:1180px; margin:0 auto; padding:48px 28px 120px; }
-  h1 { font-size:2rem; margin:0 0 .3rem; }
-  h2 { font-size:1.5rem; margin:3rem 0 .2rem; }
+  h1 { font-family:var(--serif); font-weight:500; font-size:2.3rem; margin:0 0 .3rem; letter-spacing:.01em; }
+  h2 { font-family:var(--serif); font-weight:500; font-size:1.6rem; margin:3rem 0 .2rem; }
   .sub { color:var(--muted); font-family:ui-monospace, monospace; font-size:.92rem;
     letter-spacing:.08em; text-transform:uppercase; margin-bottom:1.7rem; }
   p { max-width:72ch; color:var(--ink-soft); }
@@ -76,7 +76,9 @@ famine frolee), mort vue (un des siens qui meurt, souvenir ancre sur l'evenement
 la peur et la solitude, montent et descendent selon ce qu'il vit. A chaque decision il
 choisit explicitement un mode, celui de plus grande utilite : manger, fuir un lieu de
 danger, suivre les siens, retourner a une aubaine, ou errer. Il reconnait aussi les autres
-agents qu'il croise souvent : une memoire de personnes. Voici quelques vies, et ce qu'on
+agents qu'il croise souvent : une memoire de personnes. Sous tout cela, un corps : une sante
+qui integre lentement les famines et la vieillesse, un corps use se traine et meurt plus
+tot. Chaque individu porte le nom de sa lignee fondatrice. Voici quelques vies, et ce qu'on
 peut en lire sans jamais rien leur demander.</p>
 
 <div class="legend" id="legend"></div>
