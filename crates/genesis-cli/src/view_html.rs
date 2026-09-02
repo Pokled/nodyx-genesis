@@ -33,12 +33,15 @@ pub fn render(meta: &WorldMeta, cfg: &SimConfig, frames: &[ViewFrame]) -> String
     let terrain_json = serde_json::to_string(&terrain)
         .unwrap_or_else(|_| "[]".to_string())
         .replace("</", "<\\/");
+    let lineage_names: Vec<String> =
+        (0..8u16).map(genesis_core::names::lineage_name).collect();
     let meta_json = serde_json::json!({
         "seed": meta.seed,
         "engine_version": meta.engine_version,
         "ticks_played": meta.ticks_played,
         "grid": [cfg.world.grid_width, cfg.world.grid_height],
         "tick_seconds": cfg.time.tick_duration_seconds,
+        "lineage_names": lineage_names,
     })
     .to_string()
     .replace("</", "<\\/");

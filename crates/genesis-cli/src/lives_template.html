@@ -296,7 +296,7 @@ function prose(life) {
   const b = life.beats || [], places = memPlaces(life);
   const peakMem = Math.max(0, ...(b.map(x => (x.mem || []).length)));
   const parts = [];
-  parts.push(`Eveille l'an ${yearOf(life.awoke_tick)} (tick ${num(life.awoke_tick)}) pres de (${life.awoke_place[0].toFixed(0)}, ${life.awoke_place[1].toFixed(0)}), a la ${life.generation}e generation de la lignee ${life.lineage}.`);
+  parts.push(`Eveille l'an ${yearOf(life.awoke_tick)} (tick ${num(life.awoke_tick)}) pres de (${life.awoke_place[0].toFixed(0)}, ${life.awoke_place[1].toFixed(0)}), a la ${life.generation}e generation de la lignee ${life.lineage_name || life.lineage}.`);
 
   if (places.length === 0) {
     parts.push("Aucun souvenir lisible : il n'a jamais garde de lieu assez longtemps.");
@@ -448,7 +448,7 @@ renderLegend(document.getElementById('legend'), [
     sec.innerHTML =
       `<h2>Individu ${life.id}</h2>` +
       `<div class="chip"><span class="pill ${life.ended}">${life.ended === 'mort' ? 'mort de faim' : life.ended}</span>` +
-      `<span>lignee ${life.lineage}</span><span>generation ${life.generation}</span>` +
+      `<span>lignee ${life.lineage_name || life.lineage}</span><span>generation ${life.generation}</span>` +
       `<span>perception ${life.perception.toFixed(2)}</span>` +
       `<span>duree ${num(span(life))} ticks</span><span>jusqu'a ${peak} souvenirs</span>` +
       (life.ended_health != null ? `<span>sante finale ${life.ended_health} %</span>` : '') + `</div>` +
@@ -466,7 +466,7 @@ renderLegend(document.getElementById('legend'), [
   tb.innerHTML = L.slice(0, 300).map(l => {
     const sp = span(l);
     return `<tr data-id="${l.id}">` +
-      `<td data-v="${l.id}">${l.id}</td><td data-v="${l.lineage}">${l.lineage}</td>` +
+      `<td data-v="${l.id}">${l.id}</td><td data-v="${l.lineage_name || l.lineage}">${l.lineage_name || l.lineage}</td>` +
       `<td data-v="${l.generation}">${l.generation}</td><td data-v="${yearOf(l.awoke_tick)}">${yearOf(l.awoke_tick)}</td>` +
       `<td data-v="${sp}">${num(sp)}</td><td data-v="${(l.memories || []).length}">${(l.memories || []).length}</td>` +
       `<td class="${l.ended}" data-v="${l.ended}">${l.ended === 'mort' ? 'mort de faim' : l.ended}</td></tr>`;

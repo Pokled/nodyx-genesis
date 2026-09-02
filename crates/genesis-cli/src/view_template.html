@@ -237,6 +237,47 @@
   body.left-collapsed  .handle.left  { left: 6px; }
   body.right-collapsed .handle.right { right: 6px; }
 
+  /* --- Inspecteur : la carte d'un individu, au clic. Prend la place du panneau droit. --- */
+  #inspector {
+    position: absolute; right: 20px; top: 16px; width: 300px; z-index: 8;
+    max-height: calc(100vh - 108px); overflow-y: auto;
+    padding: 15px 17px 16px; border-radius: 14px;
+    background: var(--glass); border: 1px solid var(--glass-line);
+    backdrop-filter: blur(16px) saturate(1.2); -webkit-backdrop-filter: blur(16px) saturate(1.2);
+    box-shadow: 0 16px 40px rgba(0,0,0,.5);
+    transform: translateX(calc(100% + 30px)); opacity: 0; pointer-events: none;
+    transition: transform .3s cubic-bezier(.4,.05,.2,1), opacity .3s;
+  }
+  #inspector.on { transform: none; opacity: 1; pointer-events: auto; }
+  #inspector::-webkit-scrollbar { width: 8px; }
+  #inspector::-webkit-scrollbar-thumb { background: rgba(126,158,214,.16); border-radius: 4px; }
+  body.inspecting .panel.right { transform: translateX(calc(100% + 34px)); opacity: 0; pointer-events: none; }
+  #inspector .ihead { font-family: var(--serif); font-size: 1.15rem; color: var(--ink); line-height: 1.15; }
+  #inspector .isub { color: var(--soft); font-size: .76rem; margin-top: 2px; }
+  #inspector .itag {
+    display: inline-block; margin-top: 9px; font-size: .66rem; letter-spacing: .06em;
+    text-transform: uppercase; padding: 3px 9px; border-radius: 999px; border: 1px solid currentColor;
+  }
+  #inspector .itag.agent { color: var(--bio-violet); }
+  #inspector .itag.fond  { color: var(--muted); }
+  #inspector .igauge { display: flex; align-items: center; gap: 8px; margin-top: 9px; font-size: .74rem; }
+  #inspector .igauge .gl { color: var(--soft); width: 52px; flex: none; }
+  #inspector .igauge .gb { flex: 1; height: 5px; border-radius: 3px; background: rgba(126,158,214,.14); overflow: hidden; }
+  #inspector .igauge .gb i { display: block; height: 100%; border-radius: 3px; }
+  #inspector .igauge .gv { color: var(--ink); width: 40px; text-align: right; flex: none; font-variant-numeric: tabular-nums; }
+  #inspector .imind { margin-top: 13px; border-top: 1px solid var(--glass-line); padding-top: 11px; }
+  #inspector .irow { display: flex; justify-content: space-between; gap: 10px; font-size: .74rem; padding: 2px 0; }
+  #inspector .irow span { color: var(--soft); }
+  #inspector .irow b { color: var(--ink); font-weight: 500; }
+  #inspector .imem { margin-top: 7px; display: flex; flex-direction: column; gap: 3px; }
+  #inspector .imem .m { display: flex; align-items: center; gap: 7px; font-size: .72rem; color: var(--soft); }
+  #inspector .imem .m .mk { width: 12px; text-align: center; flex: none; }
+  #inspector .imem .m .mb { flex: 1; height: 3px; border-radius: 2px; background: rgba(126,158,214,.14); overflow: hidden; }
+  #inspector .imem .m .mb i { display: block; height: 100%; }
+  #inspector .iact { display: flex; gap: 8px; margin-top: 14px; }
+  #inspector .iact button { flex: 1; }
+  #inspector .iact button.on { color: var(--bio-cyan); border-color: rgba(82,230,223,.55); }
+
   #tooltip {
     position: fixed; left: 0; top: 0; z-index: 50; max-width: 264px;
     padding: 9px 12px; background: var(--glass-solid); color: var(--ink);
@@ -326,8 +367,11 @@
     <h2>Agents</h2>
     <div class="stat"><span class="tip" data-tip="Entites eveillees : elles portent une memoire episodique. Un agent evite les lieux ou il a failli mourir. Anneau violet sur la scene.">agents vivants</span><b id="s-agents">0</b></div>
     <div class="stat"><span class="tip" data-tip="Nombre moyen de souvenirs episodiques que portent les agents.">souvenirs (moyenne)</span><b id="s-agmem">0</b></div>
+    <p style="color:var(--muted);font-size:.72rem;margin:14px 0 0;line-height:1.5;">Cliquez un point sur la scene pour rencontrer l'individu : sa lignee, son age, et s'il se souvient, ses souvenirs et ses relations. En periode peuplee, seuls les anciens restent des points distincts parmi les amas.</p>
   </div>
 </aside>
+
+<div id="inspector"></div>
 
 <div class="transport">
   <button class="pill" id="play" title="lecture / pause">&#9654;</button>
@@ -376,6 +420,11 @@ let pos = 0, playing = false, speed = 1, lastTs = 0;
 let layer = 'ressource';
 let dirtyUntil = 0;
 function requestDraw(ms) { dirtyUntil = performance.now() + (ms || 900); }
+
+// Selection d'un individu (au clic sur la scene).
+let selectedId = null, selWasAgent = false, following = false, selScreen = null;
+const LINEAGE_NAMES = META.lineage_names || [];
+function linName(k) { return LINEAGE_NAMES[k] || ('lignee ' + k); }
 
 // Cadence : frames de donnees par seconde reelle a 1x. La periode molecule est breve.
 const BASE_FPS = 5;
@@ -873,7 +922,7 @@ function draw(p) {
   geoOy = (availH - geoS * gh) / 2;
   gridPxW = geoS * gw; gridPxH = geoS * gh;
 
-  lowCount = A.lod !== 'region' && (A.entities ? A.entities.length : 0) <= 900;
+  lowCount = (A.entities ? A.entities.length : 0) <= 900;
 
   // halo d'eau, tres doux, derriere le champ
   const hg = ctx.createRadialGradient(vw / 2, vh * 0.42, 0, vw / 2, vh * 0.42, Math.max(vw, vh) * 0.62);
@@ -900,7 +949,11 @@ function draw(p) {
 
   if (A.lod === 'region') {
     for (let k = 0; k < A.clusters.length; k++) paintCluster(A.clusters[k]);
-  } else {
+  }
+  // Entites : en detail, toute la population ; en region, seulement les agents (un
+  // individu qui se souvient reste visible et cliquable). Interpolees entre A et B.
+  selScreen = null;
+  {
     const mapB = {};
     for (let k = 0; k < B.entities.length; k++) mapB[B.entities[k].id] = B.entities[k];
     const seen = {};
@@ -908,16 +961,19 @@ function draw(p) {
       const a = A.entities[k];
       const b = mapB[a.id];
       seen[a.id] = 1;
+      let sx, sy;
       if (b) {
-        paintEntity(a,
-          (a.pos[0] + (b.pos[0] - a.pos[0]) * frac) / PS,
-          (a.pos[1] + (b.pos[1] - a.pos[1]) * frac) / PS,
+        sx = (a.pos[0] + (b.pos[0] - a.pos[0]) * frac) / PS;
+        sy = (a.pos[1] + (b.pos[1] - a.pos[1]) * frac) / PS;
+        paintEntity(a, sx, sy,
           (a.energy + (b.energy - a.energy) * frac) / 100,
           (a.age + (b.age - a.age) * frac) / 100,
           1, false, a.pos[0] / PS, a.pos[1] / PS);
       } else {
-        paintEntity(a, a.pos[0] / PS, a.pos[1] / PS, a.energy / 100, a.age / 100, 1 - frac, false);
+        sx = a.pos[0] / PS; sy = a.pos[1] / PS;
+        paintEntity(a, sx, sy, a.energy / 100, a.age / 100, 1 - frac, false);
       }
+      if (a.id === selectedId) selScreen = { x: geoOx + sx * geoS, y: geoOy + sy * geoS };
     }
     for (let k = 0; k < B.entities.length; k++) {
       const b = B.entities[k];
@@ -929,6 +985,25 @@ function draw(p) {
   const cs = A.cells || [];
   for (let k = 0; k < cs.length; k++) paintCell(cs[k], tsec);
 
+  // Individu selectionne : un anneau clair qui pulse, et un viseur discret si on le suit.
+  if (selScreen) {
+    const pr = 6 + Math.sin(tsec * 3) * 1.6;
+    ctx.strokeStyle = 'rgba(233,237,247,0.95)'; ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.arc(selScreen.x, selScreen.y, 7 * geoScale() + pr, 0, 6.2832); ctx.stroke();
+    if (following) {
+      ctx.strokeStyle = 'rgba(233,237,247,0.16)'; ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(selScreen.x, dy); ctx.lineTo(selScreen.x, dy + dh);
+      ctx.moveTo(dx, selScreen.y); ctx.lineTo(dx + dw, selScreen.y);
+      ctx.stroke();
+    }
+  } else if (selectedId != null && A.lod !== 'region') {
+    // en mode detail, une entite absente de la frame est morte ou retombee entite de fond
+    inspectorGone();
+  }
+  // en mode region, un ancien peut sortir du champ des 300 plus ages sans etre mort :
+  // on garde sa carte, on cesse juste de le pointer.
+
   // moments : on ne les declenche qu'au passage d'une frame entiere
   if (i !== drawnFrame) {
     fireFrameMoments(i, drawnFrame);
@@ -939,11 +1014,114 @@ function draw(p) {
   set('frameinfo', 'frame ' + Math.round(p) + ' / ' + (FRAMES.length - 1) + '   ' + speed + 'x'
     + (A.lod === 'region' ? '   amas' : '') + (cs.length ? '   ' + cs.length + ' cellules' : ''));
   if (i !== domFrame) { updatePanels(i); domFrame = i; }
+  if (selectedId != null && (i !== inspFrame || following)) { renderInspector(findEntity(A, selectedId)); inspFrame = i; }
 
   drawRibbonPlayhead(p);
   dnaTwist += 0.012;
   drawDna();
 }
+
+let inspFrame = -1;
+function findEntity(f, id) {
+  const es = f.entities || [];
+  for (let k = 0; k < es.length; k++) if (es[k].id === id) return es[k];
+  return null;
+}
+
+const MODE_FR = { forage: 'chercher a manger', flee: 'fuir', join: 'suivre les siens', seek_bounty: 'chercher une aubaine', wander: 'errer' };
+const MEM_MARK = ['x', String.fromCharCode(9670), '+'];
+const MEM_FR = ['peril', 'mort vue', 'aubaine'];
+const MEM_COL = ['var(--bio-rose)', 'var(--bio-rose)', 'var(--bio-green)'];
+const insp = document.getElementById('inspector');
+
+function gaugeRow(label, pct, color, suffix) {
+  const w = Math.max(0, Math.min(100, pct));
+  return '<div class="igauge"><span class="gl">' + label + '</span>' +
+    '<span class="gb"><i style="width:' + w.toFixed(0) + '%;background:' + color + '"></i></span>' +
+    '<span class="gv">' + w.toFixed(0) + (suffix || ' %') + '</span></div>';
+}
+
+function renderInspector(e) {
+  if (!e) return;
+  const agent = !!e.agent;
+  const m = e.mind;
+  let h = '<div class="ihead">Individu ' + e.id + '</div>' +
+    '<div class="isub">' + linName(e.lin) + '  &middot;  generation ' + (e.gen || 0) + '</div>' +
+    '<span class="itag ' + (agent ? 'agent' : 'fond') + '">' + (agent ? 'un individu qui se souvient' : 'organisme de fond') + '</span>';
+  h += gaugeRow('energie', e.energy, 'linear-gradient(90deg,#3b8f7d,var(--bio-cyan))');
+  h += gaugeRow('sante', e.hp == null ? 100 : e.hp, 'linear-gradient(90deg,#7d7869,var(--bio-cyan))');
+  h += gaugeRow('age', (e.age || 0) / 1.5, 'linear-gradient(90deg,var(--bio-cyan),var(--bio-violet))', ' %');
+  if (agent && !m) {
+    h += '<div class="imind"><div class="isub" style="margin:0">Ses souvenirs et ses relations se lisent quand la population est moins nombreuse, ou dans sa biographie (page « les vies »).</div></div>';
+  }
+  if (agent && m) {
+    h += '<div class="imind">';
+    h += '<div class="irow"><span>eveille au tick</span><b>' + m.awoke.toLocaleString('fr') + '</b></div>';
+    h += '<div class="irow"><span>ce qu\'il fait</span><b>' + (MODE_FR[m.mode] || m.mode) + '</b></div>';
+    h += '<div class="irow"><span>faim / peur / solitude</span><b>' + m.needs[0] + ' / ' + m.needs[1] + ' / ' + m.needs[2] + '</b></div>';
+    if (m.mem && m.mem.length) {
+      h += '<div class="imem">';
+      for (let k = 0; k < m.mem.length; k++) {
+        const kd = m.mem[k][0], s = m.mem[k][1];
+        h += '<div class="m"><span class="mk" style="color:' + MEM_COL[kd] + '">' + MEM_MARK[kd] + '</span>' +
+          '<span style="width:64px;flex:none">' + MEM_FR[kd] + '</span>' +
+          '<span class="mb"><i style="width:' + s + '%;background:' + MEM_COL[kd] + '"></i></span></div>';
+      }
+      h += '</div>';
+    } else {
+      h += '<div class="irow"><span>souvenirs</span><b>aucun pour l\'instant</b></div>';
+    }
+    h += '<div class="irow"><span>relations tenues</span><b>' + (m.ties || 0) + ' individus</b></div>';
+    h += '</div>';
+  }
+  h += '<div class="iact"><button id="i-follow" class="' + (following ? 'on' : '') + '">' + (following ? 'ne plus suivre' : 'suivre') + '</button>' +
+    '<button id="i-close">fermer</button></div>';
+  insp.innerHTML = h;
+  insp.classList.add('on');
+  document.body.classList.add('inspecting');
+  document.getElementById('i-follow').addEventListener('click', function () {
+    following = !following; renderInspector(e); requestDraw(300);
+  });
+  document.getElementById('i-close').addEventListener('click', deselect);
+}
+
+function inspectorGone() {
+  insp.innerHTML = '<div class="ihead">Individu ' + selectedId + '</div>' +
+    '<div class="isub" style="margin-top:10px">Cet individu n\'est plus la : mort, ou retombe entite de fond.</div>' +
+    '<div class="iact"><button id="i-close">fermer</button></div>';
+  document.getElementById('i-close').addEventListener('click', deselect);
+  selectedId = null; following = false; selScreen = null;
+}
+
+function deselect() {
+  selectedId = null; following = false; selScreen = null; inspFrame = -1;
+  insp.classList.remove('on');
+  document.body.classList.remove('inspecting');
+  requestDraw(300);
+}
+
+cv.addEventListener('click', function (ev) {
+  const A = FRAMES[Math.max(0, Math.min(Math.floor(pos), FRAMES.length - 1))];
+  if (!A || !A.entities || !A.entities.length) return;
+  const r = cv.getBoundingClientRect();
+  const mx = (ev.clientX - r.left) * DPR, my = (ev.clientY - r.top) * DPR;
+  let best = null, bestD = (18 * DPR) * (18 * DPR);
+  for (let k = 0; k < A.entities.length; k++) {
+    const e = A.entities[k];
+    const x = geoOx + (e.pos[0] / PS) * geoS, y = geoOy + (e.pos[1] / PS) * geoS;
+    const d = (x - mx) * (x - mx) + (y - my) * (y - my);
+    // les agents attrapent le clic en priorite (cible plus large)
+    const w = e.mind ? d * 0.4 : d;
+    if (w < bestD) { bestD = w; best = e; }
+  }
+  if (best) {
+    selectedId = best.id; selWasAgent = !!best.mind; inspFrame = -1;
+    renderInspector(best);
+    requestDraw(400);
+  } else {
+    deselect();
+  }
+});
 
 function updatePanels(i) {
   const f = FRAMES[i];
@@ -961,7 +1139,7 @@ function updatePanels(i) {
   set('s-occ', st.occupied_cells.toLocaleString('fr'));
   set('s-div', st.genetic_diversity.toFixed(3));
   set('s-lin', st.lineages_alive);
-  set('s-dom', (st.dominant_lineage_share * 100).toFixed(0) + ' %');
+  set('s-dom', (st.dominant_lineage != null ? linName(st.dominant_lineage) + '  ' : '') + (st.dominant_lineage_share * 100).toFixed(0) + ' %');
   set('s-gen', st.max_generation);
   set('s-res', Math.round(st.resource_total).toLocaleString('fr'));
   set('s-resm', st.resource_mean.toFixed(2));
@@ -1136,6 +1314,7 @@ function toggleFocus() {
 focusBtn.addEventListener('click', toggleFocus);
 window.addEventListener('keydown', function (e) {
   if (e.key === 'f' || e.key === 'F') toggleFocus();
+  else if (e.key === 'Escape') deselect();
   else if (e.key === ' ') { e.preventDefault(); document.getElementById('play').click(); }
 });
 

@@ -433,6 +433,20 @@ impl WorldState {
         (counts.len() as u16, top as f32 / total as f32, max_gen)
     }
 
+    /// La lignee fondatrice la plus repandue (celle de « part de la dominante »). Egalite
+    /// tranchee par le plus petit indice de lignee, pour rester deterministe.
+    pub fn dominant_lineage(&self) -> u16 {
+        let mut counts: std::collections::BTreeMap<u16, u32> = std::collections::BTreeMap::new();
+        for e in self.entities.iter() {
+            *counts.entry(e.genome.lineage).or_insert(0) += 1;
+        }
+        counts
+            .into_iter()
+            .max_by(|a, b| a.1.cmp(&b.1).then(b.0.cmp(&a.0)))
+            .map(|(k, _)| k)
+            .unwrap_or(0)
+    }
+
     /// Signature de l'espece dominante : les traits quantifies (0..3) du genome le plus
     /// repandu dans la population. Sert au brin d'ADN du lecteur.
     pub fn dominant_genome(&self) -> [u8; N_TRAITS] {

@@ -72,6 +72,8 @@ struct LifeBeat {
 struct AgentLife {
     id: EntityId,
     lineage: u16,
+    /// nom prononcable de la lignee fondatrice, pour la prose.
+    lineage_name: String,
     generation: u32,
     perception: f32,
     lifespan_trait: f32,
@@ -119,6 +121,7 @@ fn new_life(e: &genesis_core::Entity, awoke_tick: u64) -> AgentLife {
     AgentLife {
         id: e.id,
         lineage: e.genome.lineage,
+        lineage_name: genesis_core::names::lineage_name(e.genome.lineage),
         generation: e.genome.generation,
         perception: e.genome.traits.perception,
         lifespan_trait: e.genome.traits.lifespan,

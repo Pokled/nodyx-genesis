@@ -15,6 +15,7 @@ pub mod config;
 pub mod entity;
 pub mod event;
 pub mod genome;
+pub mod names;
 pub mod persist;
 pub mod rng;
 pub mod sim;

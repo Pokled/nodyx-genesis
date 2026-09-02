@@ -14,9 +14,10 @@ use serde::Serialize;
 
 use genesis_core::event::{Event, EventKind};
 use genesis_core::genome::N_TRAITS;
+use genesis_core::names;
 use genesis_core::{EntityId, SimConfig, WorldState};
 
-pub const VIEW_VERSION: u16 = 6;
+pub const VIEW_VERSION: u16 = 7;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct ViewFrame {
@@ -112,6 +113,13 @@ pub struct ResourceView {
 /// Position en quarts de case : `world_pos * 4`. Le lecteur redivise par 4.
 pub const POS_SCALE: f32 = 4.0;
 
+fn is_full_hp(v: &u8) -> bool {
+    *v >= 100
+}
+fn is_zero_u32(v: &u32) -> bool {
+    *v == 0
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct EntityView {
     pub id: EntityId,
@@ -121,12 +129,38 @@ pub struct EntityView {
     pub energy: u8,
     /// age en pourcents de l'esperance, 0..150.
     pub age: u8,
+    /// sante en pourcents, 0..100 (biologie de fond, 0.0.3 tranche 8). Omis si intacte (100).
+    #[serde(skip_serializing_if = "is_full_hp")]
+    pub hp: u8,
     /// teinte 0..359, deja calculee depuis le genome.
     pub hue: u16,
     pub state: &'static str,
+    /// lignee fondatrice et generation : de quoi presenter l'individu au clic.
+    pub lin: u16,
+    #[serde(skip_serializing_if = "is_zero_u32")]
+    pub gen: u32,
     /// `true` si l'entite est un agent (elle porte un `Mind`, 0.0.3). Omis sinon.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub agent: bool,
+    /// L'esprit de l'agent, resume pour l'inspecteur du lecteur. `None` pour une entite de
+    /// fond.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mind: Option<MindView>,
+}
+
+/// L'interieur d'un agent, tel qu'on peut le lire en cliquant dessus dans le lecteur.
+#[derive(Debug, Clone, Serialize)]
+pub struct MindView {
+    /// tick d'eveil.
+    pub awoke: u64,
+    /// mode de comportement du dernier choix : forage | flee | join | seek_bounty | wander.
+    pub mode: &'static str,
+    /// faim, peur, solitude en pourcents.
+    pub needs: [u8; 3],
+    /// souvenirs, les plus forts d'abord : [nature (0 peril, 1 aubaine, 2 mort vue), force %].
+    pub mem: Vec<[u8; 2]>,
+    /// nombre de relations sociales tenues.
+    pub ties: u16,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -161,6 +195,8 @@ pub struct WorldStats {
     /// Lignees fondatrices vivantes, part de la dominante, generation maximale.
     pub lineages_alive: u16,
     pub dominant_lineage_share: f32,
+    /// Indice de la lignee fondatrice la plus repandue (le lecteur en tire un nom).
+    pub dominant_lineage: u16,
     pub max_generation: u32,
 
     /// Moyenne et ecart-type par trait : metabolism, speed, perception, efficiency,
@@ -266,6 +302,10 @@ pub fn series_row(world: &WorldState, cfg: &SimConfig) -> SeriesRow {
 
 const VIEW_GRID: u32 = 48;
 
+/// En mode region, nombre maximal d'agents envoyes comme individus (les plus ages). Borne le
+/// poids du flux quand presque toute la population est eveillee.
+const AGENT_VIEW_CAP: usize = 300;
+
 /// Projette le monde en une frame. Fonction pure.
 pub fn project(
     world: &WorldState,
@@ -292,27 +332,75 @@ pub fn project(
     let mut clusters: Vec<ClusterView> = Vec::new();
     let lod: &'static str;
 
+    // Une entite -> sa vue. `full` : detail complet (mode detail) ; sinon on ne garde que les
+    // agents (mode region), pour qu'un individu qui se souvient reste visible et cliquable
+    // meme quand le fond de population est resume en amas.
+    let entity_view = |e: &genesis_core::Entity, full: bool| -> EntityView {
+        let expected =
+            cfg.lifecycle.lifespan_ticks_mean as f32 * (0.5 + e.genome.traits.lifespan);
+        let energy_pct = (e.energy / energy_ceiling).clamp(0.0, 1.0);
+        let age_pct = (e.age_ticks as f32 / expected.max(1.0)).clamp(0.0, 1.5);
+        let mind = e.mind.as_deref().filter(|_| full).map(|m| {
+            let mut mem: Vec<[u8; 2]> = m
+                .episodic
+                .iter()
+                .map(|s| {
+                    let k = match s.kind {
+                        genesis_core::MemoryKind::Peril => 0u8,
+                        genesis_core::MemoryKind::Bounty => 1,
+                        genesis_core::MemoryKind::Witnessed => 2,
+                    };
+                    [k, (s.strength.clamp(0.0, 1.0) * 100.0).round() as u8]
+                })
+                .collect::<Vec<_>>();
+            mem.sort_by(|a, b| b[1].cmp(&a[1]));
+            mem.truncate(3);
+            let pct = |v: f32| (v.clamp(0.0, 1.0) * 100.0).round() as u8;
+            MindView {
+                awoke: m.awoke_tick,
+                mode: m.mode.as_str(),
+                needs: [pct(m.needs.hunger), pct(m.needs.fear), pct(m.needs.solitude)],
+                mem,
+                ties: m.social.len() as u16,
+            }
+        });
+        EntityView {
+            id: e.id,
+            pos: [qpos(e.position.x), qpos(e.position.y)],
+            energy: (energy_pct * 100.0).round() as u8,
+            age: (age_pct * 100.0).round() as u8,
+            hp: (e.health.clamp(0.0, 1.0) * 100.0).round() as u8,
+            hue: hue_of(&e.genome.traits) as u16,
+            state: e.last_action.as_str(),
+            lin: e.genome.lineage,
+            gen: e.genome.generation,
+            agent: e.mind.is_some(),
+            mind,
+        }
+    };
+
     if detail {
         lod = "detail";
         entities.reserve(world.entities.len());
         for e in world.entities.iter() {
-            let expected =
-                cfg.lifecycle.lifespan_ticks_mean as f32 * (0.5 + e.genome.traits.lifespan);
-            let energy_pct = (e.energy / energy_ceiling).clamp(0.0, 1.0);
-            let age_pct = (e.age_ticks as f32 / expected.max(1.0)).clamp(0.0, 1.5);
-            entities.push(EntityView {
-                id: e.id,
-                pos: [qpos(e.position.x), qpos(e.position.y)],
-                energy: (energy_pct * 100.0).round() as u8,
-                age: (age_pct * 100.0).round() as u8,
-                hue: hue_of(&e.genome.traits) as u16,
-                state: e.last_action.as_str(),
-                agent: e.mind.is_some(),
-            });
+            // Detail complet : la population tient a l'ecran, on peut tout inspecter.
+            entities.push(entity_view(e, true));
         }
     } else {
         lod = "region";
         clusters = build_clusters(world, energy_ceiling, cfg.view.cluster_grid.max(2), &hue_of);
+        // Le fond de population est resume en amas ; les agents les plus ages restent des
+        // individus, visibles et cliquables. Ce sont « les anciens », ceux dont la memoire
+        // pese le plus. Tri deterministe (age puis id). Sans le detail de l'esprit : sur une
+        // grosse population ce serait des megaoctets. Il se lit en periode moins peuplee ou
+        // dans la biographie.
+        let mut elders: Vec<&genesis_core::Entity> =
+            world.entities.iter().filter(|e| e.mind.is_some()).collect();
+        elders.sort_by(|a, b| b.age_ticks.cmp(&a.age_ticks).then(a.id.cmp(&b.id)));
+        elders.truncate(AGENT_VIEW_CAP);
+        for e in elders {
+            entities.push(entity_view(e, false));
+        }
     }
 
     // Cellules : toujours envoyees, quel que soit le LOD.
@@ -391,6 +479,7 @@ pub fn project(
             biomass_energy: world.biomass_energy(),
             lineages_alive,
             dominant_lineage_share,
+            dominant_lineage: world.dominant_lineage(),
             max_generation,
             trait_mean,
             trait_spread,
@@ -534,13 +623,15 @@ fn event_view(e: &Event) -> Option<EventView> {
         EventKind::EntityDied { entity, .. } => ("mort", vec![*entity], String::new()),
         EventKind::ReplicationFailed { parent, .. } => ("echec", vec![*parent], String::new()),
         EventKind::WorldCreated => ("genese", vec![], String::new()),
-        EventKind::LineageExtinct { lineage } => {
-            ("lignee_eteinte", vec![], format!("lignee {}", lineage))
-        }
+        EventKind::LineageExtinct { lineage } => (
+            "lignee_eteinte",
+            vec![],
+            format!("lignee {}", names::lineage_name(*lineage)),
+        ),
         EventKind::SpeciesEmerged { species, size } => (
             "espece",
             vec![],
-            format!("espece {}, {} individus", species, size),
+            format!("{}, {} individus", names::species_name(*species), size),
         ),
         EventKind::PopulationMilestone { level } => {
             ("palier", vec![], format!("{} individus", level))
