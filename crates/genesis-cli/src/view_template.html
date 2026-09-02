@@ -4,214 +4,334 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Monde w__SEED__, Nodyx Genesis</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&display=swap">
 <style>
   :root {
     color-scheme: dark;
-    --bg: #0c0e13; --panel: #141822; --ink: #e9e6df; --soft: #a29d92; --muted: #6b6a62;
-    --line: #232a35; --amber: #e0a848; --cool: #7fa0d6; --good: #6db38a; --bad: #cf7b7b;
+    --abyss:   #04060b;
+    --abyss-2: #090d16;
+    --deep:    #0c111c;
+    --glass:      rgba(11, 16, 26, 0.66);
+    --glass-solid:#0b1019;
+    --glass-line: rgba(126, 158, 214, 0.16);
+    --ink:   #e9edf7;
+    --soft:  #9aa6be;
+    --muted: #59637a;
+    --bio-cyan:   #52e6df;
+    --bio-green:  #7ef0a6;
+    --bio-blue:   #74a8ff;
+    --bio-rose:   #ff8fa0;
+    --bio-amber:  #ffcf72;
+    --bio-violet: #b9a0ff;
+    --serif: "Fraunces", "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   }
   * { box-sizing: border-box; }
+  html, body { height: 100%; }
   body {
-    margin: 0; background: var(--bg); color: var(--ink);
-    font: 14px/1.5 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-    display: flex; flex-direction: column; height: 100vh; overflow: hidden;
-  }
-  header {
-    padding: 10px 16px; border-bottom: 1px solid var(--line); flex: none;
-    display: flex; gap: 22px; align-items: baseline; flex-wrap: wrap;
-  }
-  header .title { font-weight: 600; letter-spacing: .04em; }
-  header .m { color: var(--soft); }
-  header .m b { color: var(--ink); font-weight: 600; }
-  header .sep {
-    color: var(--muted); font-size: .7rem; letter-spacing: .14em; text-transform: uppercase;
-    border-left: 1px solid var(--line); padding-left: 20px;
+    margin: 0; background: var(--abyss); color: var(--ink);
+    font: 13px/1.5 var(--mono);
+    overflow: hidden; position: relative;
   }
 
-  main { flex: 1; display: flex; min-height: 0; }
+  /* --- Scene plein cadre --- */
   .stage {
-    flex: 1; position: relative; min-width: 0; min-height: 0;
-    background: radial-gradient(120% 120% at 50% 40%, #12151d 0%, #0b0d12 70%);
+    position: absolute; inset: 0;
+    background:
+      radial-gradient(140% 120% at 50% 34%, #10151f 0%, #070a11 58%, #04060b 100%);
   }
-  canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  canvas#c { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 
-  .dna {
-    position: absolute; left: 18px; bottom: 16px; width: 178px;
-    pointer-events: none; opacity: .9; user-select: none;
+  /* vignette et grain, purement decoratifs, sous les panneaux */
+  .stage::after {
+    content: ''; position: absolute; inset: 0; pointer-events: none;
+    background: radial-gradient(120% 100% at 50% 45%, transparent 52%, rgba(0,0,0,.42) 100%);
+    mix-blend-mode: multiply;
   }
-  .dna .cap {
-    font-size: .62rem; letter-spacing: .1em; text-transform: uppercase;
-    color: var(--soft); margin-bottom: 5px;
-  }
-  .dna svg { display: block; overflow: visible; }
-  .dna .lab {
-    fill: var(--soft); font-size: 10px; font-family: inherit;
-    text-anchor: end; dominant-baseline: middle;
-    pointer-events: auto; cursor: help;
-  }
-  .dna .lv { fill: var(--muted); font-size: 9px; font-family: inherit;
-    text-anchor: start; dominant-baseline: middle; }
 
-  aside {
-    flex: none; background: var(--panel); display: flex; flex-direction: column;
-    min-height: 0; scrollbar-gutter: stable;
+  /* --- Carte identite, en haut a gauche --- */
+  .hud-id {
+    position: absolute; left: 20px; top: 18px; z-index: 6;
+    padding: 14px 18px 13px; border-radius: 14px;
+    background: var(--glass); border: 1px solid var(--glass-line);
+    backdrop-filter: blur(14px) saturate(1.2);
+    -webkit-backdrop-filter: blur(14px) saturate(1.2);
+    max-width: min(46vw, 460px);
+    transition: opacity .3s, transform .3s;
   }
-  aside.left { width: 236px; border-right: 1px solid var(--line); }
-  aside.right { width: 292px; border-left: 1px solid var(--line); }
-  .scroll { flex: 1; overflow-y: auto; min-height: 0; padding: 14px 16px; }
-  aside h2 {
-    font-size: .7rem; letter-spacing: .14em; text-transform: uppercase;
-    color: var(--muted); margin: 0 0 8px; font-weight: 600;
+  .hud-id .wname {
+    font-family: var(--serif); font-weight: 500; font-size: 1.65rem; line-height: 1.05;
+    letter-spacing: .005em; color: var(--ink);
   }
-  aside h2 + h2, .scroll h2:not(:first-child) { margin-top: 16px; }
+  .hud-id .wclock {
+    font-family: var(--serif); font-size: 1rem; color: var(--bio-cyan);
+    margin-top: 3px; letter-spacing: .02em;
+  }
+  .hud-id .wmeta { color: var(--muted); font-size: .74rem; margin-top: 6px; letter-spacing: .02em; }
+  .hud-id .wmeta b { color: var(--soft); font-weight: 500; }
+  .chips { display: flex; flex-wrap: wrap; gap: 5px 6px; margin-top: 10px; }
+  .chip {
+    font-size: .68rem; color: var(--soft); letter-spacing: .02em;
+    padding: 3px 8px; border-radius: 999px;
+    border: 1px solid var(--glass-line); background: rgba(255,255,255,.02);
+    cursor: help;
+  }
+  .chip b { color: var(--ink); font-weight: 500; }
 
-  .stat { display: flex; justify-content: space-between; gap: 10px; padding: 3px 0; }
-  .stat > span { color: var(--soft); flex: 1; min-width: 0; }
-  .stat b { font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; flex: none; min-width: 92px; }
-  .tip { cursor: help; border-bottom: 1px dotted var(--muted); }
+  /* --- Panneaux lateraux, verre sombre, repliables --- */
+  .panel {
+    position: absolute; top: 16px; bottom: 74px; z-index: 5;
+    width: 288px; display: flex; flex-direction: column;
+    background: var(--glass); border: 1px solid var(--glass-line);
+    border-radius: 14px; overflow: hidden;
+    backdrop-filter: blur(16px) saturate(1.15);
+    -webkit-backdrop-filter: blur(16px) saturate(1.15);
+    transition: transform .34s cubic-bezier(.4,.05,.2,1), opacity .34s;
+  }
+  .panel.left  { left: 20px; top: 168px; }
+  .panel.right { right: 20px; width: 300px; }
+  .panel.left.hud-hidden,  body.focus .panel.left  { transform: translateX(calc(-100% - 28px)); opacity: 0; pointer-events: none; }
+  .panel.right.hud-hidden, body.focus .panel.right { transform: translateX(calc(100% + 28px)); opacity: 0; pointer-events: none; }
+  .panel .scroll { flex: 1; overflow-y: auto; min-height: 0; padding: 16px 18px 18px; scrollbar-gutter: stable; }
+  .panel .scroll::-webkit-scrollbar { width: 8px; }
+  .panel .scroll::-webkit-scrollbar-thumb { background: rgba(126,158,214,.16); border-radius: 4px; }
 
-  #traits { margin-top: 6px; }
-  #traits .head { color: var(--muted); margin: 2px 0; }
+  h2 {
+    font-family: var(--serif); font-weight: 500; font-size: .96rem;
+    color: var(--ink); margin: 0 0 9px; letter-spacing: .01em;
+    display: flex; align-items: baseline; gap: 8px;
+  }
+  h2::after {
+    content: ''; flex: 1; height: 1px; align-self: center;
+    background: linear-gradient(90deg, var(--glass-line), transparent);
+  }
+  .scroll h2:not(:first-child) { margin-top: 20px; }
+
+  .stat { display: flex; justify-content: space-between; gap: 10px; padding: 3px 0; align-items: baseline; }
+  .stat > span { color: var(--soft); flex: 1; min-width: 0; font-size: .8rem; }
+  .stat b {
+    font-weight: 500; font-variant-numeric: tabular-nums; text-align: right;
+    flex: none; min-width: 92px; color: var(--ink);
+  }
+  .tip { cursor: help; border-bottom: 1px dotted rgba(126,158,214,.35); }
+
+  #traits { margin-top: 8px; }
+  #traits .head { color: var(--muted); margin: 2px 0 4px; font-size: .72rem; letter-spacing: .03em; }
+  .trait-row { display: flex; align-items: center; gap: 8px; padding: 2px 0; }
+  .trait-row .tn { color: var(--soft); font-size: .76rem; width: 74px; flex: none; cursor: help; }
+  .trait-row .tb { flex: 1; height: 4px; border-radius: 2px; background: rgba(126,158,214,.12); position: relative; overflow: hidden; }
+  .trait-row .tb i { position: absolute; inset: 0 auto 0 0; background: linear-gradient(90deg, var(--bio-cyan), var(--bio-violet)); border-radius: 2px; }
+  .trait-row .tv { color: var(--muted); font-size: .72rem; width: 66px; text-align: right; flex: none; font-variant-numeric: tabular-nums; }
 
   .ev {
-    padding: 2px 0; color: var(--soft); font-size: .8rem;
+    padding: 3px 0; color: var(--soft); font-size: .78rem;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    border-left: 2px solid transparent; padding-left: 9px; margin-left: -2px;
+    transition: opacity .2s;
   }
-  .ev .evk { font-weight: 600; color: var(--soft); }
-  .ev.naissance .evk { color: var(--good); }
-  .ev.division .evk { color: var(--cool); }
-  .ev.mort .evk { color: var(--bad); }
+  .ev .evt { color: var(--muted); }
+  .ev .evk { font-weight: 600; }
+  .ev.naissance      { border-color: rgba(126,240,166,.5); } .ev.naissance .evk { color: var(--bio-green); }
+  .ev.division       { border-color: rgba(116,168,255,.5); } .ev.division .evk  { color: var(--bio-blue); }
+  .ev.mort           { border-color: rgba(255,143,160,.5); } .ev.mort .evk      { color: var(--bio-rose); }
   .ev.echec .evk, .ev.perte .evk { color: var(--muted); }
   .ev.genese .evk, .ev.espece .evk, .ev.palier .evk,
-  .ev.effondrement .evk, .ev.lignee_eteinte .evk { color: var(--amber); }
+  .ev.effondrement .evk, .ev.lignee_eteinte .evk,
+  .ev.agent_eveille .evk, .ev.agent_endormi .evk { color: var(--bio-amber); }
+  .ev.genese, .ev.espece, .ev.palier, .ev.effondrement, .ev.lignee_eteinte,
+  .ev.agent_eveille, .ev.agent_endormi { border-color: rgba(255,207,114,.55); }
 
-  #chapters { margin-bottom: 4px; }
+  #chapters { margin-bottom: 2px; }
   .chap {
     display: block; width: 100%; text-align: left; border: none; background: none;
-    color: var(--soft); font: inherit; font-size: .8rem; padding: 3px 0; cursor: pointer;
+    color: var(--soft); font: inherit; font-size: .8rem; padding: 4px 0; cursor: pointer;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    transition: color .15s;
   }
-  .chap:hover { color: var(--amber); }
-  .chap b { color: var(--amber); font-weight: 600; }
+  .chap:hover { color: var(--bio-amber); }
   .chap .ct { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .chap .cd { width: 6px; height: 6px; border-radius: 50%; background: var(--bio-amber);
+    display: inline-block; margin-right: 7px; box-shadow: 0 0 6px var(--bio-amber); }
+  .empty { color: var(--muted); font-size: .8rem; }
+
+  /* --- ADN --- */
+  .dna {
+    position: absolute; left: 336px; bottom: 92px; width: 176px; z-index: 4;
+    pointer-events: none; user-select: none;
+    transition: opacity .3s, left .34s;
+  }
+  body.focus .dna { left: 24px; }
+  .dna .cap { font-size: .6rem; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin-bottom: 5px; }
+  .dna svg { display: block; overflow: visible; }
+  .dna .lab { fill: var(--soft); font-size: 10px; font-family: var(--mono); text-anchor: end; dominant-baseline: middle; pointer-events: auto; cursor: help; }
+  .dna .lv  { fill: var(--muted); font-size: 9px; font-family: var(--mono); text-anchor: start; dominant-baseline: middle; }
+
+  /* --- Transport, bandeau bas --- */
+  .transport {
+    position: absolute; left: 20px; right: 20px; bottom: 16px; z-index: 6;
+    display: flex; gap: 12px; align-items: center;
+    padding: 9px 14px; border-radius: 13px;
+    background: var(--glass); border: 1px solid var(--glass-line);
+    backdrop-filter: blur(16px) saturate(1.15);
+    -webkit-backdrop-filter: blur(16px) saturate(1.15);
+    transition: opacity .3s, transform .3s;
+  }
+  body.focus .transport { opacity: .16; }
+  body.focus .transport:hover { opacity: 1; }
+  body.focus .hud-id { opacity: 0; transform: translateY(-8px); pointer-events: none; }
+  body.focus .handle { opacity: 0; pointer-events: none; }
+
+  button, select {
+    background: rgba(255,255,255,.03); color: var(--ink);
+    border: 1px solid var(--glass-line); border-radius: 8px;
+    padding: 7px 11px; cursor: pointer; font: inherit; font-size: .78rem;
+    transition: border-color .15s, color .15s, background .15s;
+  }
+  button:hover, select:hover { border-color: rgba(82,230,223,.5); color: var(--bio-cyan); }
+  button.pill { width: 38px; padding: 7px 0; text-align: center; font-size: .9rem; }
+
+  .ribbon-wrap { flex: 1; position: relative; height: 40px; display: flex; align-items: center; }
+  canvas#ribbon { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 7px; }
+  #scrub {
+    position: absolute; left: 0; right: 0; width: 100%; margin: 0; background: none;
+    accent-color: var(--bio-cyan); height: 40px; cursor: pointer;
+    -webkit-appearance: none; appearance: none;
+  }
+  #scrub::-webkit-slider-runnable-track { background: none; height: 40px; }
+  #scrub::-moz-range-track { background: none; height: 40px; }
+  #scrub::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none; width: 14px; height: 40px;
+    background: rgba(233,237,247,.12); border: none; border-radius: 3px; cursor: ew-resize;
+  }
+  #scrub::-moz-range-thumb { width: 14px; height: 40px; background: rgba(233,237,247,.12); border: none; border-radius: 3px; cursor: ew-resize; }
+  .marks { position: absolute; left: 0; right: 0; top: 0; height: 100%; pointer-events: none; }
+  .mark {
+    position: absolute; top: 0; width: 8px; height: 100%; margin-left: -4px;
+    pointer-events: auto; cursor: pointer;
+  }
+  .mark::before {
+    content: ''; position: absolute; left: 3px; top: 4px; width: 2px; height: 8px;
+    background: var(--bio-amber); box-shadow: 0 0 6px var(--bio-amber);
+  }
+  .tk { color: var(--soft); font-variant-numeric: tabular-nums; min-width: 132px; font-size: .74rem; }
+
+  /* --- poignees de repli --- */
+  .handle {
+    position: absolute; z-index: 6; top: 50%; transform: translateY(-50%);
+    width: 22px; height: 62px; border-radius: 8px;
+    background: var(--glass); border: 1px solid var(--glass-line);
+    backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+    color: var(--soft); cursor: pointer; display: flex; align-items: center; justify-content: center;
+    font-size: .8rem; padding: 0; transition: opacity .3s, color .15s, border-color .15s;
+  }
+  .handle:hover { color: var(--bio-cyan); border-color: rgba(82,230,223,.5); }
+  .handle.left  { left: 20px; }
+  .handle.right { right: 20px; }
 
   #tooltip {
-    position: fixed; left: 0; top: 0; z-index: 50; max-width: 268px;
-    padding: 9px 11px; background: #1b212e; color: var(--ink);
-    border: 1px solid var(--line); border-radius: 7px;
-    font-size: .76rem; line-height: 1.5; white-space: normal;
-    box-shadow: 0 8px 22px rgba(0,0,0,.45);
-    pointer-events: none; opacity: 0; transition: opacity .1s;
+    position: fixed; left: 0; top: 0; z-index: 50; max-width: 264px;
+    padding: 9px 12px; background: var(--glass-solid); color: var(--ink);
+    border: 1px solid var(--glass-line); border-radius: 9px;
+    font-size: .74rem; line-height: 1.5; white-space: normal;
+    box-shadow: 0 10px 30px rgba(0,0,0,.5);
+    pointer-events: none; opacity: 0; transition: opacity .12s;
   }
   #tooltip.on { opacity: 1; }
 
-  footer {
-    padding: 10px 16px; border-top: 1px solid var(--line); flex: none;
-    display: flex; gap: 14px; align-items: center;
+  @media (max-width: 900px) {
+    .panel { display: none; }
+    .hud-id { max-width: 70vw; }
   }
-  button {
-    background: var(--panel); color: var(--ink); border: 1px solid var(--line);
-    border-radius: 6px; padding: 6px 12px; cursor: pointer; font: inherit;
-  }
-  button:hover { border-color: var(--amber); color: var(--amber); }
-  .scrubwrap { flex: 1; position: relative; display: flex; align-items: center; }
-  .scrubwrap input[type=range] { flex: 1; accent-color: var(--amber); }
-  .marks { position: absolute; left: 0; right: 0; top: -3px; height: 8px; pointer-events: none; }
-  .mark {
-    position: absolute; width: 2px; height: 8px; margin-left: -1px;
-    background: var(--amber); pointer-events: auto; cursor: pointer;
-  }
-  .mark::after { content: ''; position: absolute; left: -4px; right: -4px; top: -4px; bottom: -4px; }
-  .tk { color: var(--soft); font-variant-numeric: tabular-nums; min-width: 150px; }
-  select { background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 5px; font: inherit; }
 </style>
 </head>
 <body>
-<header>
-  <span class="title">Monde w__SEED__</span>
-  <span class="m">graine <b>__SEED__</b></span>
-  <span class="m">moteur <b>__ENGINE__</b></span>
-  <span class="m">grille <b>__GW__ x __GH__</b></span>
-  <span class="m">1 tick = <b>__TSEC__ s</b> monde</span>
-  <span class="sep">planete</span>
-  <span class="m tip" data-tip="Temperature moyenne de l'environnement. En 0.0.1 elle est affichee ; plus tard elle modulera le metabolisme (froid ou chaud coutent plus d'energie).">temperature <b>__TEMP__ C</b></span>
-  <span class="m tip" data-tip="Le milieu dans lequel baigne la vie. Plus tard il changera ce qui est comestible et l'efficacite du metabolisme.">milieu <b>__MEDIUM__</b></span>
-  <span class="m tip" data-tip="Gravite en multiples de celle de la Terre. Plus tard : cout de deplacement, taille corporelle maximale.">gravite <b>__GRAV__ g</b></span>
-  <span class="m tip" data-tip="Pression en atmospheres. Plus tard : efficacite du metabolisme, intensite de la meteo.">pression <b>__PRESS__ atm</b></span>
-</header>
-<main>
-  <aside class="left">
-    <div class="scroll">
-      <h2>Chapitres</h2>
-      <div id="chapters"></div>
-      <h2>Evenements</h2>
-      <div class="feed" id="feed"></div>
-    </div>
-  </aside>
 
-  <div class="stage">
-    <canvas id="c"></canvas>
-    <div class="dna">
-      <div class="cap">ADN, espece dominante</div>
-      <svg id="dna-svg" width="178" height="286" viewBox="0 0 178 286"></svg>
-    </div>
+<div class="stage">
+  <canvas id="c"></canvas>
+  <div class="dna">
+    <div class="cap">ADN, espece dominante</div>
+    <svg id="dna-svg" width="176" height="286" viewBox="0 0 176 286"></svg>
   </div>
+</div>
 
-  <aside class="right">
-    <div class="scroll">
-      <h2>Monde</h2>
-      <div class="stat"><span class="tip" data-tip="Le temps du monde. 1 tick vaut 1 heure-monde. La simulation avance par ticks, tous de duree fixe.">tick</span><b id="s-tick">0</b></div>
-      <div class="stat"><span class="tip" data-tip="La date dans le monde, comptee depuis sa creation : annee, jour de l'annee, heure.">date</span><b id="s-date">an 0</b></div>
+<div class="hud-id">
+  <div class="wname">Monde w__SEED__</div>
+  <div class="wclock" id="s-date">an 0</div>
+  <div class="wmeta">graine <b>__SEED__</b> &nbsp;/&nbsp; moteur <b>__ENGINE__</b> &nbsp;/&nbsp; grille <b>__GW__x__GH__</b> &nbsp;/&nbsp; tick <b id="s-tick">0</b> &nbsp;/&nbsp; 1 tick = <b>__TSEC__ s</b></div>
+  <div class="chips">
+    <span class="chip tip" data-tip="Temperature moyenne de l'environnement. En 0.0.1 elle est affichee ; plus tard elle modulera le metabolisme.">temperature <b>__TEMP__ C</b></span>
+    <span class="chip tip" data-tip="Le milieu dans lequel baigne la vie. Plus tard il changera ce qui est comestible et l'efficacite du metabolisme.">milieu <b>__MEDIUM__</b></span>
+    <span class="chip tip" data-tip="Gravite en multiples de celle de la Terre. Plus tard : cout de deplacement, taille corporelle maximale.">gravite <b>__GRAV__ g</b></span>
+    <span class="chip tip" data-tip="Pression en atmospheres. Plus tard : efficacite du metabolisme, intensite de la meteo.">pression <b>__PRESS__ atm</b></span>
+  </div>
+</div>
 
-      <h2>Population</h2>
-      <div class="stat"><span class="tip" data-tip="Nombre d'entites en vie a cet instant.">vivantes</span><b id="s-pop">0</b></div>
-      <div class="stat"><span class="tip" data-tip="Total des naissances depuis le debut du monde. Une naissance = une division reussie.">naissances</span><b id="s-births">0</b></div>
-      <div class="stat"><span class="tip" data-tip="Morts par manque d'energie, puis morts de vieillesse. Cumul depuis le debut. Au stade molecule, presque tout le monde meurt de faim.">morts (famine / age)</span><b id="s-deaths">0</b></div>
-      <div class="stat"><span class="tip" data-tip="Age moyen des entites vivantes, en ticks. A comparer a la longevite du genome (environ 20 000 ticks).">age moyen</span><b id="s-age">0</b></div>
-      <div class="stat"><span class="tip" data-tip="Reserve d'energie moyenne des entites, en pourcentage du maximum qu'une entite peut stocker. Bas = population qui a faim.">energie moyenne</span><b id="s-energy">0</b></div>
-      <div class="stat"><span class="tip" data-tip="Somme de l'energie portee par toutes les entites vivantes. Une mesure de la matiere vivante totale du monde.">biomasse (energie)</span><b id="s-bio">0</b></div>
-      <div class="stat"><span class="tip" data-tip="Nombre de cases de la grille ou se trouve au moins une entite. Mesure l'etendue geographique occupee.">cases occupees</span><b id="s-occ">0</b></div>
+<button class="handle left"  id="h-left"  title="chronique">&#8249;</button>
+<button class="handle right" id="h-right" title="mesures">&#8250;</button>
 
-      <h2>Genome et lignees</h2>
-      <div class="stat"><span class="tip" data-tip="Ecart moyen entre les genomes de deux entites prises au hasard. 0 = des clones, plus haut = une population variee. Monte avec les mutations.">diversite genetique</span><b id="s-div">0</b></div>
-      <div class="stat"><span class="tip" data-tip="Combien des lignees de depart (une par fondateur, il y en a 2) ont encore des descendants vivants.">lignees vivantes</span><b id="s-lin">0</b></div>
-      <div class="stat"><span class="tip" data-tip="Part de la population qui descend de la lignee la plus repandue. 100 % = une seule lignee a survecu.">part de la dominante</span><b id="s-dom">0</b></div>
-      <div class="stat"><span class="tip" data-tip="Le plus grand nombre de divisions successives depuis un fondateur. La profondeur de l'arbre genealogique.">generation max</span><b id="s-gen">0</b></div>
-      <div id="traits"></div>
+<aside class="panel left" id="panel-left">
+  <div class="scroll">
+    <h2>Chronique</h2>
+    <div id="chapters"></div>
+    <h2>Fil</h2>
+    <div id="feed"></div>
+  </div>
+</aside>
 
-      <h2>Milieu</h2>
-      <div class="stat"><span class="tip" data-tip="Somme de toute la nourriture disponible sur la grille a cet instant.">ressource totale</span><b id="s-res">0</b></div>
-      <div class="stat"><span class="tip" data-tip="Nourriture moyenne par case. Baisse quand la population mange plus vite que le sol ne regenere.">ressource moyenne / case</span><b id="s-resm">0</b></div>
-      <div class="stat"><span class="tip" data-tip="Pourcentage des cases fertiles tombees sous 10 % de leur capacite. Un signe de surexploitation locale.">cases epuisees</span><b id="s-depl">0</b></div>
-      <div class="stat"><span class="tip" data-tip="Fatigue moyenne du sol. Monte quand on recolte trop vite une case, se resorbe lentement, et freine la repousse pendant ce temps. C'est par la qu'un boom degrade son propre milieu.">surexploitation moyenne</span><b id="s-strain">0</b></div>
+<aside class="panel right" id="panel-right">
+  <div class="scroll">
+    <h2>Vie</h2>
+    <div class="stat"><span class="tip" data-tip="Nombre d'entites en vie a cet instant.">vivantes</span><b id="s-pop">0</b></div>
+    <div class="stat"><span class="tip" data-tip="Total des naissances depuis le debut du monde. Une naissance = une division reussie.">naissances</span><b id="s-births">0</b></div>
+    <div class="stat"><span class="tip" data-tip="Morts par manque d'energie, puis morts de vieillesse. Cumul depuis le debut.">morts (famine / age)</span><b id="s-deaths">0</b></div>
+    <div class="stat"><span class="tip" data-tip="Age moyen des entites vivantes, en ticks. A comparer a la longevite du genome (environ 20 000 ticks).">age moyen</span><b id="s-age">0</b></div>
+    <div class="stat"><span class="tip" data-tip="Reserve d'energie moyenne des entites, en pourcentage du maximum. Bas = population qui a faim.">energie moyenne</span><b id="s-energy">0</b></div>
+    <div class="stat"><span class="tip" data-tip="Somme de l'energie portee par toutes les entites vivantes. La matiere vivante totale du monde.">biomasse</span><b id="s-bio">0</b></div>
+    <div class="stat"><span class="tip" data-tip="Nombre de cases de la grille ou se trouve au moins une entite.">cases occupees</span><b id="s-occ">0</b></div>
 
-      <h2>Matiere</h2>
-      <div class="stat"><span class="tip" data-tip="Plafond de population que la matiere structurelle du monde permet. Un corps immobilise une part de cette matiere ; une division en prend, une mort en rend. Distinct de l'energie (le carburant).">capacite de charge</span><b id="s-cap">0</b></div>
-      <div class="stat"><span class="tip" data-tip="Matiere structurelle non encore immobilisee dans un corps. Basse quand la population approche la capacite de charge : la division cale alors, jusqu'a ce qu'une mort libere de la matiere.">matiere libre</span><b id="s-mfree">0</b></div>
-      <div class="stat"><span class="tip" data-tip="Part de la matiere totale immobilisee dans les corps vivants. Proche de 100 % au plateau : c'est la matiere qui limite la population, pas l'energie.">matiere immobilisee</span><b id="s-mlock">0</b></div>
-      <div class="stat"><span class="tip" data-tip="Nombre cumule de divisions par ailleurs pretes qui ont cale faute de matiere libre. Grimpe vite au plateau : le signe que la capacite de charge est atteinte.">divisions calees (materiaux)</span><b id="s-mblk">0</b></div>
+    <h2>Genome</h2>
+    <div class="stat"><span class="tip" data-tip="Ecart moyen entre les genomes de deux entites au hasard. 0 = des clones, plus haut = une population variee.">diversite genetique</span><b id="s-div">0</b></div>
+    <div class="stat"><span class="tip" data-tip="Combien des lignees de depart (une par fondateur) ont encore des descendants vivants.">lignees vivantes</span><b id="s-lin">0</b></div>
+    <div class="stat"><span class="tip" data-tip="Part de la population qui descend de la lignee la plus repandue.">part de la dominante</span><b id="s-dom">0</b></div>
+    <div class="stat"><span class="tip" data-tip="Le plus grand nombre de divisions successives depuis un fondateur. La profondeur de l'arbre genealogique.">generation max</span><b id="s-gen">0</b></div>
+    <div id="traits"></div>
 
-      <h2>Cellules</h2>
-      <div class="stat"><span class="tip" data-tip="Amas coherents de parents reconnus comme unites. Une cellule se forme quand un groupe d'entites proches, genetiquement parentes et cohesives tient plusieurs controles. Etape 1 : les membres sont encore simules un a un.">cellules vivantes</span><b id="s-cells">0</b></div>
-      <div class="stat"><span class="tip" data-tip="Nombre d'entites actuellement membres d'une cellule. Etre en cellule apporte le partage d'energie (tampon contre la famine) et une reproduction protegee.">entites en cellule</span><b id="s-cellent">0</b></div>
-      <div class="stat"><span class="tip" data-tip="Effectif moyen d'une cellule.">taille moyenne</span><b id="s-cellsize">0</b></div>
-      <div class="stat"><span class="tip" data-tip="Cellules formees puis dissoutes depuis le debut. Une bascule reversible : une cellule qui se disperse ou perd ses membres se dissout.">formees / dissoutes</span><b id="s-cellfd">0 / 0</b></div>
+    <h2>Milieu</h2>
+    <div class="stat"><span class="tip" data-tip="Somme de toute la nourriture disponible sur la grille a cet instant.">ressource totale</span><b id="s-res">0</b></div>
+    <div class="stat"><span class="tip" data-tip="Nourriture moyenne par case. Baisse quand la population mange plus vite que le sol ne regenere.">ressource / case</span><b id="s-resm">0</b></div>
+    <div class="stat"><span class="tip" data-tip="Pourcentage des cases fertiles tombees sous 10 % de leur capacite. Un signe de surexploitation locale.">cases epuisees</span><b id="s-depl">0</b></div>
+    <div class="stat"><span class="tip" data-tip="Fatigue moyenne du sol. Monte quand on recolte trop vite une case, se resorbe lentement, et freine la repousse.">surexploitation</span><b id="s-strain">0</b></div>
 
-      <h2>Agents</h2>
-      <div class="stat"><span class="tip" data-tip="Entites eveillees : elles percoivent assez bien et ont assez vecu pour porter une memoire episodique. Un agent evite les lieux ou il a failli mourir et revient aux lieux ou il a bien mange. Reversible : un agent sans souvenir depuis longtemps retombe entite de fond. Marques d'un anneau sur la scene.">agents vivants</span><b id="s-agents">0</b></div>
-      <div class="stat"><span class="tip" data-tip="Nombre moyen de souvenirs episodiques que portent les agents. Chaque souvenir est un lieu, une valence (peril ou aubaine) et une force qui decroit avec le temps.">souvenirs (moyenne)</span><b id="s-agmem">0</b></div>
-    </div>
-  </aside>
-</main>
-<footer>
-  <button id="play">lecture</button>
-  <button id="restart">rejouer</button>
-  <div class="scrubwrap">
+    <h2>Matiere</h2>
+    <div class="stat"><span class="tip" data-tip="Plafond de population que la matiere structurelle du monde permet. Distinct de l'energie (le carburant).">capacite de charge</span><b id="s-cap">0</b></div>
+    <div class="stat"><span class="tip" data-tip="Matiere structurelle non encore immobilisee dans un corps.">matiere libre</span><b id="s-mfree">0</b></div>
+    <div class="stat"><span class="tip" data-tip="Part de la matiere totale immobilisee dans les corps vivants. Proche de 100 % au plateau.">matiere immobilisee</span><b id="s-mlock">0</b></div>
+    <div class="stat"><span class="tip" data-tip="Nombre cumule de divisions pretes qui ont cale faute de matiere libre.">divisions calees</span><b id="s-mblk">0</b></div>
+
+    <h2>Cellules</h2>
+    <div class="stat"><span class="tip" data-tip="Amas coherents de parents reconnus comme unites. Etape 1 : les membres sont encore simules un a un.">cellules vivantes</span><b id="s-cells">0</b></div>
+    <div class="stat"><span class="tip" data-tip="Nombre d'entites actuellement membres d'une cellule. Etre en cellule apporte le partage d'energie.">entites en cellule</span><b id="s-cellent">0</b></div>
+    <div class="stat"><span class="tip" data-tip="Effectif moyen d'une cellule.">taille moyenne</span><b id="s-cellsize">0</b></div>
+    <div class="stat"><span class="tip" data-tip="Cellules formees puis dissoutes depuis le debut. Une bascule reversible.">formees / dissoutes</span><b id="s-cellfd">0 / 0</b></div>
+
+    <h2>Agents</h2>
+    <div class="stat"><span class="tip" data-tip="Entites eveillees : elles portent une memoire episodique. Un agent evite les lieux ou il a failli mourir. Anneau violet sur la scene.">agents vivants</span><b id="s-agents">0</b></div>
+    <div class="stat"><span class="tip" data-tip="Nombre moyen de souvenirs episodiques que portent les agents.">souvenirs (moyenne)</span><b id="s-agmem">0</b></div>
+  </div>
+</aside>
+
+<div class="transport">
+  <button class="pill" id="play" title="lecture / pause">&#9654;</button>
+  <button class="pill" id="restart" title="rejouer depuis le debut">&#8635;</button>
+  <div class="ribbon-wrap">
+    <canvas id="ribbon"></canvas>
     <input type="range" id="scrub" min="0" value="0" step="1">
     <div class="marks" id="marks"></div>
   </div>
   <span class="tk" id="frameinfo">frame 0</span>
-  <select id="layer" title="couche affichee sous les entites">
+  <select id="layer" title="couche affichee sous la vie">
     <option value="ressource" selected>ressource</option>
     <option value="fertilite">fertilite du sol</option>
     <option value="surexploitation">surexploitation</option>
@@ -225,18 +345,17 @@
     <option value="8">8x</option>
     <option value="16">16x</option>
   </select>
-</footer>
+  <button id="focus" title="masquer les panneaux (touche F)">plein monde</button>
+</div>
+
 <div id="tooltip"></div>
 
 <script id="d-terrain" type="application/json">__TERRAIN__</script>
 <script id="d-meta" type="application/json">__META__</script>
 <script id="d-frames" type="application/json">__FRAMES__</script>
 <script>
-// Donnees dans des balises JSON dediees : JSON.parse est bien plus rapide que laisser le
-// moteur JS analyser un enorme litteral de tableau.
 const META = JSON.parse(document.getElementById('d-meta').textContent);
 const FRAMES = JSON.parse(document.getElementById('d-frames').textContent);
-// La fertilite du sol ne change jamais : envoyee une seule fois, pas a chaque frame.
 const TERRAIN = JSON.parse(document.getElementById('d-terrain').textContent) || [];
 
 const cv = document.getElementById('c');
@@ -246,60 +365,64 @@ const DPR = Math.min(window.devicePixelRatio || 1, 2);
 const scrub = document.getElementById('scrub');
 scrub.max = Math.max(0, FRAMES.length - 1);
 
-// Position de lecture en flottant : le rendu tourne a 60 img/s et interpole entre frames.
 let pos = 0, playing = false, speed = 1, lastTs = 0;
 let layer = 'ressource';
+let dirtyUntil = 0;
+function requestDraw(ms) { dirtyUntil = performance.now() + (ms || 900); }
 
-// Cadence : nombre de frames de donnees par seconde reelle a 1x. Volontairement lent, la
-// periode molecule est breve en temps-monde.
+// Cadence : frames de donnees par seconde reelle a 1x. La periode molecule est breve.
 const BASE_FPS = 5;
+const PS = 4; // positions en quarts de case (genesis-view::POS_SCALE)
 
-const stateColor = { forage: null, eat: '#e0a848', divide: '#7fa0d6', dying: '#cf7b7b' };
-// Les positions arrivent en quarts de case (genesis-view::POS_SCALE), l'energie en pourcents.
-const PS = 4;
-
-// nom court et explication de chaque trait du genome, dans l'ordre du tableau.
 const TRAITS = [
-  ['metabolisme', "Energie brulee a chaque tick, juste pour rester en vie. Haut = gourmand, il faut manger souvent."],
-  ['vitesse', "Distance parcourue par tick vers une cible. Haut = se deplace vite, mais bouger coute de l'energie."],
-  ['perception', "Rayon de detection de la nourriture autour de l'entite. Haut = voit loin, trouve les bonnes cases plus vite."],
-  ['efficacite', "Part de la nourriture d'une case reellement convertie en energie. Haut = tire plus de chaque bouchee."],
-  ['fertilite', "Rythme de replication. Haut = gestation courte, se redivise vite apres une division."],
-  ['longevite', "Age auquel la probabilite de mourir de vieillesse commence a monter. Haut = vit plus longtemps."],
-  ['cohesion', "Tendance a s'agreger. Haut = l'entite se colle a ses voisins genetiquement proches et forme des colonies. Une colonie protege la reproduction."],
-  ['prudence', "Personnalite (0.0.3), heritee. Haut = un agent evite plus fort les lieux de sa memoire ou il a frole la mort ou vu mourir un des siens."],
-  ['curiosite', "Personnalite (0.0.3), heritee. Haut = un agent est plus attire par ses souvenirs de lieux d'abondance et explore davantage."],
+  ['metabolisme', "Energie brulee a chaque tick, juste pour rester en vie. Haut = gourmand."],
+  ['vitesse', "Distance parcourue par tick vers une cible. Haut = se deplace vite, mais bouger coute."],
+  ['perception', "Rayon de detection de la nourriture. Haut = voit loin, trouve les bonnes cases plus vite."],
+  ['efficacite', "Part de la nourriture d'une case convertie en energie. Haut = tire plus de chaque bouchee."],
+  ['fertilite', "Rythme de replication. Haut = gestation courte, se redivise vite."],
+  ['longevite', "Age auquel la mort de vieillesse commence a monter. Haut = vit plus longtemps."],
+  ['cohesion', "Tendance a s'agreger avec ses proches parents et a former des colonies."],
+  ['prudence', "Personnalite heritee. Haut = un agent evite plus fort les lieux ou il a frole la mort."],
+  ['curiosite', "Personnalite heritee. Haut = un agent est plus attire par ses souvenirs d'abondance."],
 ];
 
-function set(id, val) { document.getElementById(id).textContent = val; }
+function set(id, val) { const el = document.getElementById(id); if (el) el.textContent = val; }
 
-// --- DOM persistant : on cree les lignes une fois, on ne met a jour que le texte. -------
+// --- Couleur bioluminescente : la teinte de lignee, tiree vers le cyan pour l'harmonie. ---
+function bioColor(hue, light, alpha) {
+  let d = ((hue - 188) % 360 + 540) % 360 - 180;   // ecart signe au cyan
+  const h = 188 + d * 0.62;
+  return 'hsla(' + h.toFixed(0) + ', 78%, ' + light + '%, ' + alpha + ')';
+}
 
-const traitVals = [];
+// --- Panneau traits : barres, DOM cree une fois. ---
+const traitBars = [];
 (function () {
   const host = document.getElementById('traits');
   const head = document.createElement('div');
   head.className = 'head';
-  head.textContent = 'traits : moyenne +/- ecart-type';
+  head.textContent = 'traits, moyenne sur la population';
   host.appendChild(head);
   for (let k = 0; k < TRAITS.length; k++) {
     const row = document.createElement('div');
-    row.className = 'stat';
-    row.style.padding = '1px 0';
-    const lab = document.createElement('span');
-    lab.className = 'tip';
-    lab.setAttribute('data-tip', TRAITS[k][1]);
-    lab.textContent = TRAITS[k][0];
-    const val = document.createElement('b');
-    row.appendChild(lab);
-    row.appendChild(val);
+    row.className = 'trait-row';
+    const tn = document.createElement('span');
+    tn.className = 'tn tip';
+    tn.setAttribute('data-tip', TRAITS[k][1]);
+    tn.textContent = TRAITS[k][0];
+    const tb = document.createElement('span');
+    tb.className = 'tb';
+    const fill = document.createElement('i');
+    tb.appendChild(fill);
+    const tv = document.createElement('span');
+    tv.className = 'tv';
+    row.appendChild(tn); row.appendChild(tb); row.appendChild(tv);
     host.appendChild(row);
-    traitVals.push(val);
+    traitBars.push({ fill: fill, tv: tv });
   }
 })();
 
 const FEED_ROWS = 40;
-// Nombre de frames dont on garde les evenements dans le journal roulant.
 const EVENT_WINDOW = 24;
 const feedRows = [];
 (function () {
@@ -307,23 +430,17 @@ const feedRows = [];
   for (let k = 0; k < FEED_ROWS; k++) {
     const el = document.createElement('div');
     el.className = 'ev';
-    const t = document.createElement('span');
-    const kk = document.createElement('b');
-    kk.className = 'evk';
+    const t = document.createElement('span'); t.className = 'evt';
+    const kk = document.createElement('b'); kk.className = 'evk';
     const s = document.createElement('span');
-    el.appendChild(t);
-    el.appendChild(document.createTextNode('  '));
-    el.appendChild(kk);
-    el.appendChild(document.createTextNode('  '));
-    el.appendChild(s);
+    el.appendChild(t); el.appendChild(document.createTextNode(' ')); el.appendChild(kk);
+    el.appendChild(document.createTextNode('  ')); el.appendChild(s);
     host.appendChild(el);
     feedRows.push({ el: el, t: t, k: kk, s: s });
   }
 })();
 
-// --- Brin d'ADN : les 9 traits quantifies (0..3) de l'espece dominante, en double helice
-//     qui se tord lentement. DOM cree une fois, on n'anime que les attributs.
-
+// --- Brin d'ADN : les 9 traits quantifies de l'espece dominante, double helice. ---
 const NS = 'http://www.w3.org/2000/svg';
 const DNA_LABELS = ['metab', 'vites', 'perce', 'effic', 'ferti', 'longe', 'cohes', 'prude', 'curio'];
 const dnaRungs = [];
@@ -332,14 +449,14 @@ let dnaTwist = 0;
 (function () {
   const svg = document.getElementById('dna-svg');
   const n = TRAITS.length;
-  const pad = 14, labX = 62, cx = 118, amp = 27;
+  const pad = 14, labX = 60, cx = 116, amp = 27;
   const step = (286 - 2 * pad) / (n - 1);
   for (let i = 0; i < n; i++) {
     const y = pad + i * step;
     const lab = document.createElementNS(NS, 'text');
     lab.setAttribute('class', 'lab'); lab.setAttribute('x', labX); lab.setAttribute('y', y);
     lab.setAttribute('data-tip', TRAITS[i][0] + ' : ' + TRAITS[i][1]);
-    lab.textContent = DNA_LABELS[i] || TRAITS[i][0].slice(0, 5);
+    lab.textContent = DNA_LABELS[i];
     const line = document.createElementNS(NS, 'line');
     line.setAttribute('y1', y); line.setAttribute('y2', y);
     line.setAttribute('stroke-linecap', 'round');
@@ -348,7 +465,7 @@ let dnaTwist = 0;
     const lv = document.createElementNS(NS, 'text');
     lv.setAttribute('class', 'lv'); lv.setAttribute('x', cx + amp + 12); lv.setAttribute('y', y);
     svg.appendChild(lab); svg.appendChild(line); svg.appendChild(cl); svg.appendChild(cr); svg.appendChild(lv);
-    dnaRungs.push({ line, cl, cr, lv, y, cx, amp });
+    dnaRungs.push({ line: line, cl: cl, cr: cr, lv: lv, y: y, cx: cx, amp: amp });
   }
 })();
 
@@ -358,9 +475,9 @@ function drawDna() {
     const ang = i * 0.62 + dnaTwist;
     const lx = r.cx + Math.sin(ang) * r.amp;
     const rx = r.cx - Math.sin(ang) * r.amp;
-    const depth = (Math.cos(ang) + 1) / 2;        // 0 derriere, 1 devant
-    const lvl = dnaLevels[i];                       // 0..3
-    const col = 'rgba(77, 238, 234, ' + (0.2 + (lvl / 3) * 0.8).toFixed(2) + ')';
+    const depth = (Math.cos(ang) + 1) / 2;
+    const lvl = dnaLevels[i];
+    const col = 'rgba(82, 230, 223, ' + (0.2 + (lvl / 3) * 0.8).toFixed(2) + ')';
     r.line.setAttribute('x1', lx.toFixed(1)); r.line.setAttribute('x2', rx.toFixed(1));
     r.line.setAttribute('stroke', col);
     r.line.setAttribute('stroke-width', (0.6 + lvl).toFixed(1));
@@ -373,8 +490,7 @@ function drawDna() {
   }
 }
 
-// --- Chapitres : evenements saillants, un marqueur sur la frise et une liste cliquable. -
-
+// --- Chapitres : evenements saillants. ---
 const CHAPTER_MIN_SALIENCE = 150;
 const maxTick = FRAMES.length ? FRAMES[FRAMES.length - 1].tick : 1;
 
@@ -404,17 +520,16 @@ const CHAPTERS = [];
       const key = e.tick + ':' + e.kind + ':' + (e.note || '');
       if (seen[key]) continue;
       seen[key] = 1;
-      CHAPTERS.push({ tick: e.tick, frame: i, label: chapterLabel(e) });
+      CHAPTERS.push({ tick: e.tick, frame: i, label: chapterLabel(e), kind: e.kind });
     }
   }
 })();
 
 function jumpToFrame(i) {
-  pos = i;
-  playing = false;
-  lastTs = 0;
-  set('play', 'lecture');
+  pos = i; playing = false; lastTs = 0;
+  setPlayIcon();
   scrub.value = Math.round(pos);
+  requestDraw(1600);
   draw(pos);
 }
 
@@ -422,16 +537,14 @@ function jumpToFrame(i) {
   const list = document.getElementById('chapters');
   const marks = document.getElementById('marks');
   if (!CHAPTERS.length) {
-    list.textContent = 'aucun pour l\'instant';
-    list.style.color = 'var(--muted)';
-    list.style.fontSize = '.8rem';
+    list.innerHTML = '<div class="empty">rien de saillant pour l\'instant</div>';
     return;
   }
   for (let i = 0; i < CHAPTERS.length; i++) {
     const ch = CHAPTERS[i];
     const b = document.createElement('button');
     b.className = 'chap';
-    b.innerHTML = '<span class="ct">' + ch.tick.toLocaleString('fr') + '</span>  ' + ch.label;
+    b.innerHTML = '<span class="cd"></span><span class="ct">' + ch.tick.toLocaleString('fr') + '</span>  ' + ch.label;
     b.addEventListener('click', function () { jumpToFrame(ch.frame); });
     list.appendChild(b);
 
@@ -444,8 +557,7 @@ function jumpToFrame(i) {
   }
 })();
 
-// --- Champ (grille) rendu par image hors ecran plutot que des milliers de fillRect. ----
-
+// --- Champ (grille) : images hors ecran, lissees a l'agrandissement pour un rendu doux. ---
 let terrainOff, fieldOff, fieldCtx, fieldW = 1, fieldH = 1;
 let fieldFrame = -1, fieldLayer = null;
 
@@ -460,10 +572,12 @@ function buildOffscreen() {
   const img = tctx.createImageData(fieldW, fieldH);
   for (let idx = 0; idx < fieldW * fieldH; idx++) {
     const fert = (TERRAIN[idx] || 0) / 255;
-    img.data[idx * 4] = 70;
-    img.data[idx * 4 + 1] = 84;
-    img.data[idx * 4 + 2] = 66;
-    img.data[idx * 4 + 3] = Math.round((0.06 + fert * 0.20) * 255);
+    const g = Math.pow(fert, 1.4);
+    // relief lumineux du sol : cyan-teal tres doux
+    img.data[idx * 4]     = 30 + g * 40;
+    img.data[idx * 4 + 1] = 70 + g * 120;
+    img.data[idx * 4 + 2] = 90 + g * 110;
+    img.data[idx * 4 + 3] = Math.round((0.05 + g * 0.28) * 255);
   }
   tctx.putImageData(img, 0, 0);
 
@@ -479,15 +593,15 @@ function repaintField(A) {
     let R = 0, G = 0, B = 0, a = 0;
     if (layer === 'ressource') {
       const v = rv.cells[idx] / 255;
-      if (v > 0.02) { R = 150; G = 190; B = 110; a = v * 0.30; }
+      if (v > 0.02) { R = 90; G = 230; B = 150; a = Math.pow(v, 0.9) * 0.34; }
     } else if (layer === 'fertilite') {
       const v = (TERRAIN[idx] || 0) / 255;
-      if (v > 0.02) { R = 120; G = 170; B = 130; a = v * 0.40; }
+      if (v > 0.02) { R = 82; G = 220; B = 210; a = v * 0.42; }
     } else {
       const v = rv.strain[idx] / 255;
-      if (v > 0.01) { R = 207; G = 123; B = 123; a = Math.min(v * 2, 1) * 0.5; }
+      if (v > 0.01) { R = 255; G = 130; B = 140; a = Math.min(v * 2, 1) * 0.5; }
     }
-    img.data[idx * 4] = R;
+    img.data[idx * 4]     = R;
     img.data[idx * 4 + 1] = G;
     img.data[idx * 4 + 2] = B;
     img.data[idx * 4 + 3] = Math.round(a * 255);
@@ -495,119 +609,222 @@ function repaintField(A) {
   fieldCtx.putImageData(img, 0, 0);
 }
 
-// --- Rendu -----------------------------------------------------------------------------
+// --- Moments : effets transitoires, la vie qui se voit. ---
+const fx = [];
+function spawnFx(o) {
+  o.t0 = performance.now();
+  fx.push(o);
+  if (fx.length > 200) fx.splice(0, fx.length - 200);
+}
+function easeOut(x) { return 1 - Math.pow(1 - x, 3); }
 
-let vw = 1, vh = 1;
+function drawFx(nowMs) {
+  for (let k = fx.length - 1; k >= 0; k--) {
+    const e = fx[k];
+    const p = (nowMs - e.t0) / e.dur;
+    if (p >= 1) { fx.splice(k, 1); continue; }
+    const x = geoOx + e.x * geoS, y = geoOy + e.y * geoS;
+    const eo = easeOut(p);
+    if (e.type === 'birth') {
+      const r = (2 + eo * 16) * geoScale();
+      ctx.globalAlpha = (1 - p) * 0.9;
+      ctx.strokeStyle = 'rgba(126,240,166,0.9)';
+      ctx.lineWidth = 1.6; ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.stroke();
+      ctx.globalAlpha = (1 - p) * 0.5;
+      ctx.fillStyle = 'rgba(126,240,166,0.8)';
+      ctx.beginPath(); ctx.arc(x, y, 2.4 * geoScale(), 0, 6.2832); ctx.fill();
+    } else if (e.type === 'death') {
+      const r = (7 - eo * 6) * geoScale();
+      ctx.globalAlpha = (1 - p) * 0.8;
+      ctx.fillStyle = 'rgba(255,143,160,0.85)';
+      ctx.beginPath(); ctx.arc(x, y, Math.max(0.4, r), 0, 6.2832); ctx.fill();
+    } else if (e.type === 'ripple') {
+      const r = eo * e.reach * geoS;
+      ctx.globalAlpha = (1 - p) * 0.55;
+      ctx.strokeStyle = e.color;
+      ctx.lineWidth = 2.2 * (1 - p) + 0.4;
+      ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.stroke();
+      if (p < 0.6) {
+        ctx.globalAlpha = (0.6 - p) * 1.4;
+        ctx.strokeStyle = e.color; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.arc(x, y, r * 0.6, 0, 6.2832); ctx.stroke();
+      }
+    } else if (e.type === 'label') {
+      ctx.globalAlpha = p < 0.15 ? p / 0.15 : (1 - p) / 0.85;
+      ctx.fillStyle = e.color;
+      ctx.font = '600 13px "Fraunces", Georgia, serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(e.text, x, y - 16 - eo * 10);
+    }
+  }
+  ctx.globalAlpha = 1;
+  ctx.textAlign = 'left';
+}
+function geoScale() { return Math.max(0.6, Math.min(2.2, geoS / 5)); }
+
+let lastEventFrame = -1;
+function fireFrameMoments(i, prevDrawn) {
+  // evenements saillants -> onde + titre pres du centre de vie
+  const cen = worldCentroid(FRAMES[i]);
+  const es = FRAMES[i].events || [];
+  for (let j = 0; j < es.length; j++) {
+    const e = es[j];
+    if ((e.salience || 0) < CHAPTER_MIN_SALIENCE) continue;
+    const violet = 'rgba(185,160,255,0.9)', amber = 'rgba(255,207,114,0.9)';
+    const col = (e.kind === 'espece' || e.kind === 'agent_eveille') ? violet : amber;
+    spawnFx({ type: 'ripple', x: cen.x, y: cen.y, reach: Math.max(FRAMES[i].grid[0], FRAMES[i].grid[1]) * 0.75, color: col, dur: 2600 });
+    spawnFx({ type: 'label', x: cen.x, y: cen.y, text: chapterLabel(e), color: col, dur: 3200 });
+  }
+  // naissances / morts : uniquement en detail et sur un pas d'une frame
+  if (FRAMES[i].lod === 'region' || prevDrawn < 0 || Math.abs(i - prevDrawn) !== 1) return;
+  const P = FRAMES[prevDrawn], C = FRAMES[i];
+  if (!P.entities || !C.entities) return;
+  const had = {};
+  for (let k = 0; k < P.entities.length; k++) had[P.entities[k].id] = P.entities[k];
+  const has = {};
+  let nb = 0, nd = 0;
+  for (let k = 0; k < C.entities.length && nb < 26; k++) {
+    const c = C.entities[k]; has[c.id] = 1;
+    if (!had[c.id]) { spawnFx({ type: 'birth', x: c.pos[0] / PS, y: c.pos[1] / PS, dur: 900 }); nb++; }
+  }
+  for (let k = 0; k < P.entities.length && nd < 26; k++) {
+    const p = P.entities[k];
+    if (!has[p.id]) { spawnFx({ type: 'death', x: p.pos[0] / PS, y: p.pos[1] / PS, dur: 850 }); nd++; }
+  }
+}
+
+function worldCentroid(f) {
+  let sx = 0, sy = 0, n = 0;
+  const src = f.lod === 'region' ? (f.clusters || []) : (f.entities || []);
+  for (let k = 0; k < src.length; k++) {
+    const w = f.lod === 'region' ? (src[k].count || 1) : 1;
+    sx += (src[k].pos[0] / PS) * w; sy += (src[k].pos[1] / PS) * w; n += w;
+  }
+  if (!n) return { x: f.grid[0] / 2, y: f.grid[1] / 2 };
+  return { x: sx / n, y: sy / n };
+}
+
+// --- Rendu ---------------------------------------------------------------------------
+let vw = 1, vh = 1, geoS = 1, geoOx = 0, geoOy = 0;
 function resize() {
   const r = cv.getBoundingClientRect();
   vw = Math.max(1, Math.round(r.width * DPR));
   vh = Math.max(1, Math.round(r.height * DPR));
-  cv.width = vw;
-  cv.height = vh;
+  cv.width = vw; cv.height = vh;
+  buildRibbon();
+  requestDraw(200);
   draw(pos);
 }
 window.addEventListener('resize', resize);
 
-let geoS = 1, geoOx = 0, geoOy = 0;
+const stateStroke = { forage: null, eat: 'rgba(255,207,114,0.85)', divide: 'rgba(116,168,255,0.9)', dying: 'rgba(255,143,160,0.9)' };
 
-function paintEntity(e, px, py, ep, ap, alpha, born) {
+function paintEntity(e, px, py, ep, ap, alpha, born, prevx, prevy) {
   if (alpha <= 0.02) return;
   const x = geoOx + px * geoS, y = geoOy + py * geoS;
-  const rr = (1.5 + ep * 3.4) * (DPR > 1 ? 1.15 : 1);
-  const hue = e.hue;
-  const newborn = born || ap < 0.015;
-  ctx.globalAlpha = alpha;
-  ctx.beginPath();
-  ctx.fillStyle = 'hsla(' + hue.toFixed(0) + ', 62%, 62%, ' + (0.4 + ep * 0.55).toFixed(2) + ')';
-  if (e.state === 'divide' || e.state === 'dying' || newborn) {
-    ctx.shadowBlur = 12;
-    ctx.shadowColor = newborn ? '#6db38a' : (e.state === 'dying' ? '#cf7b7b' : '#7fa0d6');
+  const gs = geoScale();
+  const rr = (1.4 + ep * 3.6) * gs;
+  const newborn = born || ap < 0.02;
+
+  // trainee courte dans le sens du mouvement (detail seulement)
+  if (prevx != null && lowCount) {
+    const tx = geoOx + prevx * geoS, ty = geoOy + prevy * geoS;
+    const dx = x - tx, dy = y - ty;
+    if (dx * dx + dy * dy > 1.2) {
+      ctx.globalAlpha = alpha * 0.16;
+      ctx.strokeStyle = bioColor(e.hue, 62, 1);
+      ctx.lineWidth = rr * 0.9;
+      ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(x, y); ctx.stroke();
+    }
   }
+
+  ctx.globalAlpha = alpha;
+  if (lowCount && (ep > 0.28 || newborn || e.state === 'divide' || e.state === 'dying')) {
+    ctx.shadowBlur = (6 + ep * 14) * (DPR > 1 ? 1 : 0.8);
+    ctx.shadowColor = newborn ? 'rgba(126,240,166,0.9)'
+      : e.state === 'dying' ? 'rgba(255,143,160,0.9)'
+      : e.state === 'divide' ? 'rgba(116,168,255,0.9)'
+      : bioColor(e.hue, 66, 0.9);
+  }
+  ctx.beginPath();
+  ctx.fillStyle = bioColor(e.hue, 64, 0.42 + ep * 0.5);
   ctx.arc(x, y, rr, 0, 6.2832);
   ctx.fill();
   ctx.shadowBlur = 0;
-  const sc = stateColor[e.state];
-  if (sc) { ctx.strokeStyle = sc; ctx.lineWidth = 1.4; ctx.stroke(); }
-  if (newborn) {
-    ctx.beginPath();
-    ctx.strokeStyle = 'rgba(109, 179, 138, 0.7)';
-    ctx.lineWidth = 1.2;
-    ctx.arc(x, y, rr + 3.5, 0, 6.2832);
-    ctx.stroke();
-  }
-  // Agent (0.0.3) : un anneau clair, fin, un peu detache. Une entite qui se souvient.
+
+  const ss = stateStroke[e.state];
+  if (ss) { ctx.strokeStyle = ss; ctx.lineWidth = 1.3; ctx.stroke(); }
+
   if (e.agent) {
     ctx.beginPath();
-    ctx.strokeStyle = 'rgba(233, 227, 208, 0.72)';
+    ctx.strokeStyle = 'rgba(185,160,255,0.72)';
     ctx.lineWidth = 1;
-    ctx.arc(x, y, rr + 2.5, 0, 6.2832);
+    ctx.arc(x, y, rr + 2.6 * gs, 0, 6.2832);
     ctx.stroke();
   }
   ctx.globalAlpha = 1;
 }
 
-const clusterRing = { forage: null, eat: '#e0a848', divide: '#7fa0d6', dying: '#cf7b7b' };
-
+const clusterRing = { forage: null, eat: 'rgba(255,207,114,0.6)', divide: 'rgba(116,168,255,0.6)', dying: 'rgba(255,143,160,0.6)' };
 function paintCluster(c) {
   const x = geoOx + (c.pos[0] / PS) * geoS, y = geoOy + (c.pos[1] / PS) * geoS;
   const r = Math.max(4, (c.radius / PS) * geoS);
-  const grad = ctx.createRadialGradient(x, y, 0, x, y, r);
-  const h = c.hue;
   const e = c.energy / 100;
-  grad.addColorStop(0, 'hsla(' + h + ', 60%, 62%, ' + (0.16 + e * 0.34).toFixed(2) + ')');
-  grad.addColorStop(1, 'hsla(' + h + ', 60%, 62%, 0)');
+  const grad = ctx.createRadialGradient(x, y, 0, x, y, r);
+  let d = ((c.hue - 188) % 360 + 540) % 360 - 180;
+  const h = (188 + d * 0.62).toFixed(0);
+  grad.addColorStop(0, 'hsla(' + h + ', 78%, 66%, ' + (0.18 + e * 0.34).toFixed(2) + ')');
+  grad.addColorStop(0.6, 'hsla(' + h + ', 78%, 60%, ' + (0.06 + e * 0.14).toFixed(2) + ')');
+  grad.addColorStop(1, 'hsla(' + h + ', 78%, 60%, 0)');
   ctx.fillStyle = grad;
-  ctx.beginPath();
-  ctx.arc(x, y, r, 0, 6.2832);
-  ctx.fill();
+  ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.fill();
   const ring = clusterRing[c.state];
   if (ring) {
-    ctx.strokeStyle = ring;
-    ctx.globalAlpha = 0.5;
-    ctx.lineWidth = 1.2;
-    ctx.beginPath();
-    ctx.arc(x, y, r * 0.7, 0, 6.2832);
-    ctx.stroke();
+    ctx.strokeStyle = ring; ctx.globalAlpha = 0.5; ctx.lineWidth = 1.1;
+    ctx.beginPath(); ctx.arc(x, y, r * 0.62, 0, 6.2832); ctx.stroke();
     ctx.globalAlpha = 1;
   }
-  if (c.count >= 40 && r > 14) {
-    ctx.fillStyle = 'rgba(233, 230, 223, 0.75)';
-    ctx.font = '10px ui-monospace, monospace';
+  if (c.count >= 40 && r > 15) {
+    ctx.fillStyle = 'rgba(233,237,247,0.7)';
+    ctx.font = '10px ' + '"Fraunces", Georgia, serif';
     ctx.textAlign = 'center';
     ctx.fillText(c.count, x, y + 3);
+    ctx.textAlign = 'left';
   }
 }
 
-function paintCell(c) {
+function paintCell(c, tsec) {
   const x = geoOx + (c.pos[0] / PS) * geoS, y = geoOy + (c.pos[1] / PS) * geoS;
-  const r = Math.max(6, (c.radius / PS) * geoS);
-  const h = c.hue;
-  // halo interieur doux
-  const grad = ctx.createRadialGradient(x, y, r * 0.3, x, y, r);
-  grad.addColorStop(0, 'hsla(' + h + ', 55%, 60%, 0.05)');
-  grad.addColorStop(1, 'hsla(' + h + ', 55%, 60%, 0.16)');
+  const breathe = 1 + Math.sin(tsec * 1.1 + c.pos[0]) * 0.02;
+  const r = Math.max(6, (c.radius / PS) * geoS) * breathe;
+  let d = ((c.hue - 188) % 360 + 540) % 360 - 180;
+  const h = (188 + d * 0.62).toFixed(0);
+  const grad = ctx.createRadialGradient(x, y, r * 0.25, x, y, r);
+  grad.addColorStop(0, 'hsla(' + h + ', 60%, 62%, 0.04)');
+  grad.addColorStop(1, 'hsla(' + h + ', 60%, 62%, 0.15)');
   ctx.fillStyle = grad;
-  ctx.beginPath();
-  ctx.arc(x, y, r, 0, 6.2832);
-  ctx.fill();
-  // membrane
-  ctx.strokeStyle = 'hsla(' + h + ', 60%, 72%, 0.8)';
-  ctx.lineWidth = 1.4;
-  ctx.beginPath();
-  ctx.arc(x, y, r, 0, 6.2832);
-  ctx.stroke();
-  if (r > 16) {
-    ctx.fillStyle = 'rgba(233, 230, 223, 0.7)';
-    ctx.font = '9px ui-monospace, monospace';
+  ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.fill();
+  ctx.strokeStyle = 'hsla(' + h + ', 72%, 74%, 0.75)';
+  ctx.lineWidth = 1.3;
+  ctx.setLineDash([1, 3]); ctx.lineDashOffset = -tsec * 6;
+  ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.stroke();
+  ctx.setLineDash([]);
+  if (r > 17) {
+    ctx.fillStyle = 'rgba(233,237,247,0.66)';
+    ctx.font = '9px ' + '"Fraunces", Georgia, serif';
     ctx.textAlign = 'center';
-    ctx.fillText(c.count, x, y - r - 3);
+    ctx.fillText(c.count, x, y - r - 4);
+    ctx.textAlign = 'left';
   }
 }
 
-let domFrame = -1;
+let domFrame = -1, drawnFrame = -1, lowCount = true;
 
 function draw(p) {
   if (!FRAMES.length) return;
+  const nowMs = performance.now();
+  const tsec = nowMs / 1000;
   const i = Math.max(0, Math.min(Math.floor(p), FRAMES.length - 1));
   const A = FRAMES[i];
   const B = FRAMES[Math.min(i + 1, FRAMES.length - 1)];
@@ -619,20 +836,34 @@ function draw(p) {
   geoOx = (vw - geoS * gw) / 2;
   geoOy = (vh - geoS * gh) / 2;
 
+  lowCount = A.lod !== 'region' && (A.entities ? A.entities.length : 0) <= 900;
+
+  // halo d'eau, tres doux, derriere le champ
+  const hg = ctx.createRadialGradient(vw / 2, vh * 0.42, 0, vw / 2, vh * 0.42, Math.max(vw, vh) * 0.62);
+  hg.addColorStop(0, 'rgba(20,42,58,0.55)');
+  hg.addColorStop(1, 'rgba(4,6,11,0)');
+  ctx.fillStyle = hg;
+  ctx.fillRect(0, 0, vw, vh);
+
   ctx.imageSmoothingEnabled = true;
-  ctx.drawImage(terrainOff, 0, 0, fieldW, fieldH, geoOx, geoOy, geoS * gw, geoS * gh);
+  const dx = geoOx, dy = geoOy, dw = geoS * gw, dh = geoS * gh;
+  ctx.drawImage(terrainOff, 0, 0, fieldW, fieldH, dx, dy, dw, dh);
   if (i !== fieldFrame || layer !== fieldLayer) {
-    repaintField(A);
-    fieldFrame = i;
-    fieldLayer = layer;
+    repaintField(A); fieldFrame = i; fieldLayer = layer;
   }
-  ctx.drawImage(fieldOff, 0, 0, fieldW, fieldH, geoOx, geoOy, geoS * gw, geoS * gh);
+  const pulse = 0.92 + 0.08 * Math.sin(tsec * 0.9);
+  ctx.globalAlpha = pulse;
+  ctx.drawImage(fieldOff, 0, 0, fieldW, fieldH, dx, dy, dw, dh);
+  ctx.globalAlpha = 1;
+
+  // cadre du monde
+  ctx.strokeStyle = 'rgba(126,158,214,0.12)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(dx + 0.5, dy + 0.5, dw - 1, dh - 1);
 
   if (A.lod === 'region') {
-    // Monde peuple : on peint des amas, pas des individus. On ne les interpole pas.
     for (let k = 0; k < A.clusters.length; k++) paintCluster(A.clusters[k]);
   } else {
-    // Entites : interpolees entre A et B, fondu entrant a la naissance, sortant a la mort.
     const mapB = {};
     for (let k = 0; k < B.entities.length; k++) mapB[B.entities[k].id] = B.entities[k];
     const seen = {};
@@ -646,7 +877,7 @@ function draw(p) {
           (a.pos[1] + (b.pos[1] - a.pos[1]) * frac) / PS,
           (a.energy + (b.energy - a.energy) * frac) / 100,
           (a.age + (b.age - a.age) * frac) / 100,
-          1, false);
+          1, false, a.pos[0] / PS, a.pos[1] / PS);
       } else {
         paintEntity(a, a.pos[0] / PS, a.pos[1] / PS, a.energy / 100, a.age / 100, 1 - frac, false);
       }
@@ -658,14 +889,21 @@ function draw(p) {
     }
   }
 
-  // Cellules : une membrane par-dessus tout le reste, dans les deux modes.
   const cs = A.cells || [];
-  for (let k = 0; k < cs.length; k++) paintCell(cs[k]);
+  for (let k = 0; k < cs.length; k++) paintCell(cs[k], tsec);
+
+  // moments : on ne les declenche qu'au passage d'une frame entiere
+  if (i !== drawnFrame) {
+    fireFrameMoments(i, drawnFrame);
+    drawnFrame = i;
+  }
+  drawFx(nowMs);
 
   set('frameinfo', 'frame ' + Math.round(p) + ' / ' + (FRAMES.length - 1) + '   ' + speed + 'x'
     + (A.lod === 'region' ? '   amas' : '') + (cs.length ? '   ' + cs.length + ' cellules' : ''));
   if (i !== domFrame) { updatePanels(i); domFrame = i; }
 
+  drawRibbonPlayhead(p);
   dnaTwist += 0.012;
   drawDna();
 }
@@ -676,7 +914,7 @@ function updatePanels(i) {
   const st = f.stats, c = f.world_clock;
   if (st.dominant_genome) dnaLevels = st.dominant_genome;
   set('s-tick', f.tick.toLocaleString('fr'));
-  set('s-date', 'an ' + c.year + ', j ' + c.day + ', ' + c.hour + 'h');
+  set('s-date', 'an ' + c.year + ', jour ' + c.day + ', ' + c.hour + ' h');
   set('s-pop', st.population.toLocaleString('fr'));
   set('s-births', st.births_total.toLocaleString('fr'));
   set('s-deaths', st.deaths_starvation.toLocaleString('fr') + ' / ' + st.deaths_age.toLocaleString('fr'));
@@ -704,11 +942,11 @@ function updatePanels(i) {
   set('s-agmem', (st.mean_memories || 0).toFixed(1));
 
   for (let k = 0; k < TRAITS.length; k++) {
-    traitVals[k].textContent = st.trait_mean[k].toFixed(2) + '  +/- ' + st.trait_spread[k].toFixed(2);
+    const v = st.trait_mean[k];
+    traitBars[k].fill.style.right = (100 - v * 100).toFixed(1) + '%';
+    traitBars[k].tv.textContent = v.toFixed(2) + ' +/- ' + st.trait_spread[k].toFixed(2);
   }
 
-  // Journal roulant : on agrege les evenements d'une fenetre de frames qui se termine a la
-  // frame courante. Un evenement reste lisible plusieurs secondes au lieu de clignoter.
   const log = [];
   for (let j = Math.max(0, i - EVENT_WINDOW); j <= i; j++) {
     const es = FRAMES[j].events || [];
@@ -724,16 +962,73 @@ function updatePanels(i) {
       row.s.textContent = x.note ? x.note : (x.subjects || []).slice(0, 3).join(', ');
       row.el.className = 'ev ' + x.kind;
     } else {
-      row.t.textContent = '';
-      row.k.textContent = '';
-      row.s.textContent = '';
+      row.t.textContent = ''; row.k.textContent = ''; row.s.textContent = '';
       row.el.className = 'ev';
     }
   }
 }
 
-// --- Boucle de lecture ---------------------------------------------------------------
+// --- Ruban de temps : la population sur toute la vie du monde. ---
+let ribbonOff = null, ribW = 1, ribH = 1;
+const rc = document.getElementById('ribbon');
+const rctx = rc.getContext('2d');
+const POP = FRAMES.map(function (f) { return f.stats ? f.stats.population : 0; });
+const CAP = FRAMES.map(function (f) { return f.stats ? (f.stats.carrying_capacity || 0) : 0; });
+const popMax = Math.max(1, Math.max.apply(null, POP), Math.max.apply(null, CAP));
 
+function buildRibbon() {
+  const r = rc.getBoundingClientRect();
+  ribW = Math.max(1, Math.round(r.width * DPR));
+  ribH = Math.max(1, Math.round(r.height * DPR));
+  rc.width = ribW; rc.height = ribH;
+  ribbonOff = document.createElement('canvas');
+  ribbonOff.width = ribW; ribbonOff.height = ribH;
+  const o = ribbonOff.getContext('2d');
+  const n = POP.length;
+  const X = function (k) { return n < 2 ? 0 : k / (n - 1) * ribW; };
+  const Y = function (v) { return ribH - (v / popMax) * (ribH - 4) - 2; };
+
+  // capacite de charge, ligne pointillee
+  o.strokeStyle = 'rgba(126,158,214,0.25)';
+  o.setLineDash([2, 3]); o.lineWidth = 1; o.beginPath();
+  for (let k = 0; k < n; k++) { const x = X(k), y = Y(CAP[k]); k ? o.lineTo(x, y) : o.moveTo(x, y); }
+  o.stroke(); o.setLineDash([]);
+
+  // aire de population
+  const grad = o.createLinearGradient(0, 0, 0, ribH);
+  grad.addColorStop(0, 'rgba(82,230,223,0.42)');
+  grad.addColorStop(1, 'rgba(82,230,223,0.03)');
+  o.fillStyle = grad;
+  o.beginPath(); o.moveTo(0, ribH);
+  for (let k = 0; k < n; k++) o.lineTo(X(k), Y(POP[k]));
+  o.lineTo(ribW, ribH); o.closePath(); o.fill();
+
+  o.strokeStyle = 'rgba(82,230,223,0.85)'; o.lineWidth = 1.4;
+  o.beginPath();
+  for (let k = 0; k < n; k++) { const x = X(k), y = Y(POP[k]); k ? o.lineTo(x, y) : o.moveTo(x, y); }
+  o.stroke();
+
+  // marqueurs de chapitres
+  for (let k = 0; k < CHAPTERS.length; k++) {
+    const x = CHAPTERS[k].tick / maxTick * ribW;
+    o.fillStyle = 'rgba(255,207,114,0.9)';
+    o.beginPath(); o.arc(x, 6, 2.4, 0, 6.2832); o.fill();
+    o.strokeStyle = 'rgba(255,207,114,0.3)'; o.lineWidth = 1;
+    o.beginPath(); o.moveTo(x, 0); o.lineTo(x, ribH); o.stroke();
+  }
+}
+function drawRibbonPlayhead(p) {
+  if (!ribbonOff) return;
+  rctx.clearRect(0, 0, ribW, ribH);
+  rctx.drawImage(ribbonOff, 0, 0);
+  const n = POP.length;
+  const x = n < 2 ? 0 : (p / (n - 1)) * ribW;
+  rctx.strokeStyle = 'rgba(233,237,247,0.9)';
+  rctx.lineWidth = 1.5;
+  rctx.beginPath(); rctx.moveTo(x, 0); rctx.lineTo(x, ribH); rctx.stroke();
+}
+
+// --- Boucle ---------------------------------------------------------------------------
 function step(ts) {
   if (!lastTs) lastTs = ts;
   const dt = Math.min(ts - lastTs, 100);
@@ -741,47 +1036,55 @@ function step(ts) {
   if (playing) {
     pos += dt / 1000 * BASE_FPS * speed;
     if (pos >= FRAMES.length - 1) {
-      pos = FRAMES.length - 1;
-      playing = false;
-      set('play', 'lecture');
+      pos = FRAMES.length - 1; playing = false; setPlayIcon();
     }
     const sv = Math.round(pos);
     if (+scrub.value !== sv) scrub.value = sv;
+    draw(pos);
+  } else if (fx.length || performance.now() < dirtyUntil) {
     draw(pos);
   }
   requestAnimationFrame(step);
 }
 
+function setPlayIcon() {
+  document.getElementById('play').innerHTML = playing ? '&#10073;&#10073;' : '&#9654;';
+}
 document.getElementById('play').addEventListener('click', function () {
   if (pos >= FRAMES.length - 1) pos = 0;
-  playing = !playing;
-  lastTs = 0;
-  set('play', playing ? 'pause' : 'lecture');
+  playing = !playing; lastTs = 0; setPlayIcon();
 });
 document.getElementById('restart').addEventListener('click', function () {
-  pos = 0; playing = false; lastTs = 0;
-  set('play', 'lecture');
-  scrub.value = 0;
-  draw(0);
+  pos = 0; playing = false; lastTs = 0; drawnFrame = -1; fx.length = 0;
+  setPlayIcon(); scrub.value = 0; requestDraw(200); draw(0);
 });
 scrub.addEventListener('input', function () {
-  pos = +scrub.value;
-  playing = false;
-  set('play', 'lecture');
-  draw(pos);
+  pos = +scrub.value; playing = false; setPlayIcon();
+  requestDraw(400); draw(pos);
 });
 document.getElementById('speed').addEventListener('change', function (e) {
-  speed = +e.target.value;
-  draw(pos);
+  speed = +e.target.value; draw(pos);
 });
 document.getElementById('layer').addEventListener('change', function (e) {
-  layer = e.target.value;
-  fieldFrame = -1;
-  draw(pos);
+  layer = e.target.value; fieldFrame = -1; requestDraw(200); draw(pos);
 });
 
-// --- Infobulle unique, position fixe, hors de tout conteneur scrollable ---------------
+// --- Repli des panneaux et plein monde ---
+const pL = document.getElementById('panel-left'), pR = document.getElementById('panel-right');
+document.getElementById('h-left').addEventListener('click', function () { pL.classList.toggle('hud-hidden'); });
+document.getElementById('h-right').addEventListener('click', function () { pR.classList.toggle('hud-hidden'); });
+const focusBtn = document.getElementById('focus');
+function toggleFocus() {
+  document.body.classList.toggle('focus');
+  focusBtn.textContent = document.body.classList.contains('focus') ? 'afficher les panneaux' : 'plein monde';
+}
+focusBtn.addEventListener('click', toggleFocus);
+window.addEventListener('keydown', function (e) {
+  if (e.key === 'f' || e.key === 'F') toggleFocus();
+  else if (e.key === ' ') { e.preventDefault(); document.getElementById('play').click(); }
+});
 
+// --- Infobulle ---
 const tip = document.getElementById('tooltip');
 let tipEl = null;
 function placeTip(e) {
@@ -796,31 +1099,22 @@ document.addEventListener('mouseover', function (e) {
   const el = e.target.closest ? e.target.closest('[data-tip]') : null;
   if (el === tipEl) return;
   tipEl = el;
-  if (el) {
-    tip.textContent = el.getAttribute('data-tip');
-    tip.classList.add('on');
-    placeTip(e);
-  } else {
-    tip.classList.remove('on');
-  }
+  if (el) { tip.textContent = el.getAttribute('data-tip'); tip.classList.add('on'); placeTip(e); }
+  else tip.classList.remove('on');
 });
-document.addEventListener('mousemove', function (e) {
-  if (tipEl) placeTip(e);
-});
+document.addEventListener('mousemove', function (e) { if (tipEl) placeTip(e); });
 document.addEventListener('mouseout', function (e) {
   if (!tipEl) return;
   const to = e.relatedTarget;
-  if (!to || !to.closest || !to.closest('[data-tip]')) {
-    tipEl = null;
-    tip.classList.remove('on');
-  }
+  if (!to || !to.closest || !to.closest('[data-tip]')) { tipEl = null; tip.classList.remove('on'); }
 });
 
-// --- Demarrage -----------------------------------------------------------------------
-
+// --- Demarrage ---
 buildOffscreen();
+setPlayIcon();
 requestAnimationFrame(function () {
   resize();
+  requestDraw(200);
   requestAnimationFrame(step);
 });
 </script>
