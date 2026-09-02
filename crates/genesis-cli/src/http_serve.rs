@@ -111,11 +111,12 @@ fn write_head(
     )
 }
 
-/// Les fichiers que `serve` reecrit sans cesse : jamais de cache.
+/// Les fichiers qui changent au fil du direct : jamais de cache. `stream.html` en est (le
+/// gabarit peut evoluer entre deux `serve`), et bien sur les JSON relus en boucle.
 fn is_volatile(p: &Path) -> bool {
     matches!(
         p.file_name().and_then(|n| n.to_str()),
-        Some("live.json" | "scene.json" | "records.json")
+        Some("live.json" | "scene.json" | "records.json" | "stream.html")
     )
 }
 
