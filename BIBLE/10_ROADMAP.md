@@ -48,6 +48,11 @@ scripté (T-7, T-11).
 À partir de 0.0.2, tout monde qui se termine reçoit son autopsie (T-15). Absent volontairement
 jusqu'à 0.1.0 : le client Godot, le LLM local, l'économie financière complexe.
 
+Vers le « on ouvre l'URL » de 0.1.0, l'ossature existe depuis 2026-09-02 : `genesis continue`
+et `genesis serve` font tourner un monde en continu en restant exactement le même monde, et
+`genesis serve --port` sert `stream.html`, un tableau de bord de direct (source navigateur
+OBS) qui relit `live.json` / `scene.json` produits par le moteur. Voir `00_INDEX.md`.
+
 ---
 
 ## L'escalier des échelles
