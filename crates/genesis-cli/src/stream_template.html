@@ -568,12 +568,16 @@ function applyLive(L) {
   sc.className = 'statuschip ' + (map[L.status] || 'stable');
   document.getElementById('statusv').textContent = L.status || 'STABLE';
   document.getElementById('domname').textContent = L.dominant_lineage || '--';
-  // bandeau du bas : les constantes et grandeurs reelles du monde (pas de chiffre invente)
+  // bandeau du bas : les vraies constantes physiques du monde et ses grandeurs (aucun
+  // chiffre invente ; la temperature agit sur le metabolisme, la gravite sur le deplacement)
   const dens = L.occupied_cells ? (L.population / L.occupied_cells).toFixed(1) : '0';
+  const g = (L.gravity != null ? L.gravity : 1).toFixed(1).replace('.', ',');
+  const atm = (L.pressure_atm != null ? L.pressure_atm : 1).toFixed(1).replace('.', ',');
+  const tc = (L.temperature_c != null ? L.temperature_c : 15).toFixed(0);
   document.getElementById('barenv').textContent =
-    'grille ' + (L.grid ? L.grid[0] + ' × ' + L.grid[1] : '--') + ' cases  ·  densite ' + dens +
-    ' ind/case  ·  biomasse ' + fr(Math.round(L.biomass || 0)) + '  ·  matiere libre ' +
-    fr(Math.round(L.free_matter || 0)) + '  ·  1 tick = 1 heure-monde';
+    'milieu ' + (L.medium || 'eau') + '  ·  ' + tc + ' °C  ·  ' + g + ' g  ·  ' + atm + ' atm  ·  ' +
+    'grille ' + (L.grid ? L.grid[0] + ' × ' + L.grid[1] : '--') + '  ·  densite ' + dens +
+    ' ind/case  ·  1 tick = 1 heure-monde';
 
   // pouls
   const P = L.pulse || {};

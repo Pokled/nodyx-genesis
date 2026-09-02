@@ -394,6 +394,14 @@ Toutes ces valeurs sont des points de départ, à mesurer et ajuster. Le princip
 partir avec des nombres, pas avec "configurable".
 
 ```toml
+[planet]                              # constantes physiques du monde (branchées 2026-09-02)
+temperature_c    = 15.0               # °C ; s'écarter de temp_optimal_c renchérit base_burn
+temp_optimal_c   = 15.0
+temp_metab_slope = 0.012              # surcoût métabolique par °C d'écart (0 = inerte)
+gravity          = 1.0                # x Terre ; multiplie move_cost
+medium           = "eau"             # affiché, sans effet mécanisé pour l'instant
+pressure_atm     = 1.0               # idem
+
 [time]
 tick_duration_seconds        = 3600   # 1 tick = 1 heure-monde en 0.0.1
 target_ticks_per_real_second = 60     # débit de calcul visé (ticks par seconde réelle),

@@ -87,19 +87,29 @@ impl Default for WorldCfg {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct PlanetCfg {
-    /// Temperature moyenne de l'environnement, en degres Celsius.
+    /// Temperature moyenne de l'environnement, en degres Celsius. Constante sur la vie du
+    /// monde. Un monde loin de `temp_optimal_c` coute plus cher a habiter (voir
+    /// `temp_metab_slope`) : plus de morts de faim, selection plus dure sur l'efficacite.
     pub temperature_c: f32,
+    /// Temperature a laquelle le metabolisme est le moins cher.
+    pub temp_optimal_c: f32,
+    /// Surcout metabolique par degre d'ecart a l'optimum, en fraction. `0` = la temperature
+    /// est inerte (bouton d'A/B). A 0,012 et 12 degres d'ecart : +14 % de depense de base.
+    pub temp_metab_slope: f32,
     /// Milieu dans lequel baigne la vie : "eau", "acide", "air", ...
     pub medium: String,
-    /// Gravite, en multiples de celle de la Terre.
+    /// Gravite, en multiples de celle de la Terre. Multiplie le cout du deplacement : un
+    /// monde lourd favorise les corps lents et economes, un monde leger l'inverse.
     pub gravity: f32,
-    /// Pression, en atmospheres.
+    /// Pression, en atmospheres. Affichee, sans effet mecanise pour l'instant.
     pub pressure_atm: f32,
 }
 impl Default for PlanetCfg {
     fn default() -> Self {
         PlanetCfg {
             temperature_c: 15.0,
+            temp_optimal_c: 15.0,
+            temp_metab_slope: 0.012,
             medium: "eau".to_string(),
             gravity: 1.0,
             pressure_atm: 1.0,

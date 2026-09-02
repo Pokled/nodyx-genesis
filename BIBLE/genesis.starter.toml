@@ -9,14 +9,20 @@ grid_height = 128
 bounded     = true          # des bords, pas de repli toroïdal
 
 [planet]
-# Constantes du monde, fixées à la création. En 0.0.1 elles sont seulement affichées
-# (savoir dans quel environnement on se trouve). Les jalons suivants les feront moduler
-# des coefficients : métabolisme selon la température, déplacement selon la gravité,
-# efficacité selon la pression et le milieu.
-temperature_c = 15.0        # température moyenne de l'environnement, degrés Celsius
-medium        = "eau"       # milieu où baigne la vie : eau, acide, air, ...
-gravity       = 1.0         # en multiples de la gravité terrestre
-pressure_atm  = 1.0         # en atmosphères
+# Constantes physiques du monde, fixées à la création, constantes sur toute sa vie (pas de
+# météo). Depuis 2026-09-02 elles agissent vraiment : la température sur le métabolisme, la
+# gravité sur le déplacement. Un monde loin de son optimum, ou lourd, est plus dur à habiter.
+# A/B graine 1, 50k ticks : à 2 °C (13 sous l'optimum) la diversité génétique chute de 34 %
+# (0,099 -> 0,065), morts de faim +8 %. A 35 °C, morts de faim +24 %, morts d'âge -27 % (on
+# meurt de faim avant de vieillir), 20 générations au lieu de 17, vitesse moyenne +36 %. A
+# 1,6 g, morts de faim +10 %, efficacité poussée vers le haut. Le défaut (15 °C = optimum,
+# 1 g) est inerte : aucune régression.
+temperature_c   = 15.0      # température moyenne de l'environnement, degrés Celsius
+temp_optimal_c  = 15.0      # température où le métabolisme est le moins cher
+temp_metab_slope = 0.012    # surcoût métabolique par degré d'écart à l'optimum (0 = inerte)
+medium          = "eau"     # milieu où baigne la vie : eau, acide, air, ...
+gravity         = 1.0       # en multiples de la gravité terrestre ; multiplie le coût du déplacement
+pressure_atm    = 1.0       # en atmosphères ; affichée, sans effet mécanisé pour l'instant
 
 [time]
 tick_duration_seconds        = 3600   # 1 tick = 1 heure-monde en 0.0.1

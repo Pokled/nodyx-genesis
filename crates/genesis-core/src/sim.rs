@@ -288,7 +288,9 @@ pub fn tick(world: &mut WorldState, cfg: &SimConfig) -> Vec<Event> {
     drop(_sp.take()); _sp = prof::Span::start(2);
     // -- Phase 4, mouvement. Chaque entite ne touche qu'elle-meme : parallele direct sur
     // le `Vec`, qui se decoupe parfaitement.
-    let move_cost = cfg.metabolism.move_cost;
+    // Le climat : la gravite rencherit le deplacement (un monde lourd favorise les corps
+    // lents et economes). `gravity = 1` (Terre) ne change rien.
+    let move_cost = cfg.metabolism.move_cost * cfg.planet.gravity.max(0.0);
     let sw = space.width as f32;
     let sh = space.height as f32;
     // Biologie de fond (tranche 8) : un corps use se traine.
@@ -319,7 +321,13 @@ pub fn tick(world: &mut WorldState, cfg: &SimConfig) -> Vec<Event> {
     // (`colony_support`), mange un peu moins et fatigue beaucoup moins la case partagee.
     let energy_ceiling = cfg.reproduction.energy_threshold * 2.0;
     let support_cap = coh.support_cap.max(0.001);
-    let base_burn = cfg.metabolism.base_burn;
+    // Le climat : un monde loin de la temperature optimale coute plus cher a habiter. Le
+    // surcout frappe la depense de base de toutes les entites, egalement. `temperature_c ==
+    // temp_optimal_c` (defaut) ou `temp_metab_slope == 0` : aucun effet.
+    let temp_factor = 1.0
+        + cfg.planet.temp_metab_slope.max(0.0)
+            * (cfg.planet.temperature_c - cfg.planet.temp_optimal_c).abs();
+    let base_burn = cfg.metabolism.base_burn * temp_factor;
     let eat_rate = cfg.metabolism.eat_rate;
     let strain_per_harvest = cfg.environment.strain_per_harvest;
     // Cognition (0.0.3) : seuils de choc, ecrits pour toutes les entites (graine d'un souvenir).

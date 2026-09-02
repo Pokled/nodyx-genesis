@@ -560,6 +560,41 @@ fn a_world_knows_which_engine_made_it() {
 }
 
 #[test]
+fn climate_shapes_the_world() {
+    // Le climat (schema : config seulement, pas d'etat) agit vraiment sur le monde : un
+    // monde loin de sa temperature optimale voit plus de morts de faim. Effet inerte au
+    // defaut (`temperature_c == temp_optimal_c`), donc pas de regression. Deterministe.
+    let mut warm = SimConfig::default();
+    warm.planet.temperature_c = 15.0;
+    warm.planet.temp_optimal_c = 15.0;
+    let mut cold = warm.clone();
+    cold.planet.temperature_c = 0.0; // 15 degres sous l'optimum
+
+    let run = |cfg: &SimConfig| {
+        let mut w = WorldState::new(1, cfg);
+        for _ in 0..30_000 {
+            let _ = tick(&mut w, cfg);
+            if w.entities.is_empty() {
+                break;
+            }
+        }
+        (w.deaths_starvation, w.population())
+    };
+    let (warm_starv, warm_pop) = run(&warm);
+    let (cold_starv, cold_pop) = run(&cold);
+
+    assert!(warm_pop > 100 && cold_pop > 100, "un des deux mondes s'est effondre");
+    assert!(
+        cold_starv > warm_starv,
+        "le froid ne coute rien : {cold_starv} morts de faim contre {warm_starv} au chaud"
+    );
+
+    // Deterministe : meme config, meme monde.
+    let (a, _) = run(&cold);
+    assert_eq!(a, cold_starv, "climat non deterministe");
+}
+
+#[test]
 fn cells_merge_when_membranes_overlap() {
     // Fusion de cellules (schema v15) : deux membranes stables qui se chevauchent et se
     // ressemblent fusionnent. Il s'en produit reellement (graine 1) ; le compteur cumule

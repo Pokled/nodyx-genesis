@@ -52,6 +52,12 @@ pub struct LiveState {
     pub grid: [u32; 2],
     /// Matiere structurelle libre (briques disponibles pour de nouveaux corps).
     pub free_matter: f32,
+    /// Le climat de la planete : temperature (degres Celsius), milieu, gravite (x Terre),
+    /// pression (atmospheres). Constants sur la vie du monde.
+    pub temperature_c: f32,
+    pub medium: String,
+    pub gravity: f32,
+    pub pressure_atm: f32,
 
     // -- Vie du monde
     pub population: u32,
@@ -481,6 +487,10 @@ pub fn write_live(
         status,
         grid: [world.space.width, world.space.height],
         free_matter: st.free_matter,
+        temperature_c: cfg.planet.temperature_c,
+        medium: cfg.planet.medium.clone(),
+        gravity: cfg.planet.gravity,
+        pressure_atm: cfg.planet.pressure_atm,
         population: st.population,
         births: st.births_total,
         deaths_starv: st.deaths_starvation,
