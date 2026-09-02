@@ -621,25 +621,25 @@ function easeOut(x) { return 1 - Math.pow(1 - x, 3); }
 function drawFx(nowMs) {
   for (let k = fx.length - 1; k >= 0; k--) {
     const e = fx[k];
-    const p = (nowMs - e.t0) / e.dur;
+    const p = Math.max(0, (nowMs - e.t0) / e.dur);
     if (p >= 1) { fx.splice(k, 1); continue; }
     const x = geoOx + e.x * geoS, y = geoOy + e.y * geoS;
     const eo = easeOut(p);
     if (e.type === 'birth') {
-      const r = (2 + eo * 16) * geoScale();
+      const r = Math.max(0.5, (2 + eo * 16) * geoScale());
       ctx.globalAlpha = (1 - p) * 0.9;
       ctx.strokeStyle = 'rgba(126,240,166,0.9)';
       ctx.lineWidth = 1.6; ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.stroke();
       ctx.globalAlpha = (1 - p) * 0.5;
       ctx.fillStyle = 'rgba(126,240,166,0.8)';
-      ctx.beginPath(); ctx.arc(x, y, 2.4 * geoScale(), 0, 6.2832); ctx.fill();
+      ctx.beginPath(); ctx.arc(x, y, Math.max(0.5, 2.4 * geoScale()), 0, 6.2832); ctx.fill();
     } else if (e.type === 'death') {
       const r = (7 - eo * 6) * geoScale();
       ctx.globalAlpha = (1 - p) * 0.8;
       ctx.fillStyle = 'rgba(255,143,160,0.85)';
       ctx.beginPath(); ctx.arc(x, y, Math.max(0.4, r), 0, 6.2832); ctx.fill();
     } else if (e.type === 'ripple') {
-      const r = eo * e.reach * geoS;
+      const r = Math.max(0, eo * e.reach * geoS);
       ctx.globalAlpha = (1 - p) * 0.55;
       ctx.strokeStyle = e.color;
       ctx.lineWidth = 2.2 * (1 - p) + 0.4;
@@ -647,7 +647,7 @@ function drawFx(nowMs) {
       if (p < 0.6) {
         ctx.globalAlpha = (0.6 - p) * 1.4;
         ctx.strokeStyle = e.color; ctx.lineWidth = 1;
-        ctx.beginPath(); ctx.arc(x, y, r * 0.6, 0, 6.2832); ctx.stroke();
+        ctx.beginPath(); ctx.arc(x, y, Math.max(0, r * 0.6), 0, 6.2832); ctx.stroke();
       }
     } else if (e.type === 'label') {
       ctx.globalAlpha = p < 0.15 ? p / 0.15 : (1 - p) / 0.85;
