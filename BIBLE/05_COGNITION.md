@@ -345,6 +345,30 @@ une biographie lisible) est atteinte.
 
 ---
 
+## Jalon 0.0.4 « Voix », tranche 1 : le premier signal (fait, 2026-09-02)
+
+Le jalon suivant. `WorldState.signals: Vec<Signal>` (schéma v14). En 0.0.4 tranche 1 tous
+les signaux sont des **alarmes** : un agent qui subit le choc d'une famine (`last_shock`
+posé, `peril = true`, phase 5) crie à sa position. Un signal vit `voice.signal_ttl` ticks,
+la liste est bornée à `voice.max_signals` (les plus récents).
+
+En phase 5c, tout agent à moins de `voice.signal_radius` d'un signal voit sa peur monter au
+moins à `voice.alarm_fear`, **sans qu'aucun souvenir ne se forme** : contagion brève, la peur
+redescend ensuite via `fear_relief`. Aucun lexique n'est codé. `ViewFrame.signals` porte
+`[x, y, age]` pour l'affichage (anneaux roses).
+
+**Résultat (graine 1, 60000 ticks, contre `alarm_fear = 0`).** Morts par famine -10 %
+(4 966 -> 4 475), diversité génétique +37 % (0,043 -> 0,059), naissances -5 %. Un cri, et
+les voisins quittent une zone qui tue : une alerte précoce émergente, et la panique disperse
+(donc brasse les lignées). Effet réel et mesuré (T-16). Déterministe byte-identique 1 vs 8
+threads. Test `alarms_are_emitted_and_bounded`.
+
+**Suite (0.0.4).** Des signaux distincts (pas seulement l'alarme), une transmission avec
+perte, la divergence entre deux populations isolées (le moment public). Le pari du langage
+émergent : `06_EMERGENCE.md`, à écrire avant 0.0.5 avec l'expérience 004.
+
+---
+
 ## Question ouverte : semé ou cultivé
 
 À trancher à 0.0.3 avec des données (décision utilisateur du 2026-09-01 : laisser ouvert
