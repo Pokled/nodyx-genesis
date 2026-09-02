@@ -100,6 +100,11 @@ pub struct Entity {
     /// devenue etat de fond : la cognition (la biographie) lit ce scalaire, pas le detail.
     #[serde(default = "one")]
     pub health: f32,
+
+    /// Tick du dernier appel de nourriture emis par cet agent (Voix tranche 2, schema v17).
+    /// Sert a espacer ses appels. `0` = jamais.
+    #[serde(default)]
+    pub call_born: u64,
 }
 
 fn one() -> f32 {

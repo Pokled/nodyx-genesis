@@ -589,10 +589,27 @@ pub struct VoiceCfg {
     /// Nombre maximal de signaux vivants a la fois. En famine generale, on n'en garde que
     /// les plus recents : de quoi peindre la panique sans balayer des millions de paires.
     pub max_signals: usize,
+    /// Tranche 2 : un agent qui trouve un repas exceptionnel lance un appel. `false`
+    /// desactive (aucun appel emis, pour l'A/B).
+    pub bounty_call: bool,
+    /// A quel point un appel entendu inflechit la cible de deplacement de l'agent qui decide,
+    /// vers la position de l'appel. `0` = signal visible mais sans effet.
+    pub bounty_pull: f32,
+    /// Fraction du plafond d'une case au-dessus de laquelle elle est « franchement riche » :
+    /// un agent qui y mange bien lance un appel.
+    pub bounty_cell_frac: f32,
 }
 impl Default for VoiceCfg {
     fn default() -> Self {
-        VoiceCfg { signal_radius: 5.0, signal_ttl: 4, alarm_fear: 0.5, max_signals: 128 }
+        VoiceCfg {
+            signal_radius: 5.0,
+            signal_ttl: 4,
+            alarm_fear: 0.5,
+            max_signals: 128,
+            bounty_call: true,
+            bounty_pull: 0.35,
+            bounty_cell_frac: 0.55,
+        }
     }
 }
 

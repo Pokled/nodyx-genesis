@@ -17,7 +17,7 @@ use genesis_core::genome::N_TRAITS;
 use genesis_core::names;
 use genesis_core::{EntityId, SimConfig, WorldState};
 
-pub const VIEW_VERSION: u16 = 8;
+pub const VIEW_VERSION: u16 = 9;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct ViewFrame {
@@ -38,10 +38,11 @@ pub struct ViewFrame {
     /// Cellules (0.0.2, tranche 2). Toujours rempli, dans les deux LOD : une cellule est une
     /// unite persistante, pas un amas de densite.
     pub cells: Vec<CellView>,
-    /// La Voix (0.0.4) : les alarmes vivantes, pour que la panique se voie. `[x, y, age]` en
-    /// quarts de case et en ticks depuis l'emission.
+    /// La Voix (0.0.4) : les signaux vivants, pour que la panique et les appels se voient.
+    /// `[x, y, age, kind]` : position en quarts de case, age en ticks, kind 0 = alarme,
+    /// 1 = appel de nourriture.
     #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub signals: Vec<[u16; 3]>,
+    pub signals: Vec<[u16; 4]>,
     pub events: Vec<EventView>,
     pub stats: WorldStats,
 }
@@ -482,6 +483,10 @@ pub fn project(
                     qpos(s.pos.x),
                     qpos(s.pos.y),
                     world.tick.saturating_sub(s.born).min(255) as u16,
+                    match s.kind {
+                        genesis_core::voice::SignalKind::Alarm => 0,
+                        genesis_core::voice::SignalKind::Bounty => 1,
+                    },
                 ]
             })
             .collect(),

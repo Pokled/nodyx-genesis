@@ -229,6 +229,7 @@ impl WorldState {
                 mind: None,
                 last_shock: None,
                 health: 1.0,
+                call_born: 0,
             });
         }
 

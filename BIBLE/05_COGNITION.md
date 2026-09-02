@@ -363,9 +363,40 @@ les voisins quittent une zone qui tue : une alerte précoce émergente, et la pa
 (donc brasse les lignées). Effet réel et mesuré (T-16). Déterministe byte-identique 1 vs 8
 threads. Test `alarms_are_emitted_and_bounded`.
 
-**Suite (0.0.4).** Des signaux distincts (pas seulement l'alarme), une transmission avec
-perte, la divergence entre deux populations isolées (le moment public). Le pari du langage
-émergent : `06_EMERGENCE.md` (à écrire) et l'expérience 00X, plan dans `experiments/010_belief_tranche.md`.
+---
+
+## Jalon 0.0.4 « Voix », tranche 2 : l'appel (fait, 2026-09-02)
+
+`Signal` gagne un genre : `SignalKind { Alarm, Bounty }` (schéma v17). L'alarme reste la
+tranche 1. L'**appel** : un agent rassasié (`energy >= peril_energy`) qui mange bien
+(`gain > eat_rate * 0.3`) sur une case franchement riche (`cell_before >= resources.max_per_cell
+* voice.bounty_cell_frac`, 0,55) lance un `Bounty` à sa position, phase 5. `Entity.call_born`
+tient le tick de son dernier appel et en espace deux d'au moins un `signal_ttl` : un agent ne
+crie pas « bon coin » à chaque bouchée.
+
+Le seuil est **relatif** au plafond de la case, pas absolu : un monde mûr ne franchit jamais
+le seuil du choc d'aubaine (`gain > bounty_abs`, ~1 d'énergie par tick contre 3), la première
+version de l'appel accroché à ce choc n'émettait donc rien (0 appel sur 1800 agents). Le seuil
+relatif fait apparaître 10 à 55 appels vivants en régime de croisière.
+
+En phase 2/3, un agent qui décide où aller et entend un appel dans `voice.signal_radius` glisse
+sa cible vers le plus proche, d'un poids `voice.bounty_pull * (0.3 + 0.7 * faim)` plafonné à
+0,7 (un agent repu suit à peine, un affamé fonce), et passe en mode `SeekBounty` si l'appel
+l'emporte sur sa mémoire et ses besoins. `ViewFrame.signals` porte `[x, y, age, kind]`
+(`VIEW_VERSION` 9) : halo vert convergent pour l'appel, anneau rose qui s'écarte pour l'alarme.
+
+**Résultat (graine 1, 60000 ticks, contre `bounty_call = false`).** Naissances +4 %
+(9 582 -> 9 966), diversité génétique +46 % (0,052 -> 0,076), morts par famine +8 %
+(4 973 -> 5 351), cellules vivantes 28 -> 37. L'appel concentre la population sur les bons
+coins : ça brasse davantage les lignées et coûte quelques trajets de plus. `bounty_pull = 0`
+laisse les appels visibles mais sans effet, et le monde diverge quand même de cette variante
+inerte. Effet réel et mesuré (T-16). Déterministe byte-identique 1 vs 8 threads, rejeu OK.
+Test `bounty_calls_are_heard`.
+
+**Suite (0.0.4).** Des genres qui dérivent par lignée (chaque population sa version), une
+transmission avec perte, la divergence entre deux populations isolées (le moment public). Le
+pari du langage émergent : `06_EMERGENCE.md` (à écrire) et l'expérience 00X, plan dans
+`experiments/010_belief_tranche.md`.
 
 ---
 

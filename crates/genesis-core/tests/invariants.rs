@@ -691,3 +691,65 @@ fn cells_merge_when_membranes_overlap() {
     }
     assert_eq!(w2.cells_merged_total, 0);
 }
+
+#[test]
+fn bounty_calls_are_heard() {
+    // La Voix tranche 2 (schema v17) : un agent qui mange bien sur une case franchement riche
+    // lance un appel `Bounty`. Il s'en emet reellement (graine 1, monde mur) ; `bounty_call =
+    // false` en produit zero ; et un appel entendu (`bounty_pull > 0`) inflechit la trajectoire
+    // de la population, donc le monde diverge de la variante ou l'appel est visible mais inerte.
+    use genesis_core::SignalKind;
+
+    let cfg = SimConfig::default();
+    let mut w = WorldState::new(1, &cfg);
+    let mut bounty_seen = 0u64;
+    for _ in 0..40_000 {
+        let _ = tick(&mut w, &cfg);
+        bounty_seen += w.signals.iter().filter(|s| s.kind == SignalKind::Bounty).count() as u64;
+        for s in &w.signals {
+            assert!(
+                w.tick.saturating_sub(s.born) < cfg.voice.signal_ttl,
+                "signal fossile au tick {}",
+                w.tick
+            );
+        }
+        if w.entities.is_empty() {
+            break;
+        }
+    }
+    assert!(bounty_seen > 0, "aucun appel Bounty en 40000 ticks (graine 1)");
+
+    // bounty_call = false : plus aucun appel.
+    let mut off = cfg.clone();
+    off.voice.bounty_call = false;
+    let mut w2 = WorldState::new(1, &off);
+    for _ in 0..40_000 {
+        let _ = tick(&mut w2, &off);
+        assert!(
+            !w2.signals.iter().any(|s| s.kind == SignalKind::Bounty),
+            "appel Bounty alors que bounty_call = false, tick {}",
+            w2.tick
+        );
+        if w2.entities.is_empty() {
+            break;
+        }
+    }
+
+    // Appel entendu contre appel inerte : les appels sont emis dans les deux cas, mais seul le
+    // premier inflechit les cibles. Les mondes doivent diverger.
+    let run_pop = |pull: f32| {
+        let mut c = SimConfig::default();
+        c.voice.bounty_pull = pull;
+        let mut w = WorldState::new(1, &c);
+        for _ in 0..40_000 {
+            let _ = tick(&mut w, &c);
+            if w.entities.is_empty() {
+                break;
+            }
+        }
+        (w.population(), w.deaths_starvation)
+    };
+    let heard = run_pop(0.35);
+    let inert = run_pop(0.0);
+    assert_ne!(heard, inert, "l'appel entendu ne change rien au monde");
+}

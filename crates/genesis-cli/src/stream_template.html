@@ -117,6 +117,7 @@
   .r b { color:var(--ink); font-weight:500; font-variant-numeric:tabular-nums; }
   .r.wide { grid-column:1 / -1; }
   .r.fus b { color:var(--cyan); }
+  .r.call b { color:#7ef0a6; }
   .r.hit { animation:rhit 2.6s ease; border-radius:4px; }
   @keyframes rhit { 0%,100%{background:transparent} 15%{background:rgba(82,230,223,.22)} }
 
@@ -459,12 +460,21 @@ function drawScene(now) {
     ctx.beginPath(); ctx.arc(x, y, rr, 0, 6.2832); ctx.fill();
     if (en.agent) { ctx.strokeStyle = 'rgba(185,160,255,.55)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(x, y, rr + 2.5, 0, 6.2832); ctx.stroke(); }
   }
-  // alarmes
+  // la Voix : alarme (rose, onde qui s'ecarte) et appel « bon coin » (vert, halo qui se resserre)
   for (const sg of (S.signals || [])) {
     const x = ox + (sg[0] / PS) * s, y = oy + (sg[1] / PS) * s;
     const a = Math.min(1, sg[2] / 4);
-    ctx.globalAlpha = (1 - a) * 0.5; ctx.strokeStyle = 'rgba(255,143,160,.95)'; ctx.lineWidth = 1.4;
-    ctx.beginPath(); ctx.arc(x, y, (2 + a * 9) * Math.max(0.7, s / 5), 0, 6.2832); ctx.stroke();
+    const k = sg[3] | 0;
+    if (k === 1) {
+      // appel : un halo vert qui converge, une invitation
+      ctx.globalAlpha = (1 - a) * 0.55; ctx.strokeStyle = 'rgba(126,240,166,.95)'; ctx.lineWidth = 1.6;
+      ctx.beginPath(); ctx.arc(x, y, (11 - a * 8) * Math.max(0.7, s / 5), 0, 6.2832); ctx.stroke();
+      ctx.globalAlpha = (1 - a) * 0.28; ctx.fillStyle = 'rgba(126,240,166,.9)';
+      ctx.beginPath(); ctx.arc(x, y, 2.2 * Math.max(0.7, s / 5), 0, 6.2832); ctx.fill();
+    } else {
+      ctx.globalAlpha = (1 - a) * 0.5; ctx.strokeStyle = 'rgba(255,143,160,.95)'; ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.arc(x, y, (2 + a * 9) * Math.max(0.7, s / 5), 0, 6.2832); ctx.stroke();
+    }
     ctx.globalAlpha = 1;
   }
 
@@ -634,6 +644,8 @@ function applyLive(L) {
       statRow('agents vivants', fr(L.agents_alive)) +
       statRow('eveils (total)', fr(L.agents_awoke_total)) +
       statRow('souvenirs moy.', L.mean_memories.toFixed(1)) +
+      statRow('appels « bon coin »', fr(L.calls_live || 0), 'call') +
+      statRow('cris d’alarme', fr(L.alarms_live || 0)) +
       statRow('even. / tick', (L.events_per_tick || 0).toFixed(2)) +
     '</div>';
 

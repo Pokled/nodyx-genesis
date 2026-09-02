@@ -164,6 +164,13 @@ pub fn tick(world: &mut WorldState, cfg: &SimConfig) -> Vec<Event> {
     let cog_social_pull = cfg.cognition.social_pull;
     let cog_heritable = cfg.cognition.heritable_personality;
     let cog_friend_pull = cfg.cognition.friend_pull;
+    // Voix tranche 2 : un appel entendu inflechit la cible. On lit les signaux vivants de
+    // ce tick (emis aux ticks precedents, la phase Voix de ce tick vient plus bas).
+    let signals_ref = &world.signals;
+    let voice_r2 = cfg.voice.signal_radius.max(0.1) * cfg.voice.signal_radius.max(0.1);
+    let bounty_pull = cfg.voice.bounty_pull.max(0.0);
+    let hear_calls = bounty_pull > 0.0
+        && signals_ref.iter().any(|s| s.kind == crate::voice::SignalKind::Bounty);
     // (target, colony_support, mode) ; mode = 255 pour une entite sans esprit.
     let plans: Vec<Option<(Position, f32, u8)>> = entities_ref
         .par_iter()
@@ -239,10 +246,30 @@ pub fn tick(world: &mut WorldState, cfg: &SimConfig) -> Vec<Event> {
                             .ok()
                             .map(|fi| entities_ref[fi].position)
                     });
+                    // Un appel a portee ? Le plus proche (on ignore le sien : meme case et
+                    // `born == t` serait un cas limite, mais un appel de ce tick n'existe pas
+                    // encore ici, il est emis plus bas).
+                    let call = if hear_calls {
+                        let mut best: Option<(f32, Position)> = None;
+                        for s in signals_ref.iter() {
+                            if s.kind != crate::voice::SignalKind::Bounty {
+                                continue;
+                            }
+                            let d = pos.dist2(&s.pos);
+                            if d <= voice_r2 && best.map_or(true, |(bd, _)| d < bd) {
+                                best = Some((d, s.pos));
+                            }
+                        }
+                        best.map(|(_, p)| p)
+                    } else {
+                        None
+                    };
                     let ctx = Decide {
                         pos,
                         forage,
                         has_food,
+                        call,
+                        call_pull: bounty_pull,
                         kin: if wsum > 0.0 {
                             Some(Position { x: cx / wsum, y: cy / wsum })
                         } else {
@@ -336,7 +363,13 @@ pub fn tick(world: &mut WorldState, cfg: &SimConfig) -> Vec<Event> {
     let shock_interval = cfg.cognition.shock_interval;
     // La Voix (0.0.4) : les agents qui prennent un choc de famine ce tick crient. On
     // collecte pendant la boucle (emprunt exclusif de `entities[i]`), on pousse apres.
-    let mut new_alarms: Vec<Position> = Vec::new();
+    let mut new_signals: Vec<(Position, crate::voice::SignalKind)> = Vec::new();
+    let bounty_call = cfg.voice.bounty_call;
+    // Un agent lance un appel quand il mange bien sur une case franchement riche : « bon coin
+    // ici ». Seuil relatif au plafond de la case, pas absolu (un monde mur ne franchit jamais
+    // le seuil absolu du choc d'aubaine).
+    let call_cell_min = cfg.resources.max_per_cell * cfg.voice.bounty_cell_frac.clamp(0.0, 1.0);
+    let call_gap = cfg.voice.signal_ttl.max(1);
     for i in 0..world.entities.len() {
         let (pos, burn, want0, restraint) = {
             let e = &world.entities[i];
@@ -352,7 +385,8 @@ pub fn tick(world: &mut WorldState, cfg: &SimConfig) -> Vec<Event> {
         };
         let idx = world.resources.index(&space, pos);
         let want = want0 * (1.0 - restraint * coh.eat_restraint);
-        let gain = want.min(world.resources.cell[idx]).max(0.0);
+        let cell_before = world.resources.cell[idx];
+        let gain = want.min(cell_before).max(0.0);
         world.resources.cell[idx] -= gain;
         world.resources.strain[idx] +=
             gain * strain_per_harvest * (1.0 - restraint * coh.strain_restraint);
@@ -371,19 +405,32 @@ pub fn tick(world: &mut WorldState, cfg: &SimConfig) -> Vec<Event> {
                 e.last_shock = Some(crate::cognition::Shock { tick: t, place: e.position, peril: true });
                 // Un agent qui frole la mort crie : il emet une alarme a sa position.
                 if e.mind.is_some() {
-                    new_alarms.push(e.position);
+                    new_signals.push((e.position, crate::voice::SignalKind::Alarm));
                 }
             } else if gain > bounty_abs {
                 e.last_shock = Some(crate::cognition::Shock { tick: t, place: e.position, peril: false });
             }
         }
+        // Voix tranche 2 : un agent qui mange bien sur une case franchement riche lance un
+        // appel « bon coin ici ». Rate-limite par `call_born` (au moins un ttl entre deux
+        // appels d'un meme agent), independant du choc d'aubaine.
+        if bounty_call
+            && e.mind.is_some()
+            && e.energy >= peril_energy
+            && cell_before >= call_cell_min
+            && gain > eat_rate * 0.3
+            && t.saturating_sub(e.call_born) >= call_gap
+        {
+            e.call_born = t;
+            new_signals.push((e.position, crate::voice::SignalKind::Bounty));
+        }
     }
 
-    // -- Voix : on efface les vieux signaux, on ajoute les alarmes du tick, on borne.
+    // -- Voix : on efface les vieux signaux, on ajoute ceux du tick, on borne.
     let voice_ttl = cfg.voice.signal_ttl.max(1);
     world.signals.retain(|s| t.saturating_sub(s.born) < voice_ttl);
-    for pos in new_alarms {
-        world.signals.push(crate::voice::Signal { pos, born: t });
+    for (pos, kind) in new_signals {
+        world.signals.push(crate::voice::Signal { pos, born: t, kind });
     }
     let max_sig = cfg.voice.max_signals.max(1);
     if world.signals.len() > max_sig {
@@ -721,6 +768,7 @@ pub fn tick(world: &mut WorldState, cfg: &SimConfig) -> Vec<Event> {
             last_shock: None,
             // Un corps neuf demarre intact.
             health: 1.0,
+            call_born: 0,
         });
         emit(
             &mut events,
@@ -1366,6 +1414,10 @@ struct Decide<'a> {
     forage: Position,
     /// `true` si la chimiotaxie a trouve mieux qu'ici (sinon `forage` est un pas au hasard).
     has_food: bool,
+    /// Position de l'appel de nourriture le plus proche a portee (Voix tranche 2), si entendu.
+    call: Option<Position>,
+    /// A quel point l'appel inflechit la cible.
+    call_pull: f32,
     /// Centre de masse des siens proches, si l'agent en a autour.
     kin: Option<Position>,
     /// Position de l'ami le plus familier (0.0.3, tranche 7), si trouve.
@@ -1404,8 +1456,25 @@ impl Decide<'_> {
 fn blend_target(c: &Decide) -> (Position, BehaviorMode) {
     let base = c.forage;
     let default_mode = if c.has_food { BehaviorMode::Forage } else { BehaviorMode::Wander };
+    // Voix tranche 2 : un appel de nourriture entendu attire la cible vers lui, d'autant plus
+    // que l'agent a faim. Ce n'est pas un souvenir : ca marche meme sans memoire.
+    let call_shift = |tgt: Position| -> Position {
+        let Some(call) = c.call else { return tgt };
+        let hungry = if c.nw > 0.0 {
+            c.needs.hunger.clamp(0.0, 1.0)
+        } else {
+            (1.0 - c.energy_frac).clamp(0.0, 1.0)
+        };
+        let w = (c.call_pull * (0.3 + 0.7 * hungry)).clamp(0.0, 0.7);
+        c.clamp(Position {
+            x: tgt.x + (call.x - tgt.x) * w,
+            y: tgt.y + (call.y - tgt.y) * w,
+        })
+    };
     if c.episodic.is_empty() {
-        return (base, default_mode);
+        let tgt = call_shift(base);
+        let mode = if c.call.is_some() { BehaviorMode::SeekBounty } else { default_mode };
+        return (tgt, mode);
     }
     let nw = c.nw;
     let drive = if nw > 0.0 {
@@ -1469,10 +1538,17 @@ fn blend_target(c: &Decide) -> (Position, BehaviorMode) {
             soc_disp = before.dist2(&tgt).sqrt();
         }
     }
+    // Voix : l'appel de nourriture, applique en dernier, compose avec le reste.
+    let pre_call = tgt;
+    tgt = call_shift(tgt);
+    let call_disp = pre_call.dist2(&tgt).sqrt();
     // Lecture du mode : la force qui a le plus deplace la cible loin de la nourriture.
     let av_m = (avx * avx + avy * avy).sqrt();
     let bo_m = (bx * bx + by * by).sqrt();
     let mem_shift = if mag < 1e-4 { 0.0 } else { c.mem_radius * (c.mem_weight * mag.clamp(0.0, 1.0)).clamp(0.0, 0.9) };
+    if call_disp > 1.0 && call_disp >= mem_shift && call_disp >= soc_disp {
+        return (tgt, BehaviorMode::SeekBounty);
+    }
     let mode = if soc_disp > 1.0 && soc_disp >= mem_shift {
         BehaviorMode::Join
     } else if mem_shift > 1.0 && av_m > bo_m {

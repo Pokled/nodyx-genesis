@@ -163,6 +163,7 @@ struct Entity {
     mind:       Option<Box<Mind>>,  // (0.0.3, schema v7) esprit d'agent, None pour la quasi-totalité
     last_shock: Option<Shock>,      // (0.0.3) dernier choc marquant, graine d'un souvenir
     health:     f32,               // (0.0.3, schema v13) [0,1] condition biologique consolidée
+    call_born:  u64,               // (0.0.4 t2, schema v17) tick du dernier appel émis, 0 = jamais
 }
 
 struct Position { x: f32, y: f32 }
@@ -217,16 +218,30 @@ même affamé, la solitude fait dériver vers les siens. En tranche 6, `Mind.mod
 laquelle de ces forces a **dominé** la décision (une lecture, pas un changement de
 comportement) : la biographie peut alors dire « elle a fui plutôt que de manger ».
 
-## La Voix, le premier signal (0.0.4, tranche 1)
+## La Voix : alarme et appel (0.0.4, tranches 1 et 2)
 
-`WorldState.signals: Vec<Signal>` (schema v14). `Signal { pos: Position, born: u64 }`. En
-0.0.4 tranche 1 tous les signaux sont des **alarmes** : un agent qui subit le choc d'une
-famine (`Entity.last_shock` posé, `peril = true`, phase 5) crie à sa position. En phase 5c,
-tout agent à moins de `voice.signal_radius` d'un signal voit sa peur monter au moins à
-`voice.alarm_fear`, **sans former de souvenir** : contagion brève, la peur redescend ensuite.
+`WorldState.signals: Vec<Signal>` (schema v14). `Signal { pos: Position, born: u64, kind:
+SignalKind }` ; `SignalKind { Alarm, Bounty }` (le genre, schema v17 ; les signaux d'avant
+v17 se rechargent en `Alarm`).
+
+**Alarme (tranche 1).** Un agent qui subit le choc d'une famine (`Entity.last_shock` posé,
+`peril = true`, phase 5) crie à sa position. En phase 5c, tout agent à moins de
+`voice.signal_radius` d'une alarme voit sa peur monter au moins à `voice.alarm_fear`, **sans
+former de souvenir** : contagion brève, la peur redescend ensuite.
+
+**Appel (tranche 2).** Un agent rassasié (`energy >= peril_energy`) qui mange bien
+(`gain > eat_rate * 0.3`) sur une case franchement riche (`cell_before >= resources.max_per_cell
+* voice.bounty_cell_frac`) lance un appel `Bounty` à sa position, phase 5. `Entity.call_born`
+(schema v17) est le tick de son dernier appel : il en espace deux d'au moins un `signal_ttl`.
+En phase 2/3, un agent qui décide où aller et entend un appel dans `voice.signal_radius`
+infléchit sa cible vers le plus proche, d'un poids `voice.bounty_pull * (0.3 + 0.7 * faim)`
+plafonné à 0,7, et passe en mode `SeekBounty` si l'appel l'emporte. `voice.bounty_call = false`
+coupe l'émission, `voice.bounty_pull = 0` rend l'appel visible mais inerte (A/B).
+
 Un signal vit `voice.signal_ttl` ticks ; la liste est bornée à `voice.max_signals` (les plus
-récents). Aucun lexique : c'est le premier étage vers le langage émergent (`06_EMERGENCE.md`
-reste à écrire). `ViewFrame.signals` porte `[x, y, age]` pour l'affichage.
+récents). Aucun lexique : c'est le premier étage vers le langage émergent
+(`experiments/010_belief_tranche.md`). `ViewFrame.signals` porte `[x, y, age, kind]` pour
+l'affichage (`kind` : 0 alarme, 1 appel).
 
 ## Santé, la biologie de fond (0.0.3, tranche 8)
 

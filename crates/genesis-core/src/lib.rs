@@ -24,7 +24,7 @@ pub mod voice;
 pub mod world;
 
 pub use cognition::{BehaviorMode, Memory, MemoryKind, Mind, Needs, Shock, SocialTie};
-pub use voice::Signal;
+pub use voice::{Signal, SignalKind};
 pub use config::SimConfig;
 pub use entity::{Action, Entity, EntityId, Position};
 pub use event::{DeathCause, Event, EventKind};
@@ -67,4 +67,8 @@ pub const ENGINE_VERSION: &str = env!("CARGO_PKG_VERSION");
 /// v16 : basculement du genome dominant (`Watch.dominant_genome_key` / `dominant_shift_streak`,
 ///       `EventKind::GenomeShift`). La cle de genome la plus repandue change et se tient : le
 ///       centre genetique de la population s'est deplace. Detecte, jamais devine (T-7).
-pub const SCHEMA_VERSION: u32 = 16;
+/// v17 : la Voix tranche 2, l'appel (`Signal.kind: SignalKind`). Un agent qui trouve un repas
+///       exceptionnel lance un appel ; les agents proches qui decident ou aller inflechissent
+///       leur cible vers lui. Deux genres fixes (Alarm, Bounty), aucun lexique.
+pub const SCHEMA_VERSION: u32 = 17;
+

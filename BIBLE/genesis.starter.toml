@@ -203,6 +203,16 @@ signal_ttl    = 4      # durée de vie d'un signal, en ticks
 alarm_fear    = 0.5    # plancher de peur imposé à qui entend ; 0 = alarmes émises mais sans effet (A/B)
 max_signals   = 128    # signaux vivants au plus ; en famine générale on garde les plus récents
 
+# Tranche 2 : l'appel. Un agent rassasié qui mange bien sur une case franchement riche lance
+# un appel « bon coin ici » ; les agents proches en train de décider où aller infléchissent
+# leur cible vers lui, d'autant plus qu'ils ont faim. Deux genres fixes (alarme, appel).
+# A/B graine 1, 60000 ticks, contre bounty_call = false : naissances +4 % (9 582 -> 9 966),
+# diversité génétique +46 % (0,052 -> 0,076), morts par famine +8 %. L'appel concentre la
+# population sur les bons coins, ce qui brasse davantage les lignées et coûte quelques trajets.
+bounty_call      = true  # false = aucun appel émis (A/B)
+bounty_pull      = 0.35  # à quel point un appel entendu tire la cible vers lui ; 0 = appel visible mais inerte
+bounty_cell_frac = 0.55  # fraction du plafond d'une case au-dessus de laquelle elle est « franchement riche »
+
 [view]
 # Niveau de détail de la projection (genesis-view::project). Au delà du seuil, la frame
 # envoie des amas au lieu d'individus : le fichier reste petit quelle que soit la population.

@@ -88,6 +88,9 @@ pub struct LiveState {
     pub agents_alive: u32,
     pub agents_awoke_total: u64,
     pub mean_memories: f32,
+    /// Signaux vivants a cet instant (Voix tranche 2) : appels « bon coin » et cris d'alarme.
+    pub calls_live: u32,
+    pub alarms_live: u32,
 
     // -- Cellules
     pub cells_alive: u32,
@@ -530,6 +533,16 @@ pub fn write_live(
         agents_alive,
         agents_awoke_total: awoke_total,
         mean_memories: mean_mem,
+        calls_live: world
+            .signals
+            .iter()
+            .filter(|s| s.kind == genesis_core::SignalKind::Bounty)
+            .count() as u32,
+        alarms_live: world
+            .signals
+            .iter()
+            .filter(|s| s.kind == genesis_core::SignalKind::Alarm)
+            .count() as u32,
         cells_alive: st.cells_alive,
         cells_in_pct: if st.population > 0 {
             st.entities_in_cells as f32 / st.population as f32 * 100.0
