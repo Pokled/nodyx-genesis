@@ -187,6 +187,8 @@
   #card.genese .rule { background:var(--amber); } #card.genese .badge { color:var(--amber); }
   #card.fusion .rule { background:var(--cyan); } #card.fusion .badge { color:var(--cyan); }
   #card.fusion { border-color:rgba(82,230,223,.4); box-shadow:0 30px 90px rgba(0,0,0,.65), 0 0 60px rgba(82,230,223,.15); }
+  #card.age .rule { background:var(--amber); } #card.age .badge { color:var(--amber); }
+  #card.age .h { font-size:2.6rem; }
 
   /* --- banniere record --- */
   #record {
@@ -315,17 +317,24 @@ function worldAge(sec) {
 }
 
 // --- polling : fetch quand servi en http, sinon on garde le repli embarque ---
+// Le serveur envoie `no-store` sur ces fichiers : pas besoin de casse-cache. On relit la
+// scene une fois sur deux (c'est le gros fichier), et on espace les tentatives si le
+// serveur ne repond plus (relance de `genesis serve`), sans rien casser a l'ecran.
+let pollN = 0, pollMiss = 0, pollTimer = 0;
 async function poll() {
+  let ok = false;
   try {
-    const [l, s] = await Promise.all([
-      fetch('live.json?_=' + Date.now()).then(r => r.ok ? r.json() : null),
-      fetch('scene.json?_=' + Date.now()).then(r => r.ok ? r.json() : null),
-    ]);
-    if (l) { applyLive(l); }
-    if (s) { SCENE = s; }
-  } catch (e) { /* file:// : on reste sur le repli */ }
+    const l = await fetch('live.json').then(r => r.ok ? r.json() : null);
+    if (l) { applyLive(l); ok = true; }
+    if (pollN++ % 2 === 0) {
+      const sc = await fetch('scene.json').then(r => r.ok ? r.json() : null);
+      if (sc) { SCENE = sc; }
+    }
+  } catch (e) { /* file:// ou serveur absent : on garde le dernier etat */ }
+  pollMiss = ok ? 0 : Math.min(pollMiss + 1, 6);
+  clearTimeout(pollTimer);
+  pollTimer = setTimeout(poll, 3000 + pollMiss * 1500);
 }
-setInterval(poll, 3000);
 
 // --- horloge de session (temps reel ecoule devant l'overlay) ---
 const sessionStart = Date.now();
@@ -421,36 +430,8 @@ function drawScene() {
     ctx.fillStyle = 'hsla(' + h + ',82%,82%,' + (0.22 + big * 0.4).toFixed(2) + ')';
     ctx.beginPath(); ctx.arc(x, y, 1.5 + big * 2.2, 0, 6.2832); ctx.fill();
   }
-  // fusions : l'effet epique. Deux anneaux convergent, un bloom, une onde de choc.
   const fnow = performance.now();
-  fx = fx.filter(f => fnow - f.t0 < 2300);
-  for (const f of fx) {
-    const x = ox + f.gx * s, y = oy + f.gy * s;
-    const p = (fnow - f.t0) / 2300;
-    const R = Math.max(7, f.r0 / PS * s);
-    if (p < 0.52) {
-      const q = p / 0.52;
-      const gap = (1 - q) * R * 2.6;
-      ctx.globalAlpha = (1 - q) * 0.95;
-      ctx.strokeStyle = 'rgba(82,230,223,.95)'; ctx.lineWidth = 2.2;
-      for (const dir of [-1, 1]) { ctx.beginPath(); ctx.arc(x + dir * gap, y, R * (0.45 + q * 0.45), 0, 6.2832); ctx.stroke(); }
-    }
-    const bl = Math.max(0, Math.sin(Math.max(0, Math.min(1, (p - 0.22) / 0.5)) * Math.PI));
-    if (bl > 0.01) {
-      const bg = ctx.createRadialGradient(x, y, 0, x, y, R * 1.7);
-      bg.addColorStop(0, 'rgba(190,255,250,' + (bl * 0.55).toFixed(3) + ')');
-      bg.addColorStop(1, 'rgba(82,230,223,0)');
-      ctx.globalAlpha = 1; ctx.fillStyle = bg;
-      ctx.beginPath(); ctx.arc(x, y, R * 1.7, 0, 6.2832); ctx.fill();
-    }
-    if (p > 0.3) {
-      const q = (p - 0.3) / 0.7;
-      ctx.globalAlpha = (1 - q) * 0.75;
-      ctx.strokeStyle = 'rgba(126,240,246,.9)'; ctx.lineWidth = 2 * (1 - q) + 0.5;
-      ctx.beginPath(); ctx.arc(x, y, R * (0.6 + q * 3.4), 0, 6.2832); ctx.stroke();
-    }
-    ctx.globalAlpha = 1;
-  }
+  fx = fx.filter(f => fnow - f.t0 < 2400);
   // entites
   for (const en of (S.entities || [])) {
     const x = ox + (en.pos[0] / PS) * s, y = oy + (en.pos[1] / PS) * s;
@@ -470,6 +451,50 @@ function drawScene() {
     ctx.beginPath(); ctx.arc(x, y, (2 + a * 9) * Math.max(0.7, s / 5), 0, 6.2832); ctx.stroke();
     ctx.globalAlpha = 1;
   }
+
+  // fusions : l'effet epique, dessine par-dessus tout. Le reste de la scene s'assombrit
+  // une seconde, un projecteur sur le point ; deux anneaux convergent, un flash blanc,
+  // une onde de choc.
+  for (const f of fx) {
+    const x = ox + f.gx * s, y = oy + f.gy * s;
+    const p = (fnow - f.t0) / 2400;
+    const R = Math.max(9, f.r0 / PS * s);
+    // 1. projecteur : on assombrit tout sauf un halo autour du point (0..0.75)
+    const dim = Math.sin(Math.min(1, p / 0.75) * Math.PI) * 0.55;
+    if (dim > 0.01) {
+      const dg = ctx.createRadialGradient(x, y, R * 0.6, x, y, Math.max(W, H) * 0.6);
+      dg.addColorStop(0, 'rgba(4,6,11,0)');
+      dg.addColorStop(1, 'rgba(4,6,11,' + dim.toFixed(3) + ')');
+      ctx.fillStyle = dg; ctx.fillRect(0, 0, W, H);
+    }
+    // 2. deux anneaux blancs qui convergent (0..0.5)
+    if (p < 0.5) {
+      const q = p / 0.5, gap = (1 - q) * R * 3;
+      ctx.globalAlpha = (1 - q * q);
+      ctx.strokeStyle = 'rgba(232,255,252,.98)'; ctx.lineWidth = 2.6;
+      ctx.shadowBlur = 12; ctx.shadowColor = 'rgba(82,230,223,.9)';
+      for (const dir of [-1, 1]) { ctx.beginPath(); ctx.arc(x + dir * gap, y, R * (0.4 + q * 0.5), 0, 6.2832); ctx.stroke(); }
+      ctx.shadowBlur = 0;
+    }
+    // 3. flash blanc central (0.25..0.75)
+    const bl = Math.max(0, Math.sin(Math.max(0, Math.min(1, (p - 0.2) / 0.55)) * Math.PI));
+    if (bl > 0.01) {
+      const bg = ctx.createRadialGradient(x, y, 0, x, y, R * 2.1);
+      bg.addColorStop(0, 'rgba(255,255,255,' + (bl * 0.85).toFixed(3) + ')');
+      bg.addColorStop(0.4, 'rgba(190,255,250,' + (bl * 0.5).toFixed(3) + ')');
+      bg.addColorStop(1, 'rgba(82,230,223,0)');
+      ctx.globalAlpha = 1; ctx.fillStyle = bg;
+      ctx.beginPath(); ctx.arc(x, y, R * 2.1, 0, 6.2832); ctx.fill();
+    }
+    // 4. onde de choc (0.3..1)
+    if (p > 0.28) {
+      const q = (p - 0.28) / 0.72;
+      ctx.globalAlpha = (1 - q) * 0.85;
+      ctx.strokeStyle = 'rgba(150,245,248,.95)'; ctx.lineWidth = 2.5 * (1 - q) + 0.5;
+      ctx.beginPath(); ctx.arc(x, y, R * (0.7 + q * 4), 0, 6.2832); ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+  }
   requestAnimationFrame(drawScene);
 }
 
@@ -487,12 +512,24 @@ const PULSE_DEFS = [
 let seenTournants = new Set();
 let prevRecords = null;
 let prevMerged = null;
+let prevYear = null;
 let lastFusionCard = -1e9;
+function notableYear(y) {
+  return y >= 5 && (y % 100 === 0 || (y <= 100 && y % 25 === 0) || (y <= 25 && y % 5 === 0));
+}
 function applyLive(L) {
   LIVE = L;
   // une fusion vient-elle de s'ajouter au compteur ? (flash de la stat)
   const fusionHit = prevMerged !== null && (L.cells_merged || 0) > prevMerged;
   prevMerged = L.cells_merged || 0;
+  // le monde vient-il de franchir un age rond ? (carte, pour ceux qui arrivent)
+  const yr = Math.floor((L.age_world_seconds || 0) / (365 * 86400));
+  if (prevYear !== null && yr > prevYear && notableYear(yr)) {
+    showCard({ tick: L.tick, kind: 'age', card: {
+      badge: 'age du monde', tone: 'age',
+      head: yr + ' ans', sub: 'ce monde tourne depuis ' + yr + ' revolutions, sans une pause' } });
+  }
+  prevYear = yr;
   // effet sur la scene pour chaque fusion nouvelle et localisee
   for (const e of (L.events || [])) {
     if (e.kind !== 'fusion' || !e.at) continue;
