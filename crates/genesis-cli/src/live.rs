@@ -122,6 +122,9 @@ pub struct LiveState {
     pub div_history: Vec<f32>,
     pub gen_history: Vec<u32>,
     pub tick_history: Vec<u64>,
+    /// La derive de chaque trait au fil de la vie du monde (moyenne de population). Un point
+    /// par echantillon, les traits dans l'ordre du brin d'ADN. L'evolution qu'on voit bouger.
+    pub trait_history: Vec<[f32; genesis_core::genome::N_TRAITS]>,
 
     pub records: Records,
 }
@@ -420,6 +423,8 @@ pub fn write_live(
     let div_hist: Vec<f32> = series.iter().map(|r| r.genetic_diversity).collect();
     let gen_hist: Vec<u32> = series.iter().map(|r| r.max_generation).collect();
     let tick_hist: Vec<u64> = series.iter().map(|r| r.tick).collect();
+    let trait_hist: Vec<[f32; genesis_core::genome::N_TRAITS]> =
+        series.iter().map(|r| r.trait_mean).collect();
     let n = 170;
 
     let (agents_alive, mean_mem) = world.agent_stats();
@@ -541,6 +546,7 @@ pub fn write_live(
         div_history: downsample(&div_hist, n),
         gen_history: downsample(&gen_hist, n),
         tick_history: downsample(&tick_hist, n),
+        trait_history: downsample(&trait_hist, 120),
         records: rec,
     };
     let live_json = serde_json::to_string(&live).unwrap_or_else(|_| "{}".into());

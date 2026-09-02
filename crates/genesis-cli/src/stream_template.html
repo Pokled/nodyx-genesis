@@ -803,19 +803,32 @@ function drawDna(now) {
     }
   }
 
-  // 3. etiquettes + barre de valeur
-  const lx = cx + amp + 22;
+  // 3. etiquettes + derive du trait sur toute la vie du monde (l'evolution qui bouge)
+  const th = (LIVE && LIVE.trait_history) || [];
+  const lx = cx + amp + 22, bw = 118;
   dctx.textBaseline = 'middle';
   dctx.font = '600 10px "IBM Plex Mono", monospace';
   for (let i = 0; i < n; i++) {
     const y = top + i / (n - 1) * span;
-    const v = dnaGeno[i] / 3, hue = DNA_HUE[i];
+    const hue = DNA_HUE[i];
     dctx.fillStyle = 'hsla(' + hue + ',55%,78%,.95)';
-    dctx.fillText(DNA_TRAITS[i].toUpperCase(), lx, y - 5);
-    dctx.fillStyle = 'rgba(126,158,214,.14)';
-    dctx.fillRect(lx, y + 3, 120, 3);
-    dctx.fillStyle = 'hsla(' + hue + ',72%,62%,.95)';
-    dctx.fillRect(lx, y + 3, Math.max(1, v * 120), 3);
+    dctx.fillText(DNA_TRAITS[i].toUpperCase(), lx, y - 6);
+    // ligne de derive : la moyenne du trait de la genese a maintenant, dans [0.2, 0.9]
+    if (th.length > 2) {
+      const lo = 0.2, hi = 0.9, by = y + 4, bh = 9;
+      dctx.strokeStyle = 'rgba(126,158,214,.12)';
+      dctx.lineWidth = 1; dctx.beginPath(); dctx.moveTo(lx, by + bh); dctx.lineTo(lx + bw, by + bh); dctx.stroke();
+      dctx.beginPath();
+      for (let k = 0; k < th.length; k++) {
+        const vv = Math.max(0, Math.min(1, ((th[k][i] || 0.5) - lo) / (hi - lo)));
+        const px = lx + k / (th.length - 1) * bw, py = by + bh - vv * bh;
+        k ? dctx.lineTo(px, py) : dctx.moveTo(px, py);
+      }
+      dctx.strokeStyle = 'hsla(' + hue + ',70%,62%,.9)'; dctx.lineWidth = 1.4; dctx.stroke();
+      const cur = Math.max(0, Math.min(1, ((th[th.length - 1][i] || 0.5) - lo) / (hi - lo)));
+      dctx.fillStyle = 'hsla(' + hue + ',85%,72%,1)';
+      dctx.beginPath(); dctx.arc(lx + bw, by + bh - cur * bh, 2, 0, 6.2832); dctx.fill();
+    }
   }
 }
 
