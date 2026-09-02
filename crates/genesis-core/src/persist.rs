@@ -24,6 +24,11 @@ pub struct WorldMeta {
     pub schema_version: u32,
     pub ticks_played: u64,
     pub last_event_seq: u64,
+    /// Nombre total d'individus qui se sont eveilles sur toute la vie du monde. Cumule a
+    /// travers les reprises (`genesis continue`), meme quand les vieilles biographies sont
+    /// oubliees des sorties.
+    #[serde(default)]
+    pub agents_awoke_total: u64,
 }
 
 pub struct WorldDir {

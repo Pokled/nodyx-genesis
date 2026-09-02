@@ -10,7 +10,7 @@
 //!  - `view_version` evolue independamment du schema du World State,
 //!  - le mouvement n'apparait jamais comme evenement, les positions vivent dans `entities`.
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use genesis_core::event::{Event, EventKind};
 use genesis_core::genome::N_TRAITS;
@@ -242,8 +242,9 @@ pub struct WorldStats {
 
 /// Une ligne de la serie temporelle (`series.jsonl`). Fonction pure de `(WorldState, config)`
 /// comme `project` (tranchee 3). Le materiau du graphe d'evolution genetique (`series.html`).
-/// Echantillonnee tous les `[persistence] series_every` ticks.
-#[derive(Debug, Clone, Serialize)]
+/// Echantillonnee tous les `[persistence] series_every` ticks. `Deserialize` pour que
+/// `genesis continue` recharge l'historique.
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SeriesRow {
     pub tick: u64,
     pub year: u64,

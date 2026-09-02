@@ -25,7 +25,7 @@ use genesis_core::persist::WorldMeta;
 use genesis_view::{project, series_row, SeriesRow, ViewFrame};
 
 /// Un souvenir compact, tel qu'il etait a un instant de la vie de l'agent.
-#[derive(serde::Serialize, Clone)]
+#[derive(serde::Serialize, serde::Deserialize, Clone)]
 struct MemSnap {
     x: f32,
     y: f32,
@@ -34,7 +34,7 @@ struct MemSnap {
     /// force du souvenir, (0, 1].
     s: f32,
     /// `seq` de l'evenement d'origine, pour les souvenirs ancres (mort vue).
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     e: Option<u64>,
 }
 
@@ -46,10 +46,29 @@ fn mem_kind_code(k: genesis_core::MemoryKind) -> u8 {
     }
 }
 
+/// Issue d'une vie d'agent. Serialise en `"vivant"` / `"mort"` / `"sommeil"` (le lecteur
+/// compare ces chaines).
+#[derive(serde::Serialize, serde::Deserialize, Clone, Copy, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+enum LifeEnd {
+    Vivant,
+    Mort,
+    Sommeil,
+}
+
+/// Genre d'evenement objectif qui nomme un agent, pour sa biographie.
+#[derive(serde::Serialize, serde::Deserialize, Clone, Copy, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+enum LifeEventKind {
+    Naissance,
+    Mort,
+    Division,
+}
+
 /// Un temps de vie d'agent (0.0.3, tranche 2) : sa position, son energie et sa memoire,
 /// echantillonnes toutes les `BIO_SAMPLE` ticks. Le materiau des cartes de la page
-/// biographie.
-#[derive(serde::Serialize, Clone)]
+/// biographie. `Deserialize` pour que `genesis continue` reprenne les vies en cours.
+#[derive(serde::Serialize, serde::Deserialize, Clone)]
 struct LifeBeat {
     tick: u64,
     pos: [f32; 2],
@@ -59,10 +78,10 @@ struct LifeBeat {
     h: u8,
     /// jauges en pourcents : [faim, peur, solitude].
     n: [u8; 3],
-    /// mode de comportement choisi : forage | flee | join | seek_bounty | wander.
-    md: &'static str,
+    /// mode de comportement choisi (serialise en forage | flee | join | seek_bounty | wander).
+    md: genesis_core::BehaviorMode,
     /// la memoire episodique a cet instant (vide un temps sur deux, pour borner le poids).
-    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
     mem: Vec<MemSnap>,
 }
 
@@ -70,7 +89,7 @@ struct LifeBeat {
 /// vie d'agent s'est terminee, sa memoire de fin, sa trajectoire (`beats`) et les evenements
 /// du monde qui le nomment. Les `beats` et `events` ne sont gardes en detail que pour les
 /// vies mises en vedette (voir `BIO_KEEP_DETAIL`).
-#[derive(serde::Serialize)]
+#[derive(serde::Serialize, serde::Deserialize, Clone)]
 struct AgentLife {
     id: EntityId,
     lineage: u16,
@@ -82,20 +101,22 @@ struct AgentLife {
     speed_trait: f32,
     awoke_tick: u64,
     awoke_place: [f32; 2],
+    #[serde(default)]
     ended_tick: Option<u64>,
-    /// "vivant" | "mort" | "sommeil"
-    ended: &'static str,
+    ended: LifeEnd,
     /// sante au dernier echantillon, 0..100 (biologie de fond, tranche 8).
+    #[serde(default)]
     ended_health: u8,
+    #[serde(default)]
     memories: Vec<Memory>,
     /// Les relations sociales de fin de vie : (id de l'autre, familiarite, valence).
-    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
     ties: Vec<(EntityId, f32, f32)>,
-    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
     beats: Vec<LifeBeat>,
     /// (tick, genre) des evenements objectifs qui nomment cet agent.
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    events: Vec<(u64, &'static str)>,
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    events: Vec<(u64, LifeEventKind)>,
 }
 
 /// Toutes les `BIO_SAMPLE` ticks, on note un temps de vie pour chaque agent suivi.
@@ -112,7 +133,7 @@ const BIO_EMBED: usize = 300;
 const BIO_FEATURE: usize = 24;
 
 /// Ajoute un evenement objectif a une vie d'agent (borne a 16).
-fn push_life_event(l: &mut AgentLife, tick: u64, kind: &'static str) {
+fn push_life_event(l: &mut AgentLife, tick: u64, kind: LifeEventKind) {
     if l.events.len() < 16 {
         l.events.push((tick, kind));
     }
@@ -131,7 +152,7 @@ fn new_life(e: &genesis_core::Entity, awoke_tick: u64) -> AgentLife {
         awoke_tick,
         awoke_place: [e.position.x, e.position.y],
         ended_tick: None,
-        ended: "vivant",
+        ended: LifeEnd::Vivant,
         ended_health: (e.health.clamp(0.0, 1.0) * 100.0) as u8,
         memories: Vec::new(),
         ties: Vec::new(),
@@ -151,6 +172,8 @@ fn main() -> ExitCode {
 
     let result = match cmd {
         "run" => cmd_run(&flags),
+        "continue" => cmd_continue(&flags, args.get(1).cloned()),
+        "serve" => cmd_serve(&flags, args.get(1).cloned()),
         "replay" => cmd_replay(&flags, args.get(1).cloned()),
         "gallery" => cmd_gallery(args.get(1).cloned().unwrap_or_else(|| "worlds".to_string())),
         "-h" | "--help" | "help" => {
@@ -178,6 +201,14 @@ genesis, Nodyx Genesis 0.0.1
   genesis run --seed <N> --ticks <T> [--out worlds/<nom>] [--config <fichier.toml>] [--frame-every <n>]
       Fait naitre un monde et le fait tourner. Ecrit dans le dossier de sortie :
         config.toml, meta.json, snapshots/, events.jsonl, frames.jsonl, view.html
+
+  genesis continue <dossier-monde> --ticks <T> [--frame-every <n>]
+      Reprend un monde depuis son dernier instantane et le fait avancer de T ticks.
+      Le journal et la serie temporelle continuent ; la scene montre le monde recent.
+
+  genesis serve <dossier-monde> [--chunk <N>] [--for <T>] [--rate <ticks/s>]
+      Fait tourner un monde en continu, en refaisant les pages a chaque tranche.
+      Ouvre index.html dans un navigateur et rafraichis. Ctrl-C pour arreter.
 
   genesis replay <dossier-monde>
       Rejoue le monde depuis sa graine et verifie l'etat final. Deterministe : OK ou DIFF.
@@ -240,86 +271,142 @@ fn cmd_run(flags: &HashMap<String, String>) -> std::io::Result<()> {
 
     wdir.write_snapshot(&world)?;
 
-    let mut frames: Vec<ViewFrame> = Vec::new();
+    let mut sim = Sim::new();
     // La premiere frame porte les evenements fondateurs : la genese est un chapitre.
-    frames.push(project(&world, &cfg, tps, &founding));
+    sim.frames.push(project(&world, &cfg, tps, &founding));
+    sim.series.push(series_row(&world, &cfg));
+    sim.notable
+        .extend(founding.iter().filter(|e| is_chronicle_event(&e.kind)).cloned());
 
-    // Serie temporelle de stats : une ligne au depart, puis tous les `series_every` ticks,
-    // puis une a la fin. Le materiau du graphe d'evolution.
-    let series_every = cfg.persistence.series_every.max(1);
-    let mut series: Vec<SeriesRow> = vec![series_row(&world, &cfg)];
+    // Fenetre "genese" : on echantillonne quatre fois plus fin sur les premiers ticks, la ou
+    // deux entites deviennent une lignee. En `run` on garde toutes les frames.
+    sim.run(&mut world, &cfg, &wdir, ticks, frame_every, 4000.min(ticks), usize::MAX)?;
 
-    let mut since_frame: Vec<Event> = Vec::new();
-    let mut notable: Vec<Event> = Vec::new();
-    let mut extinct_at: Option<u64> = None;
-    // Vies d'agents (0.0.3) : suivies via le journal, figees a la mort ou a la retombee.
-    let mut lives: std::collections::HashMap<EntityId, AgentLife> = std::collections::HashMap::new();
+    let awoke_total = sim.lives.len() as u64;
+    write_world_pages(
+        &world,
+        &cfg,
+        &wdir,
+        seed,
+        awoke_total,
+        &sim.frames,
+        &sim.series,
+        &sim.notable,
+        &sim.lives,
+        sim.extinct_at,
+    )
+}
 
-    // Seuil de saillance pour le journal des choses qui comptent (chapitres).
-    const NOTABLE: u8 = 150;
-    notable.extend(founding.iter().filter(|e| e.salience >= NOTABLE).cloned());
+/// `true` si l'evenement merite une ligne dans la chronique du monde (`notable.jsonl`, la
+/// page de garde). Les eveils d'agents et les cellules sont trop frequents : ils vivent dans
+/// le fil de `view.html`, pas dans la chronique.
+fn is_chronicle_event(kind: &EventKind) -> bool {
+    matches!(
+        kind,
+        EventKind::WorldCreated
+            | EventKind::SpeciesEmerged { .. }
+            | EventKind::LineageExtinct { .. }
+            | EventKind::PopulationCrash { .. }
+            | EventKind::PopulationMilestone { .. }
+    )
+}
 
-    // Fenetre "genese" : on echantillonne quatre fois plus fin sur les premiers ticks,
-    // la ou deux entites deviennent une lignee. C'est court en temps-monde, ca merite
-    // d'etre regarde au ralenti.
-    let genesis_window: u64 = 4000.min(ticks);
-    let dense_every: u64 = (frame_every / 4).max(1);
+/// Les accumulateurs d'un segment de simulation : ce qu'on garde en memoire pour engendrer
+/// les pages a la fin. Partage par `run` (depart) et `continue` (reprise).
+struct Sim {
+    frames: Vec<ViewFrame>,
+    series: Vec<SeriesRow>,
+    notable: Vec<Event>,
+    lives: std::collections::HashMap<EntityId, AgentLife>,
+    extinct_at: Option<u64>,
+}
 
-    for _ in 0..ticks {
-        let ev = tick(&mut world, &cfg);
-        since_frame.extend(ev.iter().cloned());
-        wdir.append_events(&ev)?;
-        notable.extend(ev.iter().filter(|e| e.salience >= NOTABLE).cloned());
-
-        for e in ev.iter() {
-            match &e.kind {
-                EventKind::AgentAwoke { entity } => {
-                    if let Some(x) = world.get(*entity) {
-                        lives.entry(*entity).or_insert_with(|| new_life(x, world.tick));
-                    }
-                }
-                EventKind::AgentLapsed { entity } => {
-                    if let Some(l) = lives.get_mut(entity) {
-                        if l.ended_tick.is_none() {
-                            l.ended_tick = Some(world.tick);
-                            l.ended = "sommeil";
-                        }
-                    }
-                }
-                EventKind::EntityDied { entity, .. } => {
-                    if let Some(l) = lives.get_mut(entity) {
-                        push_life_event(l, world.tick, "mort");
-                        if l.ended_tick.is_none() {
-                            l.ended_tick = Some(world.tick);
-                            l.ended = "mort";
-                        }
-                    }
-                }
-                EventKind::EntitySpawned { entity } => {
-                    if let Some(l) = lives.get_mut(entity) {
-                        push_life_event(l, world.tick, "naissance");
-                    }
-                }
-                EventKind::EntityDivided { parent, child } => {
-                    if let Some(l) = lives.get_mut(parent) {
-                        push_life_event(l, world.tick, "division");
-                    }
-                    if let Some(l) = lives.get_mut(child) {
-                        push_life_event(l, world.tick, "naissance");
-                    }
-                }
-                _ => {}
-            }
+impl Sim {
+    fn new() -> Self {
+        Sim {
+            frames: Vec::new(),
+            series: Vec::new(),
+            notable: Vec::new(),
+            lives: std::collections::HashMap::new(),
+            extinct_at: None,
         }
+    }
 
-        // Echantillon de vie : position, energie, memoire de chaque agent suivi.
-        if world.tick % BIO_SAMPLE == 0 {
-            let ceiling = cfg.reproduction.energy_threshold * 2.0;
-            for l in lives.values_mut() {
-                if l.ended_tick.is_some() {
-                    continue;
+    /// Fait tourner `ticks` ticks, en appendant au journal et en ecrivant les instantanes.
+    /// `max_frames` borne le nombre de frames gardees (une fenetre glissante pour `continue`,
+    /// `usize::MAX` pour `run`).
+    #[allow(clippy::too_many_arguments)]
+    fn run(
+        &mut self,
+        world: &mut WorldState,
+        cfg: &SimConfig,
+        wdir: &WorldDir,
+        ticks: u64,
+        frame_every: u64,
+        genesis_window: u64,
+        max_frames: usize,
+    ) -> std::io::Result<()> {
+        let tps = cfg.time.target_ticks_per_real_second;
+        let series_every = cfg.persistence.series_every.max(1);
+        let dense_every: u64 = (frame_every / 4).max(1);
+        let mut since_frame: Vec<Event> = Vec::new();
+
+        for _ in 0..ticks {
+            let ev = tick(world, cfg);
+            since_frame.extend(ev.iter().cloned());
+            wdir.append_events(&ev)?;
+            self.notable
+                .extend(ev.iter().filter(|e| is_chronicle_event(&e.kind)).cloned());
+
+            for e in ev.iter() {
+                match &e.kind {
+                    EventKind::AgentAwoke { entity } => {
+                        if let Some(x) = world.get(*entity) {
+                            self.lives.entry(*entity).or_insert_with(|| new_life(x, world.tick));
+                        }
+                    }
+                    EventKind::AgentLapsed { entity } => {
+                        if let Some(l) = self.lives.get_mut(entity) {
+                            if l.ended_tick.is_none() {
+                                l.ended_tick = Some(world.tick);
+                                l.ended = LifeEnd::Sommeil;
+                            }
+                        }
+                    }
+                    EventKind::EntityDied { entity, .. } => {
+                        if let Some(l) = self.lives.get_mut(entity) {
+                            push_life_event(l, world.tick, LifeEventKind::Mort);
+                            if l.ended_tick.is_none() {
+                                l.ended_tick = Some(world.tick);
+                                l.ended = LifeEnd::Mort;
+                            }
+                        }
+                    }
+                    EventKind::EntitySpawned { entity } => {
+                        if let Some(l) = self.lives.get_mut(entity) {
+                            push_life_event(l, world.tick, LifeEventKind::Naissance);
+                        }
+                    }
+                    EventKind::EntityDivided { parent, child } => {
+                        if let Some(l) = self.lives.get_mut(parent) {
+                            push_life_event(l, world.tick, LifeEventKind::Division);
+                        }
+                        if let Some(l) = self.lives.get_mut(child) {
+                            push_life_event(l, world.tick, LifeEventKind::Naissance);
+                        }
+                    }
+                    _ => {}
                 }
-                if let Some(x) = world.get(l.id) {
+            }
+
+            // Echantillon de vie : position, energie, memoire de chaque agent suivi.
+            if world.tick % BIO_SAMPLE == 0 {
+                let ceiling = cfg.reproduction.energy_threshold * 2.0;
+                for l in self.lives.values_mut() {
+                    if l.ended_tick.is_some() {
+                        continue;
+                    }
+                    if let Some(x) = world.get(l.id) {
                     let snap: Vec<MemSnap> = x.mind.as_deref().map_or_else(Vec::new, |m| {
                         m.episodic
                             .iter()
@@ -336,12 +423,13 @@ fn cmd_run(flags: &HashMap<String, String>) -> std::io::Result<()> {
                     // lives.jsonl : la parite suit le compte de battements de cette vie.
                     let with_mem = l.beats.len() % 2 == 0;
                     let pct = |v: f32| (v.clamp(0.0, 1.0) * 100.0) as u8;
-                    let (n, md) = x.mind.as_deref().map_or(([0, 0, 0], "forage"), |m| {
-                        (
-                            [pct(m.needs.hunger), pct(m.needs.fear), pct(m.needs.solitude)],
-                            m.mode.as_str(),
-                        )
-                    });
+                    let (n, md) =
+                        x.mind.as_deref().map_or(([0, 0, 0], genesis_core::BehaviorMode::Forage), |m| {
+                            (
+                                [pct(m.needs.hunger), pct(m.needs.fear), pct(m.needs.solitude)],
+                                m.mode,
+                            )
+                        });
                     l.ended_health = pct(x.health);
                     l.beats.push(LifeBeat {
                         tick: world.tick,
@@ -375,51 +463,79 @@ fn cmd_run(flags: &HashMap<String, String>) -> std::io::Result<()> {
             }
         }
 
-        let interval = if world.tick <= genesis_window { dense_every } else { frame_every };
-        if world.tick % interval == 0 {
-            frames.push(project(&world, &cfg, tps, &since_frame));
-            since_frame.clear();
+            let interval = if world.tick <= genesis_window { dense_every } else { frame_every };
+            if world.tick % interval == 0 {
+                self.frames.push(project(world, cfg, tps, &since_frame));
+                since_frame.clear();
+                while self.frames.len() > max_frames {
+                    self.frames.remove(0);
+                }
+            }
+            if world.tick % cfg.persistence.snapshot_interval_ticks == 0 {
+                wdir.write_snapshot(world)?;
+            }
+            if world.tick % series_every == 0 {
+                self.series.push(series_row(world, cfg));
+            }
+            if world.entities.is_empty() {
+                self.extinct_at = Some(world.tick);
+                break;
+            }
         }
-        if world.tick % cfg.persistence.snapshot_interval_ticks == 0 {
-            wdir.write_snapshot(&world)?;
-        }
-        if world.tick % series_every == 0 {
-            series.push(series_row(&world, &cfg));
-        }
-        if world.entities.is_empty() {
-            extinct_at = Some(world.tick);
-            break;
-        }
-    }
 
-    // Instantane final exactement au dernier tick, pour que replay puisse comparer.
-    wdir.write_snapshot(&world)?;
-    frames.push(project(&world, &cfg, tps, &since_frame));
-    if series.last().map_or(true, |r| r.tick != world.tick) {
-        series.push(series_row(&world, &cfg));
-    }
-
-    // Agents encore vivants au terme : on capture leur memoire de fin.
-    for e in world.entities.iter() {
-        if let Some(m) = &e.mind {
-            let l = lives.entry(e.id).or_insert_with(|| new_life(e, m.awoke_tick));
-            l.memories = m.episodic.clone();
-            l.ties = m
-                .social
-                .iter()
-                .map(|s| (s.other, s.familiarity, s.valence))
-                .collect();
+        // Instantane final exactement au dernier tick, pour que replay puisse comparer.
+        wdir.write_snapshot(world)?;
+        self.frames.push(project(world, cfg, tps, &since_frame));
+        while self.frames.len() > max_frames {
+            self.frames.remove(0);
         }
+        if self.series.last().map_or(true, |r| r.tick != world.tick) {
+            self.series.push(series_row(world, cfg));
+        }
+
+        // Agents encore vivants au terme du segment : on capture leur memoire de fin.
+        for e in world.entities.iter() {
+            if let Some(m) = &e.mind {
+                let l = self.lives.entry(e.id).or_insert_with(|| new_life(e, m.awoke_tick));
+                l.memories = m.episodic.clone();
+                l.ties = m
+                    .social
+                    .iter()
+                    .map(|s| (s.other, s.familiarity, s.valence))
+                    .collect();
+            }
+        }
+        Ok(())
     }
+}
+
+/// Ecrit les cinq pages HTML et les journaux derives, puis la bibliotheque et le resume.
+/// Partage par `run` et `continue`.
+#[allow(clippy::too_many_arguments)]
+fn write_world_pages(
+    world: &WorldState,
+    cfg: &SimConfig,
+    wdir: &WorldDir,
+    seed: u64,
+    awoke_total: u64,
+    frames: &[ViewFrame],
+    series: &[SeriesRow],
+    notable: &[Event],
+    lives: &std::collections::HashMap<EntityId, AgentLife>,
+    extinct_at: Option<u64>,
+) -> std::io::Result<()> {
     // Duree comme agent, pour trier les vies : les plus longues d'abord.
     let agent_span = |l: &AgentLife| l.ended_tick.unwrap_or(world.tick).saturating_sub(l.awoke_tick);
-    let mut lives_vec: Vec<AgentLife> = lives.into_values().collect();
+    let mut lives_vec: Vec<AgentLife> = lives.values().cloned().collect();
     lives_vec.sort_by(|a, b| {
         agent_span(b)
             .cmp(&agent_span(a))
             .then(b.memories.len().cmp(&a.memories.len()))
             .then(a.id.cmp(&b.id))
     });
+    // Un monde qui ne s'arrete jamais ne peut pas garder toutes ses biographies : on borne
+    // le fichier aux vies les plus longues. `awoke_total` (dans meta) garde le compte vrai.
+    lives_vec.truncate(LIVES_FILE_CAP);
     // Au-dela des vies gardees en detail, on ne conserve que la ligne resumee.
     for l in lives_vec.iter_mut().skip(BIO_KEEP_DETAIL) {
         l.beats.clear();
@@ -448,6 +564,7 @@ fn cmd_run(flags: &HashMap<String, String>) -> std::io::Result<()> {
         schema_version: genesis_core::SCHEMA_VERSION,
         ticks_played: world.tick,
         last_event_seq: world.next_event_seq,
+        agents_awoke_total: awoke_total,
     };
     wdir.write_meta(&meta)?;
 
@@ -458,15 +575,15 @@ fn cmd_run(flags: &HashMap<String, String>) -> std::io::Result<()> {
         .map(|s| s.to_string_lossy().into_owned())
         .unwrap_or_else(|| format!("w{seed}"));
 
-    write_frames_jsonl(&wdir.root, &frames)?;
-    write_jsonl(&wdir.root.join("notable.jsonl"), &notable)?;
-    write_jsonl(&wdir.root.join("series.jsonl"), &series)?;
+    write_frames_jsonl(&wdir.root, frames)?;
+    write_jsonl(&wdir.root.join("notable.jsonl"), notable)?;
+    write_jsonl(&wdir.root.join("series.jsonl"), series)?;
     write_jsonl(&wdir.root.join("lives.jsonl"), &lives_vec)?;
-    let html = view_html::render(&world_name, &meta, &cfg, &frames);
+    let html = view_html::render(&world_name, &meta, cfg, frames);
     std::fs::write(wdir.root.join("view.html"), html)?;
-    let series_html = series_html::render(&world_name, &meta, &cfg, &series);
+    let series_html = series_html::render(&world_name, &meta, cfg, series);
     std::fs::write(wdir.root.join("series.html"), series_html)?;
-    let lives_html = lives_html::render(&world_name, &meta, &cfg, &lives_vec, BIO_EMBED, BIO_FEATURE);
+    let lives_html = lives_html::render(&world_name, &meta, cfg, &lives_vec, BIO_EMBED, BIO_FEATURE);
     std::fs::write(wdir.root.join("lives.html"), lives_html)?;
 
     // --- Page de garde du monde ---
@@ -516,7 +633,7 @@ fn cmd_run(flags: &HashMap<String, String>) -> std::io::Result<()> {
             max_gen: series.last().map(|r| r.max_generation).unwrap_or(0),
             div_start: series.first().map(|r| r.genetic_diversity).unwrap_or(0.0),
             div_end: series.last().map(|r| r.genetic_diversity).unwrap_or(0.0),
-            agents_awoke: lives_vec.len(),
+            agents_awoke: awoke_total as usize,
             agents_alive,
             mean_mem,
             longest_span: longest.map(agent_span).unwrap_or(0),
@@ -571,6 +688,281 @@ fn cmd_run(flags: &HashMap<String, String>) -> std::io::Result<()> {
 }
 
 // ---------------------------------------------------------------------------
+
+/// Nombre de vies d'agents deja terminees qu'on garde a la reprise (les plus longues). Les
+/// autres sont oubliees des sorties : c'est le prix d'un monde qui ne s'arrete jamais.
+const CONTINUE_LIVES_KEPT: usize = 200;
+/// Plafond de vies ecrites dans `lives.jsonl` (les plus longues). Le compte vrai des eveils
+/// est dans `meta.agents_awoke_total`.
+const LIVES_FILE_CAP: usize = 800;
+/// Fenetre de frames gardees a la reprise : la scene montre le monde recent, pas toute son
+/// histoire. `series.html` et `index.html`, eux, gardent l'arc complet (bon marche).
+const CONTINUE_FRAME_WINDOW: usize = 500;
+/// Chapitres gardes a la reprise.
+const CONTINUE_NOTABLE_KEPT: usize = 2500;
+
+/// `genesis continue <dossier> --ticks N` : reprend un monde depuis son dernier instantane et
+/// le fait avancer. Le journal et la serie temporelle continuent de grossir (verite du
+/// monde) ; la scene et les biographies sont refaites sur le segment recent.
+fn cmd_continue(
+    flags: &HashMap<String, String>,
+    positional: Option<String>,
+) -> std::io::Result<()> {
+    let out = resume_path(flags, positional, "genesis continue <dossier-monde> --ticks N")?;
+    let ticks: u64 = flags
+        .get("ticks")
+        .and_then(|s| s.parse().ok())
+        .ok_or_else(|| err("--ticks <T> est requis"))?;
+    let frame_every = resume_frame_every(flags);
+
+    let mut r = Resume::load(&out)?;
+    let from_tick = r.world.tick;
+    r.sim.run(&mut r.world, &r.cfg, &r.wdir, ticks, frame_every, 0, CONTINUE_FRAME_WINDOW)?;
+
+    println!(
+        "Monde {} repris : {} -> {} ticks (+{})",
+        out.display(),
+        from_tick,
+        r.world.tick,
+        r.world.tick - from_tick
+    );
+    r.write_pages()
+}
+
+/// `genesis serve <dossier> [--chunk N] [--for T] [--rate ticks/s]` : fait tourner un monde
+/// en continu, en refaisant les pages a chaque tranche. On ouvre `index.html` dans un
+/// navigateur et on rafraichit pour voir le monde avancer. Ctrl-C arrete proprement.
+fn cmd_serve(
+    flags: &HashMap<String, String>,
+    positional: Option<String>,
+) -> std::io::Result<()> {
+    let out = resume_path(flags, positional, "genesis serve <dossier-monde>")?;
+    let frame_every = resume_frame_every(flags);
+    let chunk: u64 = flags
+        .get("chunk")
+        .and_then(|s| s.parse().ok())
+        .filter(|&n| n > 0)
+        .unwrap_or(4000);
+    let limit: Option<u64> = flags.get("for").and_then(|s| s.parse().ok());
+    // Ticks par seconde reelle voulus. 0 = a fond.
+    let rate: f64 = flags.get("rate").and_then(|s| s.parse().ok()).unwrap_or(0.0);
+    // On ne refait pas les pages a chaque tranche : au plus une fois toutes ces secondes.
+    let pages_every: f64 = flags
+        .get("pages-every")
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(10.0);
+
+    let mut r = Resume::load(&out)?;
+    let start = r.world.tick;
+    println!(
+        "Monde {} en marche depuis le tick {}. Ctrl-C pour arreter.",
+        out.display(),
+        start
+    );
+    println!("Ouvre {}", r.wdir.root.join("index.html").display());
+
+    let mut last_pages = std::time::Instant::now()
+        - std::time::Duration::from_secs_f64(pages_every.max(0.0) + 1.0);
+    loop {
+        let t0 = std::time::Instant::now();
+        let before = r.world.tick;
+        r.sim
+            .run(&mut r.world, &r.cfg, &r.wdir, chunk, frame_every, 0, CONTINUE_FRAME_WINDOW)?;
+
+        let done = r.world.entities.is_empty()
+            || limit.is_some_and(|l| r.world.tick - start >= l);
+        if done || last_pages.elapsed().as_secs_f64() >= pages_every {
+            r.write_pages()?;
+            last_pages = std::time::Instant::now();
+        }
+
+        let (agents_alive, _) = r.world.agent_stats();
+        println!(
+            "  tick {:>10}  pop {:>5}  agents {:>5}  gen {:>3}  ({:.1}s)",
+            r.world.tick,
+            r.world.population(),
+            agents_alive,
+            r.sim.series.last().map(|s| s.max_generation).unwrap_or(0),
+            t0.elapsed().as_secs_f64(),
+        );
+
+        if r.world.entities.is_empty() {
+            println!("Le monde s'est eteint au tick {}.", r.world.tick);
+            break;
+        }
+        if let Some(l) = limit {
+            if r.world.tick - start >= l {
+                break;
+            }
+        }
+        // Cadence : on attend pour ne pas depasser `rate` ticks par seconde reelle.
+        if rate > 0.0 {
+            let advanced = (r.world.tick - before) as f64;
+            let target = advanced / rate;
+            let spent = t0.elapsed().as_secs_f64();
+            if target > spent {
+                std::thread::sleep(std::time::Duration::from_secs_f64(target - spent));
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Un monde charge pour etre repris : etat, config, accumulateurs, et de quoi ecrire les
+/// pages. Partage par `continue` et `serve`.
+struct Resume {
+    wdir: WorldDir,
+    cfg: SimConfig,
+    seed: u64,
+    world: WorldState,
+    sim: Sim,
+    /// Compte d'eveils avant ce segment (pour `meta.agents_awoke_total`).
+    awoke_before: u64,
+    from_tick: u64,
+}
+
+impl Resume {
+    fn load(out: &Path) -> std::io::Result<Self> {
+        if !WorldDir::exists(out) {
+            return Err(err(&format!(
+                "le monde {} n'existe pas ; lance d'abord `genesis run`",
+                out.display()
+            )));
+        }
+        let wdir = WorldDir::open_or_create(out)?;
+        let cfg = wdir.read_config()?;
+        let meta = wdir.read_meta()?;
+        let world = wdir
+            .latest_snapshot()?
+            .ok_or_else(|| err("aucun instantane : impossible de reprendre ce monde"))?;
+        let from_tick = world.tick;
+
+        // Robustesse : si une session precedente a ete tuee entre deux instantanes, le journal
+        // contient des evenements posterieurs au dernier instantane. On les coupe pour ne pas
+        // les ecrire deux fois quand on rejoue depuis cet instantane.
+        truncate_events_after(&wdir.root.join("events.jsonl"), from_tick)?;
+
+        let series: Vec<SeriesRow> = read_jsonl(&wdir.root.join("series.jsonl"));
+        let mut notable: Vec<Event> = read_jsonl(&wdir.root.join("notable.jsonl"));
+        notable.retain(|e| is_chronicle_event(&e.kind));
+        let all_lives: Vec<AgentLife> = read_jsonl(&wdir.root.join("lives.jsonl"));
+        let awoke_before = meta.agents_awoke_total.max(all_lives.len() as u64);
+
+        if notable.len() > CONTINUE_NOTABLE_KEPT {
+            let d = notable.len() - CONTINUE_NOTABLE_KEPT;
+            notable.drain(0..d);
+        }
+
+        // Toutes les vies encore en cours, plus les plus longues parmi les terminees.
+        let mut ended: Vec<AgentLife> = Vec::new();
+        let mut lives: std::collections::HashMap<EntityId, AgentLife> =
+            std::collections::HashMap::new();
+        for l in all_lives {
+            if l.ended_tick.is_none() {
+                lives.insert(l.id, l);
+            } else {
+                ended.push(l);
+            }
+        }
+        let span = |l: &AgentLife| l.ended_tick.unwrap_or(from_tick).saturating_sub(l.awoke_tick);
+        ended.sort_by_key(|l| std::cmp::Reverse(span(l)));
+        ended.truncate(CONTINUE_LIVES_KEPT);
+        for l in ended {
+            lives.insert(l.id, l);
+        }
+
+        let tps = cfg.time.target_ticks_per_real_second;
+        let mut sim = Sim::new();
+        sim.series = series;
+        sim.notable = notable;
+        sim.lives = lives;
+        sim.frames.push(project(&world, &cfg, tps, &[]));
+        if sim.series.last().map_or(true, |r| r.tick != world.tick) {
+            sim.series.push(series_row(&world, &cfg));
+        }
+
+        Ok(Resume { wdir, cfg, seed: meta.seed, world, sim, awoke_before, from_tick })
+    }
+
+    fn write_pages(&self) -> std::io::Result<()> {
+        let new_awoke = self
+            .sim
+            .lives
+            .values()
+            .filter(|l| l.awoke_tick >= self.from_tick)
+            .count() as u64;
+        write_world_pages(
+            &self.world,
+            &self.cfg,
+            &self.wdir,
+            self.seed,
+            self.awoke_before + new_awoke,
+            &self.sim.frames,
+            &self.sim.series,
+            &self.sim.notable,
+            &self.sim.lives,
+            self.sim.extinct_at,
+        )
+    }
+}
+
+fn resume_path(
+    flags: &HashMap<String, String>,
+    positional: Option<String>,
+    usage: &str,
+) -> std::io::Result<PathBuf> {
+    flags
+        .get("out")
+        .cloned()
+        .or(positional)
+        .map(PathBuf::from)
+        .ok_or_else(|| err(usage))
+}
+
+fn resume_frame_every(flags: &HashMap<String, String>) -> u64 {
+    flags
+        .get("frame-every")
+        .and_then(|s| s.parse().ok())
+        .filter(|&n| n > 0)
+        .unwrap_or(400)
+}
+
+/// Retire de `events.jsonl` toute ligne dont le tick depasse `keep_upto`. Sert a la reprise
+/// apres un arret brutal : le dernier instantane peut etre en retard sur le journal.
+fn truncate_events_after(path: &Path, keep_upto: u64) -> std::io::Result<()> {
+    let text = match std::fs::read_to_string(path) {
+        Ok(t) => t,
+        Err(_) => return Ok(()),
+    };
+    let mut kept = String::with_capacity(text.len());
+    let mut cut = false;
+    for line in text.lines() {
+        if line.trim().is_empty() {
+            continue;
+        }
+        let tick = serde_json::from_str::<Event>(line).map(|e| e.tick).unwrap_or(0);
+        if tick <= keep_upto {
+            kept.push_str(line);
+            kept.push('\n');
+        } else {
+            cut = true;
+        }
+    }
+    if cut {
+        std::fs::write(path, kept)?;
+    }
+    Ok(())
+}
+
+/// Lit un fichier `.jsonl` en un `Vec<T>`. Les lignes illisibles sont ignorees.
+fn read_jsonl<T: serde::de::DeserializeOwned>(path: &Path) -> Vec<T> {
+    std::fs::read_to_string(path)
+        .unwrap_or_default()
+        .lines()
+        .filter(|l| !l.trim().is_empty())
+        .filter_map(|l| serde_json::from_str(l).ok())
+        .collect()
+}
 
 fn cmd_replay(_flags: &HashMap<String, String>, positional: Option<String>) -> std::io::Result<()> {
     let dir = positional.ok_or_else(|| err("genesis replay <dossier-monde>"))?;

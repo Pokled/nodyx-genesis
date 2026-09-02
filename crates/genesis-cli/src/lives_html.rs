@@ -7,7 +7,7 @@
 use genesis_core::persist::WorldMeta;
 use genesis_core::SimConfig;
 
-use crate::AgentLife;
+use crate::{AgentLife, LifeEnd};
 
 const TEMPLATE: &str = include_str!("lives_template.html");
 const COMMON_JS: &str = include_str!("reader_common.js");
@@ -30,9 +30,9 @@ pub fn render(
     let (mut mort, mut sommeil, mut vivant) = (0usize, 0usize, 0usize);
     for l in all {
         match l.ended {
-            "mort" => mort += 1,
-            "sommeil" => sommeil += 1,
-            _ => vivant += 1,
+            LifeEnd::Mort => mort += 1,
+            LifeEnd::Sommeil => sommeil += 1,
+            LifeEnd::Vivant => vivant += 1,
         }
     }
     let longest = all
