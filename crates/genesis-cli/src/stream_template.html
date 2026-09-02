@@ -148,10 +148,11 @@
   .foot-r { grid-area:foot-r; border-top:1px solid var(--line); border-left:1px solid var(--line);
     background:rgba(6,9,15,.5); padding:14px 24px; display:grid; grid-template-columns:1.1fr 1fr; gap:24px; }
   .hist svg.big { width:100%; height:150px; display:block; }
-  .hist .spark { display:flex; gap:18px; margin-top:8px; }
+  .hist .spark { display:flex; gap:18px; margin-top:10px; }
   .hist .spark .sp { flex:1; }
-  .hist .spark .sp .lab { color:var(--muted); font-size:.68rem; letter-spacing:.05em; text-transform:uppercase; }
-  .hist .spark .sp svg { width:100%; height:26px; display:block; margin-top:2px; }
+  .hist .spark .sp .lab { color:var(--muted); font-size:.68rem; letter-spacing:.05em; text-transform:uppercase; display:flex; justify-content:space-between; }
+  .hist .spark .sp .lab b { color:var(--soft); font-weight:500; text-transform:none; font-variant-numeric:tabular-nums; }
+  .hist .spark .sp svg { width:100%; height:30px; display:block; margin-top:3px; }
   .hist .cap { color:var(--muted); font-size:.7rem; margin-top:6px; letter-spacing:.03em; }
   .records .rec { display:flex; justify-content:space-between; align-items:baseline; font-size:.8rem; padding:3px 0; border-bottom:1px solid var(--line); }
   .records .rec:last-child { border-bottom:none; }
@@ -256,8 +257,8 @@
       <div class="h2s">Histoire de la population</div>
       <svg class="big" id="hist" viewBox="0 0 520 150" preserveAspectRatio="none" role="img"></svg>
       <div class="spark">
-        <div class="sp"><div class="lab">Diversite genetique</div><svg id="spdiv" viewBox="0 0 200 26" preserveAspectRatio="none"></svg></div>
-        <div class="sp"><div class="lab">Generations</div><svg id="spgen" viewBox="0 0 200 26" preserveAspectRatio="none"></svg></div>
+        <div class="sp"><div class="lab"><span>Diversite genetique</span><b id="spdivv"></b></div><svg id="spdiv" viewBox="0 0 200 30" preserveAspectRatio="none"></svg></div>
+        <div class="sp"><div class="lab"><span>Generations</span><b id="spgenv"></b></div><svg id="spgen" viewBox="0 0 200 30" preserveAspectRatio="none"></svg></div>
       </div>
       <div class="cap" id="histcap"></div>
     </div>
@@ -650,10 +651,15 @@ function applyLive(L) {
   if (broke && prevRecords) showRecord(broke);
   prevRecords = Object.assign({}, R);
 
-  // graphes
+  // graphes : pour un monde tres age, la population est plate depuis longtemps ; c'est ici,
+  // sous la courbe, que l'evolution se lit encore (la diversite qui derive, les generations
+  // qui s'empilent).
   drawHist(L);
-  drawSpark('spdiv', (L.div_history || []), '#b9a0ff');
-  drawSpark('spgen', (L.gen_history || []), '#52e6df');
+  const dv = L.div_history || [], gv = L.gen_history || [];
+  drawSpark('spdiv', dv, '#b9a0ff');
+  drawSpark('spgen', gv, '#52e6df');
+  if (dv.length > 1) document.getElementById('spdivv').textContent = dv[0].toFixed(3) + ' → ' + dv[dv.length - 1].toFixed(3);
+  if (gv.length > 1) document.getElementById('spgenv').textContent = gv[0] + ' → ' + gv[gv.length - 1];
 
   // carte d'un nouveau grand tournant
   for (const e of (L.events || [])) {
@@ -689,14 +695,22 @@ function drawHist(L) {
   let ar = 'M0,' + H + ' ', ln = '';
   for (let i = 0; i < ph.length; i++) { const x = X(ph[i][0]).toFixed(1), y = Y(ph[i][1]).toFixed(1); ar += 'L' + x + ',' + y + ' '; ln += (i ? 'L' : 'M') + x + ',' + y + ' '; }
   ar += 'L' + W + ',' + H + ' Z';
-  // les grands tournants poses sur la courbe : hairline + point en haut, teinte par genre
-  let marks = '';
-  for (const c of (L.chronicle || [])) {
+  // les grands tournants poses sur la courbe : hairline + point en haut, teinte par genre.
+  // Les jalons rares (genese, espece, extinction, effondrement, cap) sont toujours poses.
+  // Les fusions sont nombreuses : sur un monde jeune on les montre toutes, sur un monde age
+  // elles s'entassent dans la premiere annee, on ne garde alors que les plus recentes.
+  const chron = L.chronicle || [];
+  const fusN = chron.filter(c => c.kind === 'fusion').length;
+  const fusKeepFrom = fusN > 45 ? t0 + (t1 - t0) * 0.55 : t0;
+  let marks = '', fusSeen = 0;
+  for (const c of chron) {
     if (c.tick < t0 || c.tick > t1) continue;
     const x = X(c.tick).toFixed(1);
     const col = CHRON_COL[c.kind] || '#9aa6be';
     if (c.kind === 'fusion') {
-      marks += '<line x1="' + x + '" y1="0" x2="' + x + '" y2="7" stroke="' + col + '" stroke-width="1" opacity=".45"/>';
+      if (c.tick < fusKeepFrom) continue;
+      if (++fusSeen % (fusN > 90 ? 3 : 1) !== 0) continue;
+      marks += '<line x1="' + x + '" y1="0" x2="' + x + '" y2="6" stroke="' + col + '" stroke-width="1" opacity=".4"/>';
     } else {
       marks += '<line x1="' + x + '" y1="0" x2="' + x + '" y2="' + H + '" stroke="' + col + '" stroke-width="1" opacity=".22"/>' +
                '<circle cx="' + x + '" cy="5" r="3" fill="' + col + '"/>';
@@ -715,12 +729,17 @@ function drawHist(L) {
 function drawSpark(id, arr, col) {
   const svg = document.getElementById(id);
   if (!arr || arr.length < 2) { svg.innerHTML = ''; return; }
-  const W = 200, H = 26;
+  const W = 200, H = 30;
   const mn = Math.min(...arr), mx = Math.max(...arr);
-  const Y = v => H - 2 - (mx > mn ? (v - mn) / (mx - mn) : 0.5) * (H - 4);
-  let ln = '';
-  for (let i = 0; i < arr.length; i++) ln += (i ? 'L' : 'M') + (i / (arr.length - 1) * W).toFixed(1) + ',' + Y(arr[i]).toFixed(1) + ' ';
-  svg.innerHTML = '<path d="' + ln + '" fill="none" stroke="' + col + '" stroke-width="1.4" opacity=".9"/>';
+  const X = i => (i / (arr.length - 1) * W).toFixed(1);
+  const Y = v => (H - 2 - (mx > mn ? (v - mn) / (mx - mn) : 0.5) * (H - 5)).toFixed(1);
+  let ln = '', ar = 'M0,' + H + ' ';
+  for (let i = 0; i < arr.length; i++) { ln += (i ? 'L' : 'M') + X(i) + ',' + Y(arr[i]) + ' '; ar += 'L' + X(i) + ',' + Y(arr[i]) + ' '; }
+  ar += 'L' + W + ',' + H + ' Z';
+  svg.innerHTML =
+    '<path d="' + ar + '" fill="' + col + '" opacity=".1"/>' +
+    '<path d="' + ln + '" fill="none" stroke="' + col + '" stroke-width="1.5" opacity=".95"/>' +
+    '<circle cx="' + X(arr.length - 1) + '" cy="' + Y(arr[arr.length - 1]) + '" r="2" fill="' + col + '"/>';
 }
 
 // --- le brin d'ADN : le genome dominant du monde, une double helice vivante ---
