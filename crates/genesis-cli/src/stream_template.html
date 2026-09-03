@@ -320,6 +320,13 @@ const RENDER_SCALE = 0.72;
 const resCv = document.createElement('canvas');
 const resx = resCv.getContext('2d');
 let resDirty = true;
+// Fond de population : au pic, ~900 amas qui se recouvrent -> une GRILLE de disques translucides
+// (moche et lourde en logiciel). A la place : on peint les amas dans un petit canvas basse
+// resolution (en coordonnees du monde), puis un seul `drawImage` etire et lisse -> une nappe
+// douce, pas une grille, et une fraction du cout.
+const cluCv = document.createElement('canvas');
+cluCv.width = 116; cluCv.height = 116;
+const clux = cluCv.getContext('2d');
 let sceneBg = null, dnaGrad = null;
 function resize() {
   cv.width = Math.round(cv.clientWidth * RENDER_SCALE);
@@ -446,7 +453,12 @@ let poll;
 // id stable ; les amas n'en ont pas et passent tels quels (nuage diffus, la camera les amortit).
 const CDISP = new Map();   // id cellule -> {x, y, r}
 const EDISP = new Map();   // id entite  -> {x, y}
+const KDISP = new Map();   // amas : cle spatiale grossiere -> {x, y, e, h, a}  (lissage du FOND)
 let dispLast = performance.now();
+// cle spatiale d'un amas : sa case sur une grille grossiere. Deux images de suite, l'amas
+// d'une meme zone garde la meme cle -> on lisse sa position / energie / teinte au lieu de le
+// laisser sauter a chaque re-binning (c'est ce qui faisait "vibrer" le fond).
+function cluKey(px, py) { return ((px / 24) | 0) * 8192 + ((py / 24) | 0); }
 // `frameAt` ne fait que faire AVANCER l'etat de lissage (CDISP / EDISP) : aucune allocation,
 // pas de nouveaux objets par frame (le GC est une source de saccade). `drawScene` lit la
 // position lissee via `dispCell` / `dispEnt` au moment de tracer.
@@ -478,8 +490,21 @@ function frameAt(now) {
     }
     if (EDISP.size > S.entities.length + 64) for (const [k, d] of EDISP) if (now - d.seen > 4000) EDISP.delete(k);
   }
+  // amas : lissage du fond de population par cle spatiale (pos, energie, teinte).
+  if (S.clusters && S.clusters.length) {
+    const ac = Math.min(0.16, a * 1.6);   // un peu plus vif que les cellules, le fond doit suivre
+    for (const c of S.clusters) {
+      const k = cluKey(c.pos[0], c.pos[1]);
+      let d = KDISP.get(k);
+      if (!d) { d = { x: c.pos[0], y: c.pos[1], e: c.energy, h: c.hue, seen: 0 }; KDISP.set(k, d); }
+      d.x += (c.pos[0] - d.x) * ac; d.y += (c.pos[1] - d.y) * ac;
+      d.e += (c.energy - d.e) * ac; d.h += (c.hue - d.h) * ac; d.seen = now;
+    }
+    if (KDISP.size > S.clusters.length + 40) for (const [k, d] of KDISP) if (now - d.seen > 3000) KDISP.delete(k);
+  }
   return S;
 }
+function dispClu(c) { const d = KDISP.get(cluKey(c.pos[0], c.pos[1])); return d || { x: c.pos[0], y: c.pos[1], e: c.energy, h: c.hue }; }
 // position lissee d'affichage (fallback sur la cible brute si pas encore d'etat)
 function dispCell(c) { const d = CDISP.get(c.id); return d ? d : { x: c.pos[0], y: c.pos[1], r: c.radius }; }
 function dispEnt(e) { const d = e.id != null && EDISP.get(e.id); return d || { x: e.pos[0], y: e.pos[1] }; }
@@ -626,19 +651,28 @@ function drawScene(now) {
     ctx.imageSmoothingEnabled = true;
     ctx.drawImage(resCv, ox, oy, s * gw, s * gh);
   }
-  // amas : le fond de population. Des centaines par image. Ni degrade radial (couteux a creer),
-  // ni `drawImage` d'un canvas (force un Snapshot Skia sur Firefox en logiciel). Deux disques
-  // pleins par amas : un halo large tres translucide, un coeur plus net. Couleurs memoisees.
+  // amas : le fond de population, peint dans `cluCv` (basse resolution, coordonnees du monde)
+  // puis recopie en un seul `drawImage` etire et lisse. Une nappe douce, jamais une grille.
   const clu = S.clusters || [];
-  for (let i = 0; i < clu.length; i++) {
-    const c = clu[i];
-    const x = ox + (c.pos[0] / PS) * s, y = oy + (c.pos[1] / PS) * s;
-    const r = Math.max(4, (c.radius / PS) * s);
-    const e = c.energy / 100;
-    ctx.fillStyle = bio(c.hue, 60, 0.05 + e * 0.09);
-    ctx.beginPath(); ctx.arc(x, y, r * 1.35, 0, 6.2832); ctx.fill();
-    ctx.fillStyle = bio(c.hue, 64, 0.16 + e * 0.24);
-    ctx.beginPath(); ctx.arc(x, y, r * 0.72, 0, 6.2832); ctx.fill();
+  if (clu.length) {
+    const CW = cluCv.width, CH = cluCv.height;
+    const kx = CW / gw, ky = CH / gh;
+    clux.clearRect(0, 0, CW, CH);
+    clux.globalCompositeOperation = 'lighter';
+    // rayon assez large pour que les cases voisines se recouvrent : une nappe, pas une grille.
+    const base = Math.max(4.2, gw / 30 * kx * 1.15);
+    for (let i = 0; i < clu.length; i++) {
+      const c = clu[i];
+      const dk = dispClu(c);
+      const px = (dk.x / PS) * kx, py = (dk.y / PS) * ky;
+      const pr = base + (c.radius / PS) * kx * 0.8;
+      const e = dk.e / 100;
+      clux.fillStyle = bio(dk.h, 56, 0.045 + e * 0.075);
+      clux.beginPath(); clux.arc(px, py, pr, 0, 6.2832); clux.fill();
+    }
+    clux.globalCompositeOperation = 'source-over';
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(cluCv, 0, 0, CW, CH, ox, oy, s * gw, s * gh);
   }
   // cellules : des membranes vivantes. Une masse translucide teintee du genome, un contour
   // qui ondule (l'ondulation gonfle avec l'allongement : une cellule proche de la division
