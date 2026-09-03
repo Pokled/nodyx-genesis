@@ -100,20 +100,78 @@ revenir a l'organisme quand la chimie donnera un vrai substrat a la differenciat
 Cout : nul. Mais la roadmap avance dans l'ordre social avant l'ordre biologique, ce qui est
 un choix a assumer.
 
+### Piste D : le genome structurel (Karl Sims, 1994)
+
+Les pistes A et B tirent le role d'une cellule de sa **position** ou de son **age** ; le doc
+le reconnait lui-meme, c'est scripte, pas evolue. La piste C dit d'attendre la chimie pour
+avoir un vrai substrat de differenciation. Karl Sims (`Transcription/siggraph94.pdf`, *Evolving
+Virtual Creatures*) donne une quatrieme voie que ce doc n'avait pas.
+
+Chez Sims, le genotype n'est pas un vecteur de scalaires, c'est un **graphe oriente** : des
+noeuds (unites du corps) et des connexions (comment une unite s'attache a une autre : position,
+orientation, echelle, limite de recursion). Le phenotype est *developpe* depuis ce graphe :
+une sous-structure decrite une fois est **instanciee** partout ou on la reference (une patte
+definie une fois, poussee quatre fois, chacune avec sa copie locale du circuit de controle).
+La differenciation vient de la **topologie du graphe** (quel noeud je suis), pas d'un gradient
+chimique. La mutation agit sur le graphe : ajouter/retirer un noeud, recabler une connexion,
+changer une limite de recursion.
+
+Genesis a un genome de 10 scalaires plats. `cellule -> tissu -> organe` est une progression
+**structurelle** et il n'y a rien de structurel a faire evoluer. La piste D ajoute un **second
+genome, structurel, heritable, distinct du genome de traits** (schema v19 -> v20, le genome de
+traits reste) :
+
+- **`adhesion`** (gene) : bande de parente a laquelle cette cellule *colle* sans fusionner
+  (plus proche que `fuse_kin`, plus loin que la repulsion). Un **tissu** = composante connexe
+  de cellules qui adherent. C'est la « connexion » de Sims.
+- **carte de roles** (gene, ~4 entrees) : signal positionnel (distance au centroide, sur le
+  bord, nombre de voisins) -> distribution de roles. Mutable (perturber les poids,
+  ajouter/retirer une entree). C'est le « quel noeud je suis » de Sims, reduit a l'echelle
+  Genesis : la position fournit le signal, mais la *carte* signal -> role evolue.
+- **`role`** sur l'entite (germinal / somatique / structurel / nourricier), reevalue chaque
+  tick en passant les signaux de la cellule dans la carte.
+- **selection a l'echelle de l'organisme** : le complexe adherent se divise en entier, le
+  genome structurel s'herite avec mutation. La selection agit sur l'organisme, comme Sims
+  evalue la creature entiere.
+
+Cout : le plus eleve des quatre. Schema v19 -> v20, cablage mutation/heredite d'un second
+genome, le brin d'ADN de l'overlay passe de 10 a 11+ traits, tests d'invariants. Mais c'est
+la seule piste ou la differenciation est **evoluee** et non declaree.
+
+Lignee ALife de cette voie : Sims -> Sam Kriegman -> xenobots (`Transcription/url_video_et_documents.md`).
+Les xenobots (tas de cellules souches qui s'auto-organise en unite fonctionnelle sans genome
+de plan corporel) valident la piste A ; le genome structurel de Sims est ce qu'il faut pour
+rendre le resultat **hereditaire et selectionnable**.
+
 ## Recommandation pour discussion
 
 La **piste B** est la plus interessante par ce qu'elle revele (le gain du somatique) et la
 moins couteuse en code, mais la plus risquee pour l'equilibre des mondes. La **piste A** est
 la plus sure et la plus continue avec la fusion. La **piste C** est defendable si on tient a
-l'ordre de la roadmap.
+l'ordre de la roadmap. La **piste D** est la seule ou la differenciation est evoluee, mais la
+plus lourde.
 
-Avant de choisir : un prototype autonome (comme `001`), une petite grille, des cellules avec
-un role somatique/germinal, pour voir si le gain apparait et si l'ecosysteme tient. Aucun
-engagement moteur tant que le prototype n'a pas parle.
+**Mise a jour 2026-09-03 (apres lecture du dossier `Transcription/`).** Une marche manque
+*avant* celle-ci : la **predation**. Le papier Vannier sur l'explosion cambrienne
+(`Transcription/L-Explosion-cambrienne...pdf`) est categorique : la montee de complexite du
+Cambrien n'est pas l'apparition des cellules/tissus (deja la) mais de la predation et de sa
+cascade de retroactions (vision -> predation -> armure -> comportements -> niches -> niveaux
+trophiques). Le multicellulaire sans predateur n'a aucune raison de persister : une cellule
+coute et ne rapporte presque rien. Avec un predateur, une cellule devient un **refuge de
+taille**, avantage selectif durable. w2 le confirme a l'envers (multicellulaire eteint sous
+saturation, faute d'avantage). Ordre revise : `cell_burn_relief` (tampon anti-disette,
+0.0.2) -> **predation** (`experiments/012_predation.md` a rediger) -> organisme (piste A) ->
+genome structurel (piste D). Detail : [[organism-path-predation-first]] en memoire.
+
+Avant de choisir une piste organisme : un prototype autonome (comme `001`), une petite grille,
+des cellules avec un role somatique/germinal, pour voir si le gain apparait et si l'ecosysteme
+tient. Aucun engagement moteur tant que le prototype n'a pas parle.
 
 ## Lecture
 
-`Transcription/` contient un fonds de paleontologie (Comptes Rendus Palevol 2009,
-"de l'origine de la vie a la complexite actuelle", "explosion cambrienne", "emergence des
-tetrapodes"). A depouiller pour caler les seuils de bascule sur ce que dit le vivant reel,
-pas sur l'intuition, quand cette marche sera engagee.
+`Transcription/` : fonds de paleontologie (Comptes Rendus Palevol 2009, "de l'origine de la vie
+a la complexite actuelle", "explosion cambrienne", "emergence des tetrapodes") pour caler les
+seuils de bascule sur le vivant reel. Plus, depouilles le 2026-09-03 : `siggraph94.pdf` (Karl
+Sims, le genome-graphe, cf. piste D), `url_video_et_documents.md` (lignee Sims -> Kriegman ->
+xenobots), `Taille.md` (l'escalier atome -> molecule -> cellule -> tissu -> organe -> appareil
+-> organisme, avec ses criteres). Analyse consignee dans `Transcription/analyse.md`.

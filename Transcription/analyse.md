@@ -245,3 +245,67 @@ et partageables. Petit, forte valeur d'usage.
 - Famille centrée individu, pour comparaison : Tierra (Ray), Avida, Polyworld (Yaeger),
   Framsticks.
 - Piste ouverte plus large : POET et l'auto-génération de curriculums d'environnements.
+
+---
+
+## Seconde passe (2026-09-03) : Sims, xenobots, Cambrien — pour `cellule -> tissu -> organe`
+
+De nouveaux PDF ont été ajoutés au dossier. Beaucoup sont de la paléontologie de radiation
+(échinodermes, tétrapodes, oiseaux, cétacés...) : utiles plus tard pour les plans
+d'organisation, pas maintenant. Un rapport de politique du CNRS (section 29) : sans intérêt
+pour le modèle. Trois sources parlent directement à la marche organisme.
+
+### `siggraph94.pdf` — Karl Sims, *Evolving Virtual Creatures* (1994)
+
+Le génotype est un **graphe orienté** : noeuds = unités du corps, connexions = attache
+(position, orientation, échelle, limite de récursion). Le phénotype est *développé* depuis le
+graphe : une sous-structure décrite une fois est **instanciée** partout où on la référence
+(une patte définie une fois, poussée quatre fois, chacune avec sa copie locale du circuit de
+contrôle). La différenciation vient de la topologie du graphe, pas d'un gradient chimique. La
+mutation agit sur le graphe (ajouter/retirer un noeud, recâbler une connexion). Sims utilise
+une fitness explicite (nager, marcher) ; pour l'ouvert, ses propres refs pointent Tierra,
+Polyworld, et les L-systems (Lindenmayer) pour la grammaire de développement.
+
+Ce que ça donne pour Genesis : le génome de 10 scalaires plats ne peut jamais exprimer « quelle
+forme, quel bout fait quoi ». Il faut un **second génome, structurel** (graphe/règles),
+distinct du génome de traits. Consigné comme « Piste D » dans `experiments/009_organism.md`.
+
+### `url_video_et_documents.md` — la lignée Sims -> Kriegman -> xenobots
+
+Toute la filiation moderne des créatures évoluées : Sam Kriegman (2017), puis les **xenobots**
+(2020-2025), robots vivants faits de cellules souches de grenouille, conçus par algo évolutif.
+Un tas de cellules s'auto-organise en unité multicellulaire fonctionnelle (déplacement,
+navigation, transport collectif, auto-réparation, **réplication cinématique** : elles
+rassemblent des cellules libres en tas qui deviennent de nouveaux xenobots) **sans génome de
+plan corporel**. Ça valide la piste A du 009 (l'organisme colonial émerge de l'agrégation).
+Refs à récupérer : Kauffman *Origins of Order* (auto-organisation + sélection), Prigogine
+(structures dissipatives), Schrödinger *What is Life?*, PNAS 2023 (algo évolutif guidé par IA
+= bien plus rapide — répond au point A ci-dessus).
+
+### `L-Explosion-cambrienne...pdf` — Vannier (2009), le point le plus important
+
+L'explosion cambrienne n'est **pas** l'apparition des cellules ou des tissus (déjà là) : c'est
+l'apparition de la **prédation** et de sa cascade de rétroactions. Rien dans le registre
+précambrien ne montre d'interactions animales fortes ni de chaîne trophique complexe. La
+chaîne d'innovations : système nerveux + **vision** (« Light Switch » de Parker : voir
+déclenche la prédation active) -> nouvelle pression sélective -> armure / biominéralisation ->
+comportements anti-prédateur -> colonisation de niches -> niveaux trophiques. Climat et
+oxygène : préparent le terrain, **négligeables pour le basculement lui-même**, qui est piloté
+par le biotique. Et : l'interdépendance du réseau trophique rend l'écosystème plus stable en
+marche normale **mais plus fragile au choc** (un choc à un niveau se propage) — c'est
+exactement la grandeur de résilience du point C plus haut.
+
+Conséquence pour Genesis : le multicellulaire sans prédateur n'a aucune raison de persister
+(cf. w2, multicellulaire éteint sous saturation). Avec un prédateur, une cellule devient un
+**refuge de taille** = avantage sélectif durable. Genesis n'a aucune prédation (morts = faim +
+âge, un seul niveau trophique). **La prédation est la marche qui manque avant l'organisme.**
+Ordre décidé : `cell_burn_relief` (tampon anti-disette, 0.0.2) -> prédation
+(`experiments/012_predation.md` à rédiger) -> organisme (piste A) -> génome structurel
+(piste D).
+
+### `Taille.md`
+
+L'escalier canonique : atome -> molécule -> **cellule -> tissu -> organe** -> appareil ->
+organisme. Critères qui définissent le saut : tissu = cellules *spécialisées* + une *même
+fonction* ; organe = *plusieurs tissus* qui *collaborent*. C'est la spec de ce que le 009
+appelle « la spécialisation et la co-dépendance manquantes ».
