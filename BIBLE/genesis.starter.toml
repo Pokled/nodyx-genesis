@@ -199,6 +199,19 @@ divide_age_ticks  = 4000  # âge minimal avant la première division
 repel             = true
 repel_strength    = 0.06  # fraction du chevauchement corrigée par tick, par membre (bornée)
 
+[predation]
+# Prédation (0.0.2, experiments/012_predation.md). Une entité qui a faim (energy < hunt_below)
+# et qui a à portée une entité nettement plus faible (proie.energy < self.energy * prey_frac)
+# la mange : la proie meurt (DeathCause::Predation), une part transfer de son énergie passe au
+# prédateur. Aucune règle ne nomme un prédateur, c'est une condition d'énergie et de distance.
+# enabled = false par défaut : c'est une expérience, elle ne change les mondes que si on
+# l'allume (bouton d'A/B).
+enabled           = false
+reach             = 2.0   # portée de l'attaque, en cases du monde
+hunt_below        = 4.0   # le prédateur ne chasse que sous ce niveau d'énergie (seuil de repro = 8)
+prey_frac         = 0.5   # la proie doit valoir moins que cette fraction de l'énergie du prédateur
+transfer          = 0.55  # part de l'énergie de la proie qui passe au prédateur
+
 [cognition]
 # Cognition (0.0.3, tranche 1 « le premier souvenir »). Une entité qui perçoit assez bien
 # (perception_min), a vécu assez longtemps (age_min_frac) et vient de subir un choc s'éveille

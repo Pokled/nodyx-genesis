@@ -13,6 +13,8 @@ use crate::entity::EntityId;
 pub enum DeathCause {
     Starvation,
     Age,
+    /// Mangee par une autre entite (0.0.2, `[predation]`, config seulement).
+    Predation,
 }
 
 impl DeathCause {
@@ -20,6 +22,7 @@ impl DeathCause {
         match self {
             DeathCause::Starvation => "starvation",
             DeathCause::Age => "age",
+            DeathCause::Predation => "predation",
         }
     }
 }

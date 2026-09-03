@@ -23,6 +23,7 @@ pub struct SimConfig {
     pub reproduction: ReproductionCfg,
     pub cohesion: CohesionCfg,
     pub cells: CellsCfg,
+    pub predation: PredationCfg,
     pub cognition: CognitionCfg,
     pub voice: VoiceCfg,
     pub watch: WatchCfg,
@@ -47,6 +48,7 @@ impl Default for SimConfig {
             reproduction: ReproductionCfg::default(),
             cohesion: CohesionCfg::default(),
             cells: CellsCfg::default(),
+            predation: PredationCfg::default(),
             cognition: CognitionCfg::default(),
             voice: VoiceCfg::default(),
             watch: WatchCfg::default(),
@@ -530,6 +532,34 @@ impl Default for CellsCfg {
             repel: true,
             repel_strength: 0.06,
         }
+    }
+}
+
+/// Predation (0.0.2, `experiments/012_predation.md`, config seulement, schema inchange).
+/// Une entite qui a faim (`energy < hunt_below`) et qui a a portee (`reach`) une entite
+/// nettement plus faible (`proie.energy < self.energy * prey_frac`) la mange : la proie
+/// meurt (`DeathCause::Predation`), une part `transfer` de son energie passe au predateur.
+/// Aucune regle ne nomme un predateur, c'est une condition d'energie et de distance.
+/// Sequentiel, sans RNG, ordre des id, une prise par predateur et par tick. `enabled = false`
+/// par defaut : la marche predation est une experience, elle ne change les mondes que si on
+/// l'allume (bouton d'A/B).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct PredationCfg {
+    pub enabled: bool,
+    /// Portee de l'attaque, en cases du monde.
+    pub reach: f32,
+    /// Le predateur ne chasse que sous ce niveau d'energie (il chasse quand il a faim, pas
+    /// quand il est plein). Bien au-dessus de `starve_at`, sous le seuil de reproduction.
+    pub hunt_below: f32,
+    /// La proie doit valoir moins que cette fraction de l'energie du predateur.
+    pub prey_frac: f32,
+    /// Part de l'energie de la proie qui passe au predateur (le reste est perdu).
+    pub transfer: f32,
+}
+impl Default for PredationCfg {
+    fn default() -> Self {
+        PredationCfg { enabled: false, reach: 2.0, hunt_below: 4.0, prey_frac: 0.5, transfer: 0.55 }
     }
 }
 

@@ -181,6 +181,9 @@ pub struct WorldState {
     pub deaths_total: u64,
     pub deaths_starvation: u64,
     pub deaths_age: u64,
+    /// Entites mangees par une autre entite (0.0.2, `[predation]`). Cumule.
+    #[serde(default)]
+    pub deaths_predation: u64,
     /// Divisions par ailleurs eligibles qui ont echoue faute de matiere libre. Cumule.
     /// Rend visible quand la matiere est le facteur limitant.
     #[serde(default)]
@@ -270,6 +273,7 @@ impl WorldState {
             deaths_total: 0,
             deaths_starvation: 0,
             deaths_age: 0,
+            deaths_predation: 0,
             repro_blocked_materials: 0,
             cells_formed_total: 0,
             cells_dissolved_total: 0,

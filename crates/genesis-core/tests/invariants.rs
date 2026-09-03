@@ -842,6 +842,51 @@ fn cells_repel_when_they_overlap_without_fusing() {
 }
 
 #[test]
+fn predation_kills_the_weak_and_conserves_the_death_count() {
+    // Predation (0.0.2, experiments/012, config seulement, `[predation] enabled`). Une entite
+    // affamee mange une entite nettement plus faible a portee : la proie meurt par predation,
+    // une part de son energie passe au predateur. Aucune regle ne nomme un predateur.
+    // Verifie : il s'en produit (graine 1) ; le compteur cumule colle et l'invariant de
+    // comptage tient (total = famine + age + predation) ; l'ecosysteme ne s'effondre pas ;
+    // `enabled = false` en produit zero ; deterministe.
+    let mut on = SimConfig::default();
+    on.cells.cell_burn_relief = 0.0; // isole l'effet predation
+    on.predation.enabled = true;
+    let mut off = on.clone();
+    off.predation.enabled = false;
+
+    let run = |cfg: &SimConfig| -> (u64, u64, f64) {
+        let mut w = WorldState::new(1, cfg);
+        let mut pop_min = u64::MAX;
+        for step in 0..40_000 {
+            let _ = tick(&mut w, cfg);
+            assert_eq!(
+                w.deaths_total,
+                w.deaths_starvation + w.deaths_age + w.deaths_predation,
+                "comptage des morts incoherent au tick {}",
+                w.tick
+            );
+            if step >= 10_000 {
+                pop_min = pop_min.min(w.entities.len() as u64);
+            }
+            if w.entities.is_empty() {
+                break;
+            }
+        }
+        (w.deaths_predation, w.entities.len() as u64, pop_min as f64)
+    };
+
+    let (on_pred, on_pop, _on_min) = run(&on);
+    let (off_pred, _off_pop, _off_min) = run(&off);
+    assert!(on_pred > 0, "aucune predation en 40000 ticks (graine 1)");
+    assert_eq!(off_pred, 0, "predation alors que enabled = false");
+    assert!(on_pop > 100, "l'ecosysteme s'eteint sous predation (pop finale {on_pop})");
+    assert_eq!(run(&on).0, on_pred, "predation non deterministe");
+    // La sante de l'ecosysteme sous predation (population, diversite, derive des traits) est
+    // une question d'A/B, consignee dans experiments/012_predation.md, pas d'un test unitaire.
+}
+
+#[test]
 fn cell_burn_relief_buffers_famine_without_distorting_fat_times() {
     // Membrane (0.0.2, tranche 2b, config seulement) : un membre de cellule EN DANGER de
     // famine brule moins d'energie de base (`cell_burn_relief` * gravite). Le repli ne touche

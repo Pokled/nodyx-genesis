@@ -1,7 +1,9 @@
-# 012. Experience, la predation (exploration, pas encore decidee)
+# 012. Experience, la predation
 
-Statut : **exploration de conception**. Rien n'est implemente. Gabarit de `001_emergence.md`
-et `009_organism.md`. Ce document pose les options avant de s'engager. La decision revient a
+Statut : **premiere version sur le moteur** (2026-09-03), `[predation] enabled`, defaut
+`false`. Gabarit de `001_emergence.md` et `009_organism.md`. Le prototype numpy
+(`experiments/012-predation/`) a servi de degrossissage ; le vrai test se fait sur le moteur
+comme les autres marches (bouton d'A/B). La decision d'allumer par defaut revient a
 l'utilisateur.
 
 Position : la roadmap (`10_ROADMAP.md`) fait monter Genesis d'echelle. Aujourd'hui les entites
@@ -86,18 +88,59 @@ la predation quand il y aura des « grosses choses » (organismes) a manger et d
 (cellules) ou se cacher. Defendable, mais c'est l'ordre inverse de ce que dit le Cambrien
 (la predation vient avant, elle est *la cause* de la complexification).
 
-## Recommandation pour discussion
+## Resultats, premier passage sur le moteur (2026-09-03)
 
-**Piste B** est la plus fidele au Cambrien (predation + reponse anti-predateur = la cascade)
-et rend enfin `perception` adaptatif. **Piste A** est le prototype a faire d'abord, isole,
-pour trouver la fenetre d'equilibre proie/predateur avant de brancher la fuite.
+**Piste A implementee**, `[predation]` (`enabled` defaut false, `reach` 2.0, `hunt_below` 4.0,
+`prey_frac` 0.5, `transfer` 0.55). Phase 5a, sequentielle, sans RNG, ordre des id, une prise
+par predateur et par tick ; la proie meurt en phase 6 avec `DeathCause::Predation`, une entite
+mangee consomme quand meme son tirage RNG (flux inchange). Le prototype numpy
+(`experiments/012-predation/`) etait reste non concluant apres 3 iterations (feast, artefacts
+de chimiotaxie) ; le test sur le vrai moteur, ou l'ecosysteme est deja cale, tranche mieux.
 
-Avant tout engagement moteur : un prototype autonome (comme `001`), petite grille, entites
-avec predation opportuniste, pour voir si (a) une chaine alimentaire emerge, (b) l'ecosysteme
-tient, (c) la taille / la vitesse deviennent adaptatives. Aucune ligne dans `sim.rs` tant que
-le prototype n'a pas parle.
+A/B graine 1, monde complet (grille 192, saisons), 60k ticks, `enabled = true` contre `false` :
 
-## Mesures attendues
+| mesure | predation ON | OFF |
+|---|---|---|
+| population de plateau | 6 663 | 7 760 (**-14 %**) |
+| population finale | 9 534 | 9 574 (a la capacite) |
+| creux de croissance | 24 | 37 |
+| morts totales | 99 731 | 75 449 |
+| morts par famine | **13 075** | 74 137 |
+| morts par predation | **86 338 (86,6 %)** | 0 |
+| diversite genetique de plateau | **0,078** | 0,055 (**+42 %**) |
+| cellules vivantes (moy.) | 51 | 46 |
+
+Derive des traits (moyenne ON contre OFF) :
+
+| trait | ON | OFF | delta |
+|---|---|---|---|
+| fecondite | 0,76 | 0,48 | **+0,28** |
+| prudence | 0,72 | 0,42 | **+0,30** |
+| metabolisme | 0,49 | 0,31 | **+0,17** |
+| curiosite | 0,60 | 0,52 | +0,08 |
+| perception | 0,92 | 0,87 | +0,05 |
+| efficacite | 0,65 | 0,61 | +0,04 |
+
+**Lecture.** Une chaine alimentaire massive emerge sans qu'aucune regle ne nomme un predateur :
+86 % de la mortalite passe par la predation, et les morts par famine chutent d'un facteur 6
+(on se fait manger avant de mourir de faim). L'ecosysteme **tient** : w2 finit a la capacite.
+La population de plateau baisse de 14 % et le creux de croissance est un peu plus profond
+(24 contre 37), mais pas d'effondrement.
+
+Et surtout, la predation **diversifie** (+42 % de diversite genetique, a l'inverse de la fusion
+et de `cell_burn_relief` qui consolident) et fait bouger les traits **exactement dans le sens
+du Cambrien** : prudence (l'armure comportementale, +0,30), fecondite (pondre vite pour
+devancer le predateur, +0,28), metabolisme (un corps plus gros, plus dur a manger, +0,17),
+perception (voir venir le danger, +0,05). Le trait `perception` devient enfin nettement
+adaptatif.
+
+**Ce qui reste** : la piste B (la proie qui fuit ce qu'elle percoit) fermerait la boucle du
+« Light Switch » et pourrait remonter la population. Le ratio de taille (`prey_frac`) et le
+transfert meritent un balayage. La question « allumer par defaut » est a trancher :
+`enabled = true` change les mondes de reference (population -14 %, diversite +42 %), c'est un
+choix editorial comme l'a ete la fusion.
+
+## Mesures attendues (pour les prochains passages)
 
 ```
 chaine_alimentaire = fraction de l'energie ingeree par les entites qui vient d'autres entites

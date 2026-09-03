@@ -200,6 +200,8 @@ pub struct WorldStats {
     pub deaths_total: u64,
     pub deaths_starvation: u64,
     pub deaths_age: u64,
+    #[serde(default)]
+    pub deaths_predation: u64,
     pub mean_age_ticks: f64,
     pub genetic_diversity: f32,
     pub mean_energy_pct: f32,
@@ -262,6 +264,8 @@ pub struct SeriesRow {
     pub deaths_total: u64,
     pub deaths_starvation: u64,
     pub deaths_age: u64,
+    #[serde(default)]
+    pub deaths_predation: u64,
     /// Generation genomique : moyenne, ecart-type, maximum. L'axe « generations ecoulees ».
     pub mean_generation: f32,
     pub generation_spread: f32,
@@ -300,6 +304,7 @@ pub fn series_row(world: &WorldState, cfg: &SimConfig) -> SeriesRow {
         deaths_total: world.deaths_total,
         deaths_starvation: world.deaths_starvation,
         deaths_age: world.deaths_age,
+        deaths_predation: world.deaths_predation,
         mean_generation,
         generation_spread,
         max_generation,
@@ -507,6 +512,7 @@ pub fn project(
             deaths_total: world.deaths_total,
             deaths_starvation: world.deaths_starvation,
             deaths_age: world.deaths_age,
+            deaths_predation: world.deaths_predation,
             mean_age_ticks: world.mean_age(),
             genetic_diversity: world.genetic_diversity(),
             mean_energy_pct: energy_sum / pop,

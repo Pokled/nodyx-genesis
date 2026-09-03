@@ -506,6 +506,65 @@ pub fn tick(world: &mut WorldState, cfg: &SimConfig) -> Vec<Event> {
         world.signals.drain(0..drop);
     }
 
+    // -- Phase 5a, predation (0.0.2, `experiments/012_predation.md`, config seulement,
+    //    `[predation] enabled`). Une entite qui a faim et qui a a portee une entite nettement
+    //    plus faible la mange : la proie est marquee morte (traitee en phase 6 avec
+    //    `DeathCause::Predation`), une part de son energie passe au predateur. Sequentiel,
+    //    sans RNG, ordre des id, une prise par predateur et par tick ; decisions et gains
+    //    accumules puis appliques.
+    let mut predated: Vec<EntityId> = Vec::new();
+    let pcfg = &cfg.predation;
+    if pcfg.enabled && world.entities.len() >= 2 {
+        let reach = pcfg.reach.max(0.1);
+        let phash = SpatialHash::build(&world.entities, &space, reach);
+        let snap: Vec<(Position, f32)> =
+            world.entities.iter().map(|e| (e.position, e.energy)).collect();
+        let n = snap.len();
+        let mut taken = vec![false; n];
+        let mut gain = vec![0.0f32; n];
+        let reach2 = reach * reach;
+        for i in 0..n {
+            if taken[i] {
+                continue;
+            }
+            let ei = snap[i].1 + gain[i];
+            if ei >= pcfg.hunt_below {
+                continue;
+            }
+            let pos_i = snap[i].0;
+            let need = ei * pcfg.prey_frac;
+            let mut best: Option<(usize, f32)> = None;
+            phash.for_each_neighbor(pos_i, reach, |ju| {
+                let j = ju as usize;
+                if j == i || taken[j] {
+                    return;
+                }
+                let (pj, ej) = snap[j];
+                if ej >= need {
+                    return;
+                }
+                let d2 = pos_i.dist2(&pj);
+                if d2 > reach2 {
+                    return;
+                }
+                if best.map_or(true, |(_, bd)| d2 < bd) {
+                    best = Some((j, d2));
+                }
+            });
+            if let Some((j, _)) = best {
+                gain[i] += snap[j].1 * pcfg.transfer;
+                taken[j] = true;
+                predated.push(world.entities[j].id);
+            }
+        }
+        for i in 0..n {
+            if gain[i] > 0.0 {
+                world.entities[i].energy = (world.entities[i].energy + gain[i]).min(energy_ceiling);
+            }
+        }
+        world.deaths_predation += predated.len() as u64;
+    }
+
     drop(_sp.take()); _sp = prof::Span::start(4);
     // -- Phase 5b, cellules (0.0.2, tranche 2, etape 1). Entretien des cellules existantes
     //    (bilan, partage d'energie, departs, dissolution) chaque tick ; detection de
@@ -538,11 +597,17 @@ pub fn tick(world: &mut WorldState, cfg: &SimConfig) -> Vec<Event> {
     let bio_damage = cfg.biology.damage_rate.max(0.0);
     let bio_peril_energy = cfg.cognition.peril_frac * repro_threshold;
 
-    // Decision : `dead` reste dans l'ordre des id.
+    // Decision : `dead` reste dans l'ordre des id. Une entite mangee en phase 5a consomme
+    // quand meme son tirage RNG (le flux reste identique), mais meurt par predation.
+    let predated_set: std::collections::HashSet<EntityId> = predated.iter().copied().collect();
     let mut dead: Vec<(EntityId, DeathCause)> = Vec::new();
     for i in 0..world.entities.len() {
         let roll = world.rng.next_f32();
         let e = &world.entities[i];
+        if predated_set.contains(&e.id) {
+            dead.push((e.id, DeathCause::Predation));
+            continue;
+        }
         if e.energy <= starve_at {
             dead.push((e.id, DeathCause::Starvation));
             continue;
@@ -610,6 +675,8 @@ pub fn tick(world: &mut WorldState, cfg: &SimConfig) -> Vec<Event> {
         match cause {
             DeathCause::Starvation => world.deaths_starvation += 1,
             DeathCause::Age => world.deaths_age += 1,
+            // deja compte en phase 5a (world.deaths_predation), on n'incremente pas deux fois.
+            DeathCause::Predation => {}
         }
         let seq = emit(
             &mut events,
