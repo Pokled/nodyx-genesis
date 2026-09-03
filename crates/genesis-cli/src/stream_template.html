@@ -396,6 +396,18 @@ function bio(h, l, a) {
   let d = ((h - 188) % 360 + 540) % 360 - 180;
   return 'hsla(' + (188 + d * 0.6).toFixed(0) + ',78%,' + l + '%,' + a + ')';
 }
+// enveloppe convexe (Andrew monotone chain), pts = [[x,y],...]. Pour le pourtour d'un tissu.
+function convexHull(pts) {
+  if (pts.length < 3) return pts.slice();
+  const p = pts.slice().sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  const cr = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+  const lo = [];
+  for (const q of p) { while (lo.length >= 2 && cr(lo[lo.length - 2], lo[lo.length - 1], q) <= 0) lo.pop(); lo.push(q); }
+  const hi = [];
+  for (let i = p.length - 1; i >= 0; i--) { const q = p[i]; while (hi.length >= 2 && cr(hi[hi.length - 2], hi[hi.length - 1], q) <= 0) hi.pop(); hi.push(q); }
+  lo.pop(); hi.pop();
+  return lo.concat(hi);
+}
 // Deux canvas anime : on plafonne a ~32 images/s pour rester fluide sur une machine
 // modeste (le monde n'avance pas assez vite pour qu'on voie la difference).
 let sceneLast = 0;
@@ -492,31 +504,224 @@ function drawScene(now) {
     CELLS.push({ x, y, r, h, big, young, ph, N, pts, tissue: c.tissue || 0 });
   }
 
-  // tissus : une nappe douce sous les cellules qui adherent (0.0.2, `[cells] tissue`). Un
-  // lavis radial par tissu, teinte du genome moyen du groupe, dessine avant les membranes.
-  const tg = {};
-  for (const A of CELLS) if (A.tissue) (tg[A.tissue] = tg[A.tissue] || []).push(A);
-  for (const id in tg) {
-    const g = tg[id]; if (g.length < 2) continue;
-    let cx = 0, cy = 0; for (const A of g) { cx += A.x; cy += A.y; }
-    cx /= g.length; cy /= g.length;
-    let rad = 0; for (const A of g) rad = Math.max(rad, Math.hypot(A.x - cx, A.y - cy) + A.r);
-    rad *= 1.12;
-    const hue = g[0].h;
-    const grd = ctx.createRadialGradient(cx, cy, rad * 0.25, cx, cy, rad);
-    grd.addColorStop(0, 'hsla(' + hue + ',62%,60%,0.16)');
-    grd.addColorStop(0.7, 'hsla(' + hue + ',58%,52%,0.07)');
-    grd.addColorStop(1, 'hsla(' + hue + ',56%,48%,0)');
-    ctx.fillStyle = grd;
-    ctx.beginPath(); ctx.arc(cx, cy, rad, 0, 6.2832); ctx.fill();
-    // liens d'adhesion : un trait epais et pale entre cellules voisines du meme tissu.
-    ctx.strokeStyle = 'hsla(' + hue + ',72%,70%,0.24)';
-    ctx.lineWidth = 6; ctx.lineCap = 'round';
-    for (let i = 0; i < g.length; i++) for (let j = i + 1; j < g.length; j++) {
-      const dd = Math.hypot(g[i].x - g[j].x, g[i].y - g[j].y);
-      if (dd < (g[i].r + g[j].r) * 1.35) {
-        ctx.beginPath(); ctx.moveTo(g[i].x, g[i].y); ctx.lineTo(g[j].x, g[j].y); ctx.stroke();
+  // -- tissus : un pavage vivant (0.0.2, `[cells] tissue`). Les cellules d'un meme tissu ne
+  // sont plus des blobs isoles mais les cases d'un diagramme de Voronoi : cytoplasme teinte du
+  // genome, parois qui brillent aux jonctions (mode `lighter`), noyaux qui battent en vague.
+  // L'ordre du tissu (`tOrder`, psi6) tend le pavage vers l'hexagone ; le desordre le fait
+  // ondoyer (phase hexatique / fusion 2D, scenario KTHNY). Dessine sous les membranes libres.
+  const tOrder = Math.max(0, Math.min(1, (S.stats && S.stats.tissue_order) || 0));
+  const melt = 1 - tOrder;
+  const TISS = {};
+  for (const A of CELLS) if (A.tissue) (TISS[A.tissue] = TISS[A.tissue] || []).push(A);
+  const inTissue = new Set();
+
+  // clip d'un polygone par le demi-plan { p : dot(p - m, n) <= 0 } (Sutherland-Hodgman, 1 arete)
+  const clipHP = (poly, mx, my, nx, ny) => {
+    const out = [];
+    for (let i = 0; i < poly.length; i++) {
+      const a = poly[i], b = poly[(i + 1) % poly.length];
+      const da = (a[0] - mx) * nx + (a[1] - my) * ny;
+      const db = (b[0] - mx) * nx + (b[1] - my) * ny;
+      if (da <= 0) out.push(a);
+      if ((da <= 0) !== (db <= 0)) {
+        const tt = da / (da - db);
+        out.push([a[0] + tt * (b[0] - a[0]), a[1] + tt * (b[1] - a[1])]);
       }
+    }
+    return out;
+  };
+  const tracePoly = p => {
+    if (p.length < 3) return;
+    ctx.moveTo(p[0][0], p[0][1]);
+    for (let i = 1; i < p.length; i++) ctx.lineTo(p[i][0], p[i][1]);
+    ctx.closePath();
+  };
+
+  for (const tid in TISS) {
+    const sites = TISS[tid];
+    if (sites.length < 3) continue;
+    let cx = 0, cy = 0; for (const A of sites) { cx += A.x; cy += A.y; }
+    cx /= sites.length; cy /= sites.length;
+    let spread = 0; for (const A of sites) spread = Math.max(spread, Math.hypot(A.x - cx, A.y - cy));
+    const breath = 1 + 0.010 * Math.sin(tsec * 0.7 + tid * 1.7);
+    const hueT = sites[0].h;
+    // espacement type du tissu : la moyenne des plus-proches-voisins. Sert a borner chaque case
+    // a une taille coherente -> les cellules du bord ne ballonnent pas, la nappe reste dense.
+    let mnn = 0;
+    for (const s of sites) {
+      let dm = 1e9;
+      for (const o of sites) { if (o === s) continue; const dd = Math.hypot(o.x - s.x, o.y - s.y); if (dd < dm) dm = dd; }
+      mnn += dm;
+    }
+    mnn /= sites.length;
+
+    // 1. diagramme de Voronoi des centres, chaque case bornee par un disque autour du site
+    //    (les cases du bord ne ballonnent pas -> le tissu prend une forme de nappe).
+    for (const s of sites) {
+      let poly = [[s.x - 900, s.y - 900], [s.x + 900, s.y - 900], [s.x + 900, s.y + 900], [s.x - 900, s.y + 900]];
+      for (const o of sites) {
+        if (o === s) continue;
+        const mx = (s.x + o.x) / 2, my = (s.y + o.y) / 2;
+        poly = clipHP(poly, mx, my, o.x - s.x, o.y - s.y);
+        if (poly.length < 3) break;
+      }
+      // borne : disque de rayon r * K autour du site, approxime en 18-gone, ondule avec le melt
+      if (poly.length >= 3) {
+        const cap = Math.max(s.r * 1.05, mnn * (0.60 + 0.14 * tOrder));
+        for (let k = 0; k < 18; k++) {
+          const a = k / 18 * 6.2832;
+          const wob = 1 + melt * 0.11 * Math.sin(a * 3 + s.ph * 1.3 + tsec);
+          const rr = cap * wob;
+          poly = clipHP(poly, s.x + Math.cos(a) * rr, s.y + Math.sin(a) * rr, Math.cos(a), Math.sin(a));
+          if (poly.length < 3) break;
+        }
+      }
+      // desordre : chaque sommet du pavage vibre un peu (l'agitation = temperature effective).
+      if (poly.length >= 3 && melt > 0.02) {
+        poly = poly.map(p => {
+          const j = melt * 1.7;
+          const k = (p[0] * 0.11 + p[1] * 0.13);
+          return [p[0] + j * Math.sin(k + tsec * 1.7), p[1] + j * Math.cos(k * 1.3 - tsec * 1.9)];
+        });
+      }
+      s._v = poly.length >= 3 ? poly.map(p => [
+        cx + (p[0] - cx) * breath, cy + (p[1] - cy) * breath,
+      ]) : null;
+      inTissue.add(s);
+    }
+
+    // teintes : cytoplasme dans la teinte propre de chaque cellule mais pousse vers le vitrail
+    // (jewel tones retro-eclaires), parois dans la teinte du tissu (froides et vives aux
+    // jonctions), noyau chaud a contre-couleur qui bat -> le contraste d'un vrai epithelium.
+    // vague de tension qui parcourt la nappe (l'epithelium respire)
+    const tdir = [Math.cos(tid * 0.9), Math.sin(tid * 0.9)];
+    const tens = s => 0.5 + 0.5 * Math.sin((s.x * tdir[0] + s.y * tdir[1]) * 0.022 - tsec * 1.1);
+    const nucHue = ((hueT + 168) % 360);        // teinte complementaire chaude pour les noyaux
+
+    // 0. halo d'assise : le tissu est une structure en relief, pas une tache. Un souffle sourd
+    //    dans sa teinte, sous tout le reste.
+    {
+      const hg = ctx.createRadialGradient(cx, cy, spread * 0.2, cx, cy, spread * 1.35 + 40);
+      hg.addColorStop(0, 'hsla(' + hueT + ',48%,26%,0.20)');
+      hg.addColorStop(0.7, 'hsla(' + hueT + ',44%,18%,0.10)');
+      hg.addColorStop(1, 'hsla(' + hueT + ',40%,12%,0)');
+      ctx.fillStyle = hg;
+      ctx.beginPath(); ctx.arc(cx, cy, spread * 1.35 + 40, 0, 6.2832); ctx.fill();
+    }
+
+    // 2. cytoplasme : chaque case est un carreau de verre translucide retro-eclaire. Coeur clair
+    //    (la lumiere passe par le centre mince), bords profonds, plus un reflet specular en haut
+    //    a gauche et une ombre interne qui bombe la cellule.
+    for (const s of sites) {
+      if (!s._v) continue;
+      const sc = ((s.h - 30) % 360 + 360) % 360;
+      const t = tens(s), lift = 0.30 + 0.16 * t;
+      ctx.save();
+      ctx.beginPath(); tracePoly(s._v); ctx.clip();
+      const g = ctx.createRadialGradient(s.x - s.r * 0.2, s.y - s.r * 0.22, 1, s.x, s.y, s.r * 2.1);
+      g.addColorStop(0, 'hsla(' + sc + ',66%,62%,' + (lift + 0.14).toFixed(3) + ')');
+      g.addColorStop(0.55, 'hsla(' + sc + ',60%,46%,' + (lift - 0.06).toFixed(3) + ')');
+      g.addColorStop(1, 'hsla(' + sc + ',58%,26%,0.10)');
+      ctx.fillStyle = g;
+      ctx.fillRect(s.x - s.r * 3, s.y - s.r * 3, s.r * 6, s.r * 6);
+      // reflet specular : petite calotte vive decalee en haut a gauche (surface humide bombee)
+      const sp = ctx.createRadialGradient(s.x - s.r * 0.42, s.y - s.r * 0.46, 0.5, s.x - s.r * 0.42, s.y - s.r * 0.46, s.r * 0.9);
+      sp.addColorStop(0, 'hsla(' + sc + ',45%,88%,0.20)');
+      sp.addColorStop(1, 'hsla(' + sc + ',45%,88%,0)');
+      ctx.fillStyle = sp;
+      ctx.fillRect(s.x - s.r * 3, s.y - s.r * 3, s.r * 6, s.r * 6);
+      // ombre interne : un trait large et sombre le long du bord, moitie exterieure coupee par
+      // le clip -> la case prend du volume.
+      ctx.strokeStyle = 'rgba(3,7,12,0.55)';
+      ctx.lineWidth = 7;
+      ctx.beginPath(); tracePoly(s._v); ctx.stroke();
+      ctx.restore();
+    }
+
+    // 3. parois : chaque arete est doublee -> un liser sombre qui detache la case, puis un coeur
+    //    vif en mode `lighter` : les aretes partagees, tracees deux fois, brillent (jonctions
+    //    serrees). Un reflet coule le long, d'autant plus nerveux que le tissu est desordonne.
+    ctx.save();
+    ctx.lineJoin = 'round';
+    for (const s of sites) {
+      if (!s._v) continue;
+      ctx.strokeStyle = 'hsla(' + hueT + ',35%,7%,0.6)';
+      ctx.lineWidth = 2.6 + 1.4 * tOrder;
+      ctx.beginPath(); tracePoly(s._v); ctx.stroke();
+    }
+    ctx.globalCompositeOperation = 'lighter';
+    for (const s of sites) {
+      if (!s._v) continue;
+      ctx.strokeStyle = 'hsla(' + hueT + ',80%,64%,' + (0.05 + 0.07 * tOrder).toFixed(3) + ')';
+      ctx.lineWidth = 8;
+      ctx.beginPath(); tracePoly(s._v); ctx.stroke();
+      const flow = 0.5 + 0.5 * Math.sin((s.x + s.y * 1.3) * 0.03 - tsec * (1.5 + 1.4 * melt));
+      const lum = (70 + 16 * tOrder).toFixed(0);
+      ctx.strokeStyle = 'hsla(' + hueT + ',95%,' + lum + '%,' + (0.34 + 0.34 * flow * (0.6 + 0.4 * tOrder)).toFixed(3) + ')';
+      ctx.lineWidth = 1.2 + 0.7 * tOrder;
+      ctx.beginPath(); tracePoly(s._v); ctx.stroke();
+      // jonctions tricellulaires : un point vif + un halo doux a chaque sommet du pavage
+      for (const p of s._v) {
+        const jr = 2.0 + 1.3 * tOrder;
+        const jg = ctx.createRadialGradient(p[0], p[1], 0, p[0], p[1], jr * 2.6);
+        jg.addColorStop(0, 'hsla(' + hueT + ',96%,88%,' + (0.30 + 0.28 * tOrder).toFixed(2) + ')');
+        jg.addColorStop(1, 'hsla(' + hueT + ',96%,88%,0)');
+        ctx.fillStyle = jg;
+        ctx.beginPath(); ctx.arc(p[0], p[1], jr * 2.6, 0, 6.2832); ctx.fill();
+      }
+    }
+    ctx.restore();
+
+    // 4. membrane basale : le pourtour du tissu, une enveloppe convexe lissee et dilatee. Un
+    //    bourrelet sourd, puis un fil net -> le bord de l'epithelium, la ou il pose sur le stroma.
+    const hull = convexHull(sites.map(s => [s.x, s.y]));
+    if (hull.length >= 3) {
+      const hp = hull.map(p => [cx + (p[0] - cx) * 1.13, cy + (p[1] - cy) * 1.13]);
+      const smooth = () => {
+        const n = hp.length;
+        ctx.moveTo((hp[0][0] + hp[n - 1][0]) / 2, (hp[0][1] + hp[n - 1][1]) / 2);
+        for (let i = 0; i < n; i++) {
+          const a = hp[i], b = hp[(i + 1) % n];
+          ctx.quadraticCurveTo(a[0], a[1], (a[0] + b[0]) / 2, (a[1] + b[1]) / 2);
+        }
+        ctx.closePath();
+      };
+      ctx.save();
+      ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+      ctx.strokeStyle = 'hsla(' + hueT + ',68%,54%,0.12)';
+      ctx.lineWidth = 16 + spread * 0.05;
+      ctx.beginPath(); smooth(); ctx.stroke();
+      ctx.strokeStyle = 'hsla(' + hueT + ',88%,76%,' + (0.28 + 0.30 * tOrder).toFixed(2) + ')';
+      ctx.lineWidth = 2.0 + 1.0 * tOrder;
+      ctx.beginPath(); smooth(); ctx.stroke();
+      ctx.restore();
+    }
+
+    // 5. noyaux : un blob a contre-couleur chaude, enveloppe nette, nucleole vif, battement en
+    //    vague depuis le centre du tissu. Un noyau par case = la lecture "ce sont des cellules".
+    for (const s of sites) {
+      if (!s._v) continue;
+      const d = Math.hypot(s.x - cx, s.y - cy);
+      const beat = 1 + 0.16 * Math.sin(tsec * 2.0 - d * 0.028);
+      const off = s.r * 0.10;
+      const nx = s.x + Math.cos(s.ph) * off, ny = s.y + Math.sin(s.ph) * off;
+      const nr = (3.6 + s.big * 2.8) * beat;
+      ctx.save();
+      ctx.beginPath(); tracePoly(s._v); ctx.clip();
+      const ng = ctx.createRadialGradient(nx - nr * 0.32, ny - nr * 0.32, 0.5, nx, ny, nr * 1.5);
+      ng.addColorStop(0, 'hsla(' + nucHue + ',64%,80%,0.95)');
+      ng.addColorStop(0.45, 'hsla(' + (nucHue - 6) + ',60%,50%,0.74)');
+      ng.addColorStop(1, 'hsla(' + (nucHue - 12) + ',54%,30%,0)');
+      ctx.fillStyle = ng;
+      ctx.beginPath(); ctx.arc(nx, ny, nr * 1.5, 0, 6.2832); ctx.fill();
+      // enveloppe nucleaire : un fil fin et sombre
+      ctx.strokeStyle = 'hsla(' + (nucHue - 14) + ',55%,24%,0.5)';
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(nx, ny, nr, 0, 6.2832); ctx.stroke();
+      // nucleole : un point clair decentre
+      ctx.fillStyle = 'hsla(' + (nucHue + 14) + ',90%,92%,0.75)';
+      ctx.beginPath(); ctx.arc(nx + nr * 0.22, ny + nr * 0.16, nr * 0.28, 0, 6.2832); ctx.fill();
+      ctx.restore();
     }
   }
 
@@ -537,10 +742,12 @@ function drawScene(now) {
   // clip par voisine plus robuste -> pas de fuite quand trois membranes se recouvrent.
   for (let ai = CELLS.length - 1; ai >= 0; ai--) {
     const A = CELLS[ai];
+    if (inTissue.has(A)) continue;   // les cellules en tissu sont dessinees en pavage plus haut
     const x = A.x, y = A.y, r = A.r, h = A.h, big = A.big, young = A.young, ph = A.ph, pts = A.pts;
     ctx.save();
     for (let bi = 0; bi < ai; bi++) {
       const B = CELLS[bi];
+      if (inTissue.has(B)) continue;
       const dx = A.x - B.x, dy = A.y - B.y, reach = (A.r + B.r) * 1.3;
       if (dx * dx + dy * dy > reach * reach) continue;
       ctx.beginPath(); ctx.rect(0, 0, W, H); cellPath(B.pts); ctx.clip('evenodd');
