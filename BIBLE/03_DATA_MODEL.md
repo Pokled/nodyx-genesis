@@ -76,7 +76,9 @@ struct Cell {                        // un amas cohérent de parents, reconnu co
     radius:        f32,
     member_count:  u32,
     genome_key:    u16,               // signature quantifiée, comme l'espèce
-    mean_traits:   [f32; 7],
+    mean_traits:   [f32; N_TRAITS],
+    elongation:    f32,               // (v19) étalement axe long / axe court ; > 1.7 -> division
+    parent_cell:   Option<u32>,       // (v19) la cellule dont celle-ci s'est détachée par division
 }
 ```
 
@@ -99,6 +101,23 @@ la survivante. `WorldState.cells_merged_total` cumule. `EventKind::CellsMerged {
 absorbed, size }`. Rien ne déclenche la fusion à la main : phase 5b (3b), séquentiel, sans
 RNG, ordre stable (cellules triées par id), une fusion par cellule et par tick. L'invariant
 d'effectif (`somme(member_count) == entités taguées`) tient aussi les ticks de fusion.
+
+**Étape 2c, division (schéma v19).** Une cellule dont l'effectif dépasse `divide_members`
+(42), qui a passé `divide_age_ticks` (4000) et dont la membrane est étirée (`elongation >=
+divide_elongation`, 1,9 : la chimiotaxie tire les membres vers deux zones riches, la cellule
+se stretche) se **pince en deux**. Les membres sont projetés sur l'axe principal, coupés à la
+médiane : la moitié qui reste garde l'`id` de la mère (son `formed_tick` est remis à `t`, ce
+qui protège les deux moitiés d'une refusion immédiate), l'autre moitié forme une cellule
+fille (`next_cell_id`, `parent_cell = Some(mère)`). Les deux moitiés doivent chacune valoir au
+moins `min_members`, sinon pas de division. `WorldState.cells_divided_total` cumule.
+`EventKind::CellDivided { parent, child, size, at }` (chapitre). Phase 5b (3c), séquentiel,
+sans RNG, cellules triées par id, une division par cellule et par tick. **La cellule devient
+une unité qui se reproduit** : elle naît (agrégat), grandit, fusionne, se divise ou se
+dissout ; la sélection agit à son niveau (les génomes qui bâtissent des membranes stables et
+grandes se répandent). L'invariant d'effectif tient aussi les ticks de division. A/B graine 1,
+120k ticks, contre `divide = false` : 156 divisions, cellules vivantes 28 -> 54, part de la
+population en cellule 13 % -> 22 %, diversité génétique de plateau quasi inchangée (division
+rare : des seuils plus bas l'écrasent, les cellules à succès copiant leur génome).
 
 L'étape 2 (vraie dé-simulation) dé-simulera les membres (ils quittent `entities`, la cellule
 devient un bilan) : `population()` et les invariants de conservation gagneront alors un terme
@@ -350,6 +369,7 @@ enum EventKind {
     CellFormed { cell: u32, size: u32 },   // (0.0.2, tranche 2)
     CellDissolved { cell: u32 },
     CellsMerged { cell: u32, absorbed: u32, size: u32 },  // (v15) deux membranes n'en font qu'une
+    CellDivided { parent: u32, child: u32, size: u32 },   // (v19) une cellule se pince en deux
     GenomeShift { from: u16, to: u16, generation: u32 },   // (v16) la clé de génome dominante a basculé
     AgentAwoke { entity: EntityId },        // (0.0.3, tranche 1) une entité s'éveille en agent
     AgentLapsed { entity: EntityId },       // ... et retombe entité de fond. Réversible.

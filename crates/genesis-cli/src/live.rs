@@ -106,7 +106,13 @@ pub struct LiveState {
     pub cells_dissolved: u64,
     /// Fusions de cellules depuis le debut du monde (schema v15).
     pub cells_merged: u64,
+    /// Divisions de cellules depuis le debut du monde (schema v19).
+    pub cells_divided: u64,
     pub last_fusion_tick: u64,
+    pub last_division_tick: u64,
+    /// Effectif de la plus grande cellule vivante, et age moyen des cellules en ticks.
+    pub cell_size_max: u32,
+    pub cell_age_mean: u64,
 
     // -- Pouls
     pub pulse: Pulse,
@@ -309,6 +315,21 @@ fn chronicle(e: &Event) -> Option<(&'static str, String, EventCard, Option<[f32;
                 },
             )
         }
+        EventKind::CellDivided { size, at: pos, .. } => {
+            at = Some(*pos);
+            (
+                "division",
+                format!("une cellule se divise, {size} membres partent"),
+                EventCard {
+                    badge: "DIVISION CELLULAIRE",
+                    head: "Une cellule se pince en deux".into(),
+                    sub: format!(
+                        "grande, mure et etiree, la membrane se scinde ; {size} membres forment une cellule fille"
+                    ),
+                    tone: "division",
+                },
+            )
+        }
         EventKind::GenomeShift { generation, .. } => (
             "bascule",
             format!("le genome dominant du monde bascule, generation {generation}"),
@@ -422,11 +443,15 @@ pub fn write_live(
     }
     let mut last_notable = 0u64;
     let mut last_fusion = 0u64;
+    let mut last_division = 0u64;
     for e in notable.iter().rev().take(8) {
         if let Some((kind, text, card, at)) = chronicle(e) {
             last_notable = last_notable.max(e.tick);
             if kind == "fusion" {
                 last_fusion = last_fusion.max(e.tick);
+            }
+            if kind == "division" {
+                last_division = last_division.max(e.tick);
             }
             events.push(LiveEvent { tick: e.tick, kind, text, card: Some(card), at });
         }
@@ -577,10 +602,23 @@ pub fn write_live(
             0.0
         },
         cell_size_mean: st.mean_cell_size,
+        cell_size_max: world.cells.iter().map(|c| c.member_count).max().unwrap_or(0),
+        cell_age_mean: if world.cells.is_empty() {
+            0
+        } else {
+            world
+                .cells
+                .iter()
+                .map(|c| world.tick.saturating_sub(c.formed_tick))
+                .sum::<u64>()
+                / world.cells.len() as u64
+        },
         cells_formed: st.cells_formed_total,
         cells_dissolved: st.cells_dissolved_total,
         cells_merged: world.cells_merged_total,
+        cells_divided: world.cells_divided_total,
         last_fusion_tick: last_fusion,
+        last_division_tick: last_division,
         pulse,
         events,
         chronicle: chron,

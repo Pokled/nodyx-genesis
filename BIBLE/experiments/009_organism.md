@@ -21,8 +21,10 @@ partagent un destin (une seule ligne germinale, un cycle de vie commun). Tissu, 
 appareil sont sa structure interne, pas des niveaux qu'on pilote separement (`10_ROADMAP.md`).
 
 Genesis a aujourd'hui : l'entite (molecule) qui se divise, la cellule (amas de parents
-tague `cell_id`, energie mutualisee, reproduction protegee, fusion). Il manque la
-specialisation et la co-dependance.
+tague `cell_id`, energie mutualisee, reproduction protegee, fusion, **et division** : schema
+v19, une cellule grande, mure et etiree se pince en deux, la cellule est devenue une unite
+qui se reproduit et sur laquelle la selection agit). Il manque la specialisation et la
+co-dependance : c'est la marche organisme proprement dite, ci-dessous.
 
 ## Question
 

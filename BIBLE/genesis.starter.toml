@@ -174,6 +174,18 @@ cell_birth_relief = 0.4    # part d'échec de division en moins pour un membre d
 fuse         = true
 fuse_overlap = 0.5     # chevauchement exigé : distance(centres) < (r1 + r2) * ce facteur
 fuse_kin     = 0.9     # ... et distance L1 des génomes moyens des deux cellules sous ce seuil
+# Division (schéma v19) : une cellule grande, mûre et étirée se pince en deux. C'est la
+# reproduction cellulaire : la cellule devient une unité qui naît (agrégat), grandit,
+# fusionne, se divise ou meurt, et la sélection agit à son niveau. Émergent : rien ne la
+# déclenche, c'est la forme étirée (la chimiotaxie tire la membrane vers deux zones riches)
+# qui la provoque. A/B graine 1, 120k ticks, contre divide = false : 156 divisions, cellules
+# vivantes 28 -> 54, part de la population en cellule 13 % -> 22 %, diversité génétique de
+# plateau quasi inchangée (0,100 -> 0,106). Des seuils plus bas (division fréquente) écrasent
+# la diversité : les cellules à succès copient leur génome. divide = false coupe (A/B).
+divide            = true
+divide_members    = 42    # effectif minimal pour se diviser (bien au-dessus de min_members)
+divide_elongation = 1.9   # allongement minimal (étalement axe long / axe court)
+divide_age_ticks  = 4000  # âge minimal avant la première division
 
 [cognition]
 # Cognition (0.0.3, tranche 1 « le premier souvenir »). Une entité qui perçoit assez bien

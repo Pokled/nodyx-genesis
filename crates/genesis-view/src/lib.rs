@@ -17,7 +17,7 @@ use genesis_core::genome::N_TRAITS;
 use genesis_core::names;
 use genesis_core::{EntityId, SimConfig, WorldState};
 
-pub const VIEW_VERSION: u16 = 10;
+pub const VIEW_VERSION: u16 = 11;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct ViewFrame {
@@ -60,6 +60,14 @@ pub struct CellView {
     pub hue: u16,
     /// signature du genome moyen, chaque trait quantifie en niveau 0..3.
     pub genome: [u8; N_TRAITS],
+    /// allongement de la membrane * 100 (100 = ronde, 200 = deux fois plus longue que large),
+    /// pour dessiner une cellule etiree comme une ellipse. Schema v19.
+    #[serde(default)]
+    pub elong: u16,
+    /// age de la cellule en ticks, plafonne. Une jeune cellule (division ou fusion recente)
+    /// se dessine avec un contour plus vif.
+    #[serde(default)]
+    pub age: u32,
 }
 
 /// Un amas : plusieurs entites d'une meme region resumees en un point. Ce qui rend un
@@ -431,6 +439,8 @@ pub fn project(
                 count: c.member_count,
                 hue,
                 genome,
+                elong: (c.elongation * 100.0).round().clamp(100.0, 65535.0) as u16,
+                age: world.tick.saturating_sub(c.formed_tick).min(u32::MAX as u64) as u32,
             }
         })
         .collect();
@@ -672,6 +682,11 @@ fn event_view(e: &Event) -> Option<EventView> {
         EventKind::CellsMerged { cell, size, .. } => {
             ("cellule_fusion", vec![], format!("cellule {}, {} membres", cell, size))
         }
+        EventKind::CellDivided { parent, child, size, .. } => (
+            "cellule_division",
+            vec![],
+            format!("cellule {parent} se divise, la fille {child} part avec {size} membres"),
+        ),
         EventKind::GenomeShift { generation, .. } => (
             "genome_bascule",
             vec![],

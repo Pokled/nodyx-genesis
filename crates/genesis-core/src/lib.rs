@@ -74,5 +74,8 @@ pub const ENGINE_VERSION: &str = env!("CARGO_PKG_VERSION");
 ///       (`season.temp_amplitude_c`), la temperature du monde oscille et l'optimum metabolique
 ///       de chaque entite depend de `heat_tol` : l'hiver selectionne le froid, l'ete le chaud.
 ///       La pression s'inverse, la selection ne se fige plus sur cet axe.
-pub const SCHEMA_VERSION: u32 = 18;
+/// v19 : division cellulaire (`Cell.elongation`, `Cell.parent_cell`, `WorldState.cells_divided_total`,
+///       `EventKind::CellDivided`). Une cellule grande, mure et etiree se pince en deux : la
+///       cellule devient une unite qui se reproduit, la selection agit a son niveau.
+pub const SCHEMA_VERSION: u32 = 19;
 

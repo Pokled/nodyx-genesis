@@ -77,6 +77,10 @@ pub enum EventKind {
     /// `absorbed` disparait dans `cell`, qui garde son identite. `size` = effectif combine,
     /// `at` = position de la cellule survivante (cases), pour que l'overlay pose un effet.
     CellsMerged { cell: u32, absorbed: u32, size: u32, at: [f32; 2] },
+    /// Une cellule grande, mure et etiree s'est pincee en deux : `child` s'est detache de
+    /// `parent`, avec `size` membres (0.0.4, schema v19). La cellule devient une unite qui se
+    /// reproduit. `at` = position de la cellule mere (cases).
+    CellDivided { parent: u32, child: u32, size: u32, at: [f32; 2] },
     /// La cle de genome la plus repandue du monde a bascule et s'est tenue : l'evolution a
     /// deplace le centre de la population. `generation` = generation moyenne a ce moment.
     GenomeShift { from: u16, to: u16, generation: u32 },
@@ -97,6 +101,7 @@ impl EventKind {
             EventKind::SpeciesEmerged { .. } => 235,
             EventKind::GenomeShift { .. } => 234,
             EventKind::CellsMerged { .. } => 232,
+            EventKind::CellDivided { .. } => 231,
             EventKind::CellFormed { .. } => 230,
             EventKind::LineageExtinct { .. } => 225,
             EventKind::AgentAwoke { .. } => 215,
@@ -126,6 +131,7 @@ impl EventKind {
                 | EventKind::PopulationCrash { .. }
                 | EventKind::PopulationMilestone { .. }
                 | EventKind::CellsMerged { .. }
+                | EventKind::CellDivided { .. }
                 | EventKind::GenomeShift { .. }
         )
     }

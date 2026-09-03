@@ -22,6 +22,7 @@ fn ref_cfg() -> SimConfig {
     c.season.amplitude = 0.0;
     c.season.temp_amplitude_c = 0.0;
     c.planet.heat_tol_span_c = 0.0;
+    c.cells.divide = false;
     c
 }
 
@@ -718,6 +719,66 @@ fn cells_merge_when_membranes_overlap() {
         }
     }
     assert_eq!(w2.cells_merged_total, 0);
+}
+
+#[test]
+fn cells_divide_when_large_and_stretched() {
+    // Division cellulaire (schema v19) : une cellule grande, mure et etiree se pince en deux.
+    // Il s'en produit reellement (graine 1) ; la fille a `parent_cell` renseigne ; l'invariant
+    // d'effectif tient meme aux ticks de division ; le compteur colle ; `divide = false` coupe.
+    use genesis_core::event::EventKind;
+
+    let mut cfg = ref_cfg();
+    // `ref_cfg` coupe la division ; on la reactive ici et on abaisse un peu les seuils pour
+    // qu'elle tombe dans une fenetre courte a l'echelle 128x128 (cellules plus petites).
+    cfg.cells.divide = true;
+    cfg.cells.divide_members = 22;
+    cfg.cells.divide_elongation = 1.5;
+    cfg.cells.divide_age_ticks = 1500;
+
+    let mut w = WorldState::new(1, &cfg);
+    let mut divs = 0u64;
+    for _ in 0..45_000 {
+        let ev = tick(&mut w, &cfg);
+        for e in &ev {
+            if let EventKind::CellDivided { parent, child, size, .. } = e.kind {
+                divs += 1;
+                assert_ne!(parent, child, "une cellule se divise en elle-meme");
+                assert!(size >= cfg.cells.min_members, "cellule fille sous la taille minimale");
+                let daughter = w.cells.iter().find(|c| c.id == child);
+                assert_eq!(
+                    daughter.and_then(|c| c.parent_cell),
+                    Some(parent),
+                    "la fille ne pointe pas sa mere"
+                );
+            }
+        }
+        let tagged = w.entities.iter().filter(|e| e.cell_id.is_some()).count() as u32;
+        let members: u32 = w.cells.iter().map(|c| c.member_count).sum();
+        assert_eq!(members, tagged, "effectifs incoherents au tick {}", w.tick);
+        if w.entities.is_empty() {
+            break;
+        }
+    }
+    assert!(divs > 0, "aucune division de cellule en 45000 ticks (graine 1)");
+    assert_eq!(divs, w.cells_divided_total, "compteur de division desynchronise");
+
+    // divide = false : plus aucune division.
+    let mut off = cfg.clone();
+    off.cells.divide = false;
+    let mut w2 = WorldState::new(1, &off);
+    for _ in 0..45_000 {
+        let ev = tick(&mut w2, &off);
+        assert!(
+            !ev.iter().any(|e| matches!(e.kind, EventKind::CellDivided { .. })),
+            "division alors que divide = false, tick {}",
+            w2.tick
+        );
+        if w2.entities.is_empty() {
+            break;
+        }
+    }
+    assert_eq!(w2.cells_divided_total, 0);
 }
 
 #[test]

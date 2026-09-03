@@ -1033,12 +1033,24 @@ fn cell_phase(
             continue;
         }
 
+        // Forme de la membrane : allongement, pour la division (3c) et le rendu.
+        let offsets: Vec<(f32, f32)> = idxs
+            .iter()
+            .filter(|&&i| world.entities[i].cell_id.is_some())
+            .map(|&i| {
+                let p = world.entities[i].position;
+                (p.x - cx, p.y - cy)
+            })
+            .collect();
+        let (elong, _) = cloud_shape(&offsets);
+
         let c = &mut world.cells[k];
         c.position = Position { x: cx, y: cy };
         c.radius = rad;
         c.member_count = count;
         c.mean_traits = mean;
         c.genome_key = genome_key_arr(&mean);
+        c.elongation = elong;
     }
     if !dissolved.is_empty() {
         let gone: std::collections::HashSet<u32> = dissolved.iter().copied().collect();
@@ -1117,6 +1129,131 @@ fn cell_phase(
                 &mut world.next_event_seq,
                 t,
                 EventKind::CellsMerged { cell: keep, absorbed: gone, size, at },
+            );
+        }
+    }
+
+    // -- 3c. Division : une cellule grande, mure et etiree se pince en deux. C'est la
+    //    reproduction cellulaire : la cellule devient une unite qui se reproduit. Ordre stable
+    //    (cellules triees par id), une division par cellule et par tick, decisions puis
+    //    application. Rien ne la declenche a la main : c'est une condition geometrique
+    //    (taille, age, forme etiree par la chimiotaxie vers deux zones) que le monde franchit.
+    if cc.divide && !world.cells.is_empty() {
+        let slot: std::collections::HashMap<u32, usize> =
+            world.cells.iter().enumerate().map(|(k, c)| (c.id, k)).collect();
+        let mut mem: Vec<Vec<usize>> = vec![Vec::new(); world.cells.len()];
+        for (i, e) in world.entities.iter().enumerate() {
+            if let Some(id) = e.cell_id {
+                if let Some(&k) = slot.get(&id) {
+                    mem[k].push(i);
+                }
+            }
+        }
+        let mut order: Vec<usize> = (0..world.cells.len()).collect();
+        order.sort_by_key(|&k| world.cells[k].id);
+
+        let mut splits: Vec<(u32, Vec<usize>)> = Vec::new();
+        for &k in &order {
+            let c = &world.cells[k];
+            let age = t.saturating_sub(c.formed_tick);
+            if c.member_count < cc.divide_members
+                || age < cc.divide_age_ticks
+                || c.elongation < cc.divide_elongation
+            {
+                continue;
+            }
+            let idxs = &mem[k];
+            if idxs.len() < cc.divide_members as usize {
+                continue;
+            }
+            let (cx, cy) = (c.position.x, c.position.y);
+            let offs: Vec<(f32, f32)> = idxs
+                .iter()
+                .map(|&i| {
+                    let p = world.entities[i].position;
+                    (p.x - cx, p.y - cy)
+                })
+                .collect();
+            let (_, (ax, ay)) = cloud_shape(&offs);
+            // projeter sur l'axe long, trier (tiebreak par id d'entite, deja l'ordre de idxs)
+            let mut proj: Vec<(f32, usize)> = idxs
+                .iter()
+                .map(|&i| {
+                    let p = world.entities[i].position;
+                    ((p.x - cx) * ax + (p.y - cy) * ay, i)
+                })
+                .collect();
+            proj.sort_by(|a, b| {
+                a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal).then(a.1.cmp(&b.1))
+            });
+            let half = proj.len() / 2;
+            let leaving: Vec<usize> = proj[half..].iter().map(|(_, i)| *i).collect();
+            let staying = proj.len() - leaving.len();
+            if leaving.len() < cc.min_members as usize || staying < cc.min_members as usize {
+                continue; // les deux moities doivent etre viables seules
+            }
+            splits.push((c.id, leaving));
+        }
+
+        for (parent_id, leaving) in splits {
+            let child_id = world.next_cell_id;
+            world.next_cell_id += 1;
+            for &i in &leaving {
+                world.entities[i].cell_id = Some(child_id);
+            }
+            let n = leaving.len() as f32;
+            let (mut cx, mut cy) = (0.0f32, 0.0f32);
+            let mut mean = [0.0f32; N_TRAITS];
+            for &i in &leaving {
+                let e = &world.entities[i];
+                cx += e.position.x;
+                cy += e.position.y;
+                let a = e.genome.traits.as_array();
+                for j in 0..N_TRAITS {
+                    mean[j] += a[j];
+                }
+            }
+            cx /= n;
+            cy /= n;
+            for m in mean.iter_mut() {
+                *m /= n;
+            }
+            let mut rad = 0.0f32;
+            for &i in &leaving {
+                let p = world.entities[i].position;
+                rad += ((p.x - cx).powi(2) + (p.y - cy).powi(2)).sqrt();
+            }
+            rad /= n;
+            world.cells.push(Cell {
+                id: child_id,
+                formed_tick: t,
+                position: Position { x: cx, y: cy },
+                radius: rad,
+                member_count: leaving.len() as u32,
+                genome_key: genome_key_arr(&mean),
+                mean_traits: mean,
+                elongation: 1.0,
+                parent_cell: Some(parent_id),
+            });
+            let at = if let Some(pc) = world.cell_mut(parent_id) {
+                pc.member_count = pc.member_count.saturating_sub(leaving.len() as u32);
+                pc.elongation = 1.0;
+                pc.formed_tick = t; // protege les deux moities d'une refusion immediate
+                [pc.position.x, pc.position.y]
+            } else {
+                [cx, cy]
+            };
+            world.cells_divided_total += 1;
+            emit(
+                events,
+                &mut world.next_event_seq,
+                t,
+                EventKind::CellDivided {
+                    parent: parent_id,
+                    child: child_id,
+                    size: leaving.len() as u32,
+                    at,
+                },
             );
         }
     }
@@ -1275,6 +1412,8 @@ fn cell_detect(
                 member_count: g.len() as u32,
                 genome_key: genome_key_arr(&mean),
                 mean_traits: mean,
+                elongation: 1.0,
+                parent_cell: None,
             });
             world.cells_formed_total += 1;
             emit(
@@ -1643,6 +1782,44 @@ fn group_spread(ps: &[Position]) -> f32 {
         d += ((p.x - mx).powi(2) + (p.y - my).powi(2)).sqrt();
     }
     d / n
+}
+
+/// Forme d'un nuage de points : `(elongation, axe principal)`. `elongation` = racine du
+/// rapport des deux valeurs propres de la covariance (1 = rond, >1 = etire). L'axe principal
+/// est le vecteur unitaire de la plus grande variance. Deterministe (2x2 symetrique ferme).
+fn cloud_shape(offsets: &[(f32, f32)]) -> (f32, (f32, f32)) {
+    let n = offsets.len() as f32;
+    if n < 2.0 {
+        return (1.0, (1.0, 0.0));
+    }
+    let (mut sxx, mut syy, mut sxy) = (0.0f32, 0.0f32, 0.0f32);
+    for &(x, y) in offsets {
+        sxx += x * x;
+        syy += y * y;
+        sxy += x * y;
+    }
+    sxx /= n;
+    syy /= n;
+    sxy /= n;
+    // valeurs propres de [[sxx, sxy], [sxy, syy]]
+    let tr = sxx + syy;
+    let det = sxx * syy - sxy * sxy;
+    let disc = (tr * tr * 0.25 - det).max(0.0).sqrt();
+    let l1 = tr * 0.5 + disc; // grande
+    let l2 = (tr * 0.5 - disc).max(1e-6); // petite
+    let elong = (l1 / l2).sqrt();
+    // vecteur propre de l1 : (sxy, l1 - sxx) (ou (l1 - syy, sxy) si sxy ~ 0)
+    let (mut ax, mut ay) = if sxy.abs() > 1e-6 {
+        (sxy, l1 - sxx)
+    } else if sxx >= syy {
+        (1.0, 0.0)
+    } else {
+        (0.0, 1.0)
+    };
+    let m = (ax * ax + ay * ay).sqrt().max(1e-6);
+    ax /= m;
+    ay /= m;
+    (elong, (ax, ay))
 }
 
 /// Distance L1 entre deux cles de genome (traits de corps), en unites de trait (un cran = 0.25).

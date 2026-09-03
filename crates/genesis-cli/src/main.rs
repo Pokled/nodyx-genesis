@@ -343,16 +343,7 @@ fn birth_world(
 /// page de garde). Les eveils d'agents et les cellules sont trop frequents : ils vivent dans
 /// le fil de `view.html`, pas dans la chronique.
 fn is_chronicle_event(kind: &EventKind) -> bool {
-    matches!(
-        kind,
-        EventKind::WorldCreated
-            | EventKind::SpeciesEmerged { .. }
-            | EventKind::LineageExtinct { .. }
-            | EventKind::PopulationCrash { .. }
-            | EventKind::PopulationMilestone { .. }
-            | EventKind::CellsMerged { .. }
-            | EventKind::GenomeShift { .. }
-    )
+    kind.is_chapter()
 }
 
 /// `true` si l'evenement va au journal append-only (`events.jsonl`). On laisse tomber les

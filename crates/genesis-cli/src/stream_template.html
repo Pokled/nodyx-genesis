@@ -117,6 +117,7 @@
   .r b { color:var(--ink); font-weight:500; font-variant-numeric:tabular-nums; }
   .r.wide { grid-column:1 / -1; }
   .r.fus b { color:var(--cyan); }
+  .r.divs b { color:#8ff0b0; }
   .r.call b { color:#7ef0a6; }
   .r.hit { animation:rhit 2.6s ease; border-radius:4px; }
   @keyframes rhit { 0%,100%{background:transparent} 15%{background:rgba(82,230,223,.22)} }
@@ -143,8 +144,9 @@
   .fe.effondrement .b { color:var(--rose); }
   .fe.extinction .b { color:var(--violet); }
   .fe.fusion .b { color:var(--cyan); }
+  .fe.division .b { color:#8ff0b0; }
   .fe.bascule .b { color:var(--green); }
-  .fe.genese .t, .fe.palier .t, .fe.espece .t, .fe.effondrement .t, .fe.extinction .t, .fe.fusion .t, .fe.bascule .t { color:var(--amber); }
+  .fe.genese .t, .fe.palier .t, .fe.espece .t, .fe.effondrement .t, .fe.extinction .t, .fe.fusion .t, .fe.division .t, .fe.bascule .t { color:var(--amber); }
 
   /* --- bottom right : history + records --- */
   .foot-r { grid-area:foot-r; border-top:1px solid var(--line); border-left:1px solid var(--line);
@@ -190,6 +192,8 @@
   #card.genese .rule { background:var(--amber); } #card.genese .badge { color:var(--amber); }
   #card.fusion .rule { background:var(--cyan); } #card.fusion .badge { color:var(--cyan); }
   #card.fusion { border-color:rgba(82,230,223,.4); box-shadow:0 30px 90px rgba(0,0,0,.65), 0 0 60px rgba(82,230,223,.15); }
+  #card.division .rule { background:#8ff0b0; } #card.division .badge { color:#8ff0b0; }
+  #card.division { border-color:rgba(126,240,166,.4); box-shadow:0 30px 90px rgba(0,0,0,.65), 0 0 60px rgba(126,240,166,.15); }
   #card.bascule .rule { background:var(--green); } #card.bascule .badge { color:var(--green); }
   #card.bascule { border-color:rgba(126,240,166,.4); box-shadow:0 30px 90px rgba(0,0,0,.65), 0 0 60px rgba(126,240,166,.15); }
   #card.age .rule { background:var(--amber); } #card.age .badge { color:var(--amber); }
@@ -315,6 +319,16 @@ window.addEventListener('resize', resize); resize();
 const fr = n => Number(n || 0).toLocaleString('fr-FR');
 const pad = n => String(n).padStart(2, '0');
 
+// Duree en temps-monde, courte : « 3 ans », « 40 j », « 6 h ».
+function ageStr(sec) {
+  sec = Math.max(0, Math.floor(sec));
+  const y = sec / (365 * 86400);
+  if (y >= 1) return fr(Math.round(y)) + (Math.round(y) > 1 ? ' ans' : ' an');
+  const d = sec / 86400;
+  if (d >= 1) return fr(Math.round(d)) + ' j';
+  return fr(Math.round(sec / 3600)) + ' h';
+}
+
 // Age du monde en temps-monde (1 tick = 1 heure-monde). Gros chiffre = annees ou jours.
 function worldAge(sec) {
   sec = Math.max(0, Math.floor(sec));
@@ -428,23 +442,54 @@ function drawScene(now) {
     g.addColorStop(1, bio(c.hue, 60, 0));
     ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.fill();
   }
-  // cellules : membrane a jonc pointille, un halo simple, un noyau. Pas de gradient par
-  // cellule (trop lourd a 30 cellules par image) : un disque translucide suffit.
-  ctx.setLineDash([1.5, 3.5]); ctx.lineDashOffset = -tsec * 5;
+  // cellules : des membranes vivantes. Une masse translucide teintee du genome, un contour
+  // qui ondule (l'ondulation gonfle avec l'allongement : une cellule proche de la division
+  // se deforme), un noyau qui bat. Une cellule jeune (division ou fusion recente) a le
+  // contour plus vif. ~50 cellules par image, sans shadowBlur : ca tient a 24 fps.
   for (const c of (S.cells || [])) {
     const x = ox + (c.pos[0] / PS) * s, y = oy + (c.pos[1] / PS) * s;
     const r = Math.max(7, (c.radius / PS) * s);
-    let d = ((c.hue - 188) % 360 + 540) % 360 - 180; const h = (188 + d * 0.6).toFixed(0);
-    const big = Math.min(1, (c.count || 12) / 120);
-    ctx.fillStyle = 'hsla(' + h + ',68%,58%,' + (0.03 + big * 0.05).toFixed(3) + ')';
-    ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.fill();
-    ctx.strokeStyle = 'hsla(' + h + ',74%,' + (72 + big * 8).toFixed(0) + '%,' + (0.5 + big * 0.38).toFixed(2) + ')';
-    ctx.lineWidth = 1.1 + big * 1.7;
-    ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.stroke();
-    ctx.fillStyle = 'hsla(' + h + ',82%,82%,' + (0.22 + big * 0.4).toFixed(2) + ')';
-    ctx.beginPath(); ctx.arc(x, y, 1.5 + big * 2.2, 0, 6.2832); ctx.fill();
+    let d = ((c.hue - 188) % 360 + 540) % 360 - 180; const h = (188 + d * 0.55).toFixed(0);
+    const big = Math.min(1, (c.count || 12) / 140);
+    const elong = Math.max(1, (c.elong || 100) / 100);
+    const wob = Math.min(0.34, (elong - 1) * 0.5 + 0.06);   // amplitude d'ondulation
+    const young = 1 - Math.min(1, (c.age || 99999) / 2400);   // 1 = vient de naitre
+    const ph = tsec * 1.3 + (c.pos[0] + c.pos[1]) * 0.05;     // phase propre a la cellule
+
+    // contour organique : 16 points lisses (courbes quadratiques), rayon ondule et etire le
+    // long de l'axe long. On le trace une fois, on s'en sert pour la masse et le contour.
+    const N = 16, pts = [];
+    for (let i = 0; i < N; i++) {
+      const a = i / N * 6.2832;
+      const rr = r * (1 + wob * Math.sin(a * 3 + ph) + wob * 0.35 * Math.sin(a * 5 - ph * 1.7))
+                 * (1 + (elong - 1) * 0.45 * Math.cos(a * 2));   // legere ellipse
+      pts.push([x + Math.cos(a) * rr, y + Math.sin(a) * rr]);
+    }
+    ctx.beginPath();
+    ctx.moveTo((pts[0][0] + pts[N - 1][0]) / 2, (pts[0][1] + pts[N - 1][1]) / 2);
+    for (let i = 0; i < N; i++) {
+      const p = pts[i], q = pts[(i + 1) % N];
+      ctx.quadraticCurveTo(p[0], p[1], (p[0] + q[0]) / 2, (p[1] + q[1]) / 2);
+    }
+    ctx.closePath();
+
+    // masse : gradient radial doux, centre plus lumineux
+    const g = ctx.createRadialGradient(x, y, r * 0.12, x, y, r * 1.1);
+    g.addColorStop(0, 'hsla(' + h + ',72%,63%,' + (0.11 + big * 0.13).toFixed(3) + ')');
+    g.addColorStop(0.7, 'hsla(' + h + ',66%,55%,' + (0.05 + big * 0.06).toFixed(3) + ')');
+    g.addColorStop(1, 'hsla(' + h + ',64%,50%,0)');
+    ctx.fillStyle = g; ctx.fill();
+
+    // contour ondulant, plus vif si la cellule est jeune ou grosse
+    ctx.strokeStyle = 'hsla(' + h + ',80%,' + (72 + big * 10 + young * 12).toFixed(0) + '%,' + (0.5 + big * 0.35 + young * 0.3).toFixed(2) + ')';
+    ctx.lineWidth = 1.2 + big * 1.9 + young * 1.6;
+    ctx.stroke();
+
+    // noyau qui bat
+    const beat = 1 + 0.2 * Math.sin(ph * 2.1);
+    ctx.fillStyle = 'hsla(' + h + ',88%,85%,' + (0.28 + big * 0.44).toFixed(2) + ')';
+    ctx.beginPath(); ctx.arc(x, y, (1.6 + big * 2.6) * beat, 0, 6.2832); ctx.fill();
   }
-  ctx.setLineDash([]);
   const fnow = now;
   fx = fx.filter(f => fnow - f.t0 < 2400);
   // entites : pas de shadowBlur (mortel a plusieurs centaines par image). Le halo est un
@@ -479,13 +524,43 @@ function drawScene(now) {
     ctx.globalAlpha = 1;
   }
 
-  // fusions : l'effet epique, dessine par-dessus tout. Le reste de la scene s'assombrit
-  // une seconde, un projecteur sur le point ; deux anneaux convergent, un flash blanc,
-  // une onde de choc.
+  // fusions et divisions : l'effet epique, dessine par-dessus tout. Le reste de la scene
+  // s'assombrit une seconde, un projecteur sur le point.
   for (const f of fx) {
     const x = ox + f.gx * s, y = oy + f.gy * s;
     const p = (fnow - f.t0) / 2400;
     const R = Math.max(9, f.r0 / PS * s);
+
+    // -- division : la membrane s'etire, se pince, se scinde en deux qui s'ecartent.
+    if (f.kind === 'div') {
+      const dim2 = Math.sin(Math.min(1, p / 0.8) * Math.PI) * 0.5;
+      if (dim2 > 0.01) {
+        const dg = ctx.createRadialGradient(x, y, R * 0.6, x, y, Math.max(W, H) * 0.6);
+        dg.addColorStop(0, 'rgba(4,6,11,0)'); dg.addColorStop(1, 'rgba(4,6,11,' + dim2.toFixed(3) + ')');
+        ctx.fillStyle = dg; ctx.fillRect(0, 0, W, H);
+      }
+      const sep = Math.min(1, p / 0.6);          // 0 -> collees, 1 -> ecartees
+      const gap = sep * R * 1.9;
+      const rr = R * (0.62 + (1 - Math.abs(sep - 0.35) / 0.65) * 0.25);
+      ctx.globalAlpha = Math.max(0, 1 - p * 1.05);
+      for (const dir of [-1, 1]) {
+        const cx2 = x + dir * gap;
+        const gg = ctx.createRadialGradient(cx2, y, 0, cx2, y, rr * 1.3);
+        gg.addColorStop(0, 'rgba(210,255,224,.9)'); gg.addColorStop(0.5, 'rgba(126,240,166,.4)'); gg.addColorStop(1, 'rgba(126,240,166,0)');
+        ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(cx2, y, rr * 1.3, 0, 6.2832); ctx.fill();
+        ctx.strokeStyle = 'rgba(190,255,210,.95)'; ctx.lineWidth = 2.2 * (1 - p) + 0.5;
+        ctx.beginPath(); ctx.arc(cx2, y, rr, 0, 6.2832); ctx.stroke();
+      }
+      // trait de scission au milieu, bref
+      if (p < 0.4) {
+        const q = 1 - p / 0.4;
+        ctx.globalAlpha = q; ctx.strokeStyle = 'rgba(232,255,240,.95)'; ctx.lineWidth = 1.6 * q + 0.4;
+        ctx.beginPath(); ctx.moveTo(x, y - R); ctx.lineTo(x, y + R); ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+      continue;
+    }
+
     // 1. projecteur : on assombrit tout sauf un halo autour du point (0..0.75)
     const dim = Math.sin(Math.min(1, p / 0.75) * Math.PI) * 0.55;
     if (dim > 0.01) {
@@ -549,6 +624,7 @@ const PULSE_DEFS = [
 let seenTournants = new Set();
 let prevRecords = null;
 let prevMerged = null;
+let prevDivided = null;
 let prevYear = null;
 let lastFusionCard = -1e9;
 function notableYear(y) {
@@ -556,9 +632,11 @@ function notableYear(y) {
 }
 function applyLive(L) {
   LIVE = L;
-  // une fusion vient-elle de s'ajouter au compteur ? (flash de la stat)
+  // une fusion / division vient-elle de s'ajouter au compteur ? (flash de la stat)
   const fusionHit = prevMerged !== null && (L.cells_merged || 0) > prevMerged;
   prevMerged = L.cells_merged || 0;
+  const divisionHit = prevDivided !== null && (L.cells_divided || 0) > prevDivided;
+  prevDivided = L.cells_divided || 0;
   // le monde vient-il de franchir un age rond ? (carte, pour ceux qui arrivent)
   const yr = Math.floor((L.age_world_seconds || 0) / (365 * 86400));
   if (prevYear !== null && yr > prevYear && notableYear(yr)) {
@@ -567,15 +645,15 @@ function applyLive(L) {
       head: yr + ' ans', sub: 'ce monde tourne depuis ' + yr + ' revolutions, sans une pause' } });
   }
   prevYear = yr;
-  // effet sur la scene pour chaque fusion nouvelle et localisee
+  // effet sur la scene pour chaque fusion ou division nouvelle et localisee
   for (const e of (L.events || [])) {
-    if (e.kind !== 'fusion' || !e.at) continue;
-    const key = e.tick + '|' + e.at[0].toFixed(1);
+    if ((e.kind !== 'fusion' && e.kind !== 'division') || !e.at) continue;
+    const key = e.kind[0] + e.tick + '|' + e.at[0].toFixed(1);
     if (seenFusions.has(key)) continue;
     seenFusions.add(key);
-    fx.push({ gx: e.at[0], gy: e.at[1], r0: 34, t0: performance.now() });
+    fx.push({ gx: e.at[0], gy: e.at[1], r0: 34, t0: performance.now(), kind: e.kind === 'division' ? 'div' : 'fus' });
   }
-  if (seenFusions.size > 120) seenFusions = new Set(Array.from(seenFusions).slice(-60));
+  if (seenFusions.size > 160) seenFusions = new Set(Array.from(seenFusions).slice(-80));
   // un basculement du genome : le brin d'ADN s'illumine
   for (const e of (L.events || [])) {
     if (e.kind !== 'bascule') continue;
@@ -657,10 +735,11 @@ function applyLive(L) {
     '<div class="h2">Cellules</div><div class="rows">' +
       statRow('vivantes', fr(L.cells_alive)) +
       statRow('en cellule', (L.cells_in_pct || 0).toFixed(0) + ' %') +
-      statRow('taille moy.', (L.cell_size_mean || 0).toFixed(0)) +
-      statRow('formees', fr(L.cells_formed || 0)) +
-      statRow('dissoutes', fr(L.cells_dissolved || 0)) +
+      statRow('taille moy. / max', (L.cell_size_mean || 0).toFixed(0) + ' / ' + fr(L.cell_size_max || 0)) +
+      statRow('age moyen', ageStr((L.cell_age_mean || 0) * secPerTick)) +
+      statRow('formees / dissoutes', fr(L.cells_formed || 0) + ' / ' + fr(L.cells_dissolved || 0)) +
       statRow('fusions', fr(L.cells_merged || 0), 'fus' + (fusionHit ? ' hit' : '')) +
+      statRow('divisions', fr(L.cells_divided || 0), 'divs' + (divisionHit ? ' hit' : '')) +
     '</div>' +
     '<div class="h2">Cognition et voix</div><div class="rows">' +
       statRow('agents vivants', fr(L.agents_alive)) +
@@ -712,12 +791,12 @@ function applyLive(L) {
     const key = e.tick + '|' + (e.card.head || e.text);
     if (seenTournants.has(key)) continue;
     seenTournants.add(key);
-    // Les fusions sont frequentes : la scene les montre toutes, mais on ne sort la grande
-    // carte que pour les grosses, et pas plus d'une toutes les 25 s.
-    if (e.kind === 'fusion') {
+    // Fusions et divisions sont frequentes : la scene les montre toutes, mais on ne sort la
+    // grande carte que pour les grosses, et pas plus d'une toutes les 25 s.
+    if (e.kind === 'fusion' || e.kind === 'division') {
       const big = /(\d[\d\s]*) membres/.exec(e.text);
       const n = big ? parseInt(big[1].replace(/\s/g, ''), 10) : 0;
-      if (n < 70 || performance.now() - lastFusionCard < 25000) continue;
+      if (n < 60 || performance.now() - lastFusionCard < 25000) continue;
       lastFusionCard = performance.now();
     }
     showCard(e);
@@ -725,7 +804,7 @@ function applyLive(L) {
   if (seenTournants.size > 200) seenTournants = new Set(Array.from(seenTournants).slice(-100));
 }
 
-const CHRON_COL = { genese: '#ffcf72', espece: '#7ef0a6', extinction: '#b9a0ff', effondrement: '#ff8fa0', palier: '#ffcf72', fusion: '#52e6df', bascule: '#7ef0a6' };
+const CHRON_COL = { genese: '#ffcf72', espece: '#7ef0a6', extinction: '#b9a0ff', effondrement: '#ff8fa0', palier: '#ffcf72', fusion: '#52e6df', division: '#8ff0b0', bascule: '#7ef0a6' };
 function drawHist(L) {
   const svg = document.getElementById('hist');
   const ph = L.pop_history || [], cap = L.cap_history || [];
@@ -745,14 +824,15 @@ function drawHist(L) {
   // Les fusions sont nombreuses : sur un monde jeune on les montre toutes, sur un monde age
   // elles s'entassent dans la premiere annee, on ne garde alors que les plus recentes.
   const chron = L.chronicle || [];
-  const fusN = chron.filter(c => c.kind === 'fusion').length;
+  const isCellChurn = c => c.kind === 'fusion' || c.kind === 'division';
+  const fusN = chron.filter(isCellChurn).length;
   const fusKeepFrom = fusN > 45 ? t0 + (t1 - t0) * 0.55 : t0;
   let marks = '', fusSeen = 0;
   for (const c of chron) {
     if (c.tick < t0 || c.tick > t1) continue;
     const x = X(c.tick).toFixed(1);
     const col = CHRON_COL[c.kind] || '#9aa6be';
-    if (c.kind === 'fusion') {
+    if (isCellChurn(c)) {
       if (c.tick < fusKeepFrom) continue;
       if (++fusSeen % (fusN > 90 ? 3 : 1) !== 0) continue;
       marks += '<line x1="' + x + '" y1="0" x2="' + x + '" y2="6" stroke="' + col + '" stroke-width="1" opacity=".4"/>';
@@ -768,7 +848,7 @@ function drawHist(L) {
     marks;
   const secPer = (L.age_world_seconds / Math.max(1, L.tick)) || 3600;
   document.getElementById('histcap').textContent =
-    'an ' + Math.floor(t0 * secPer / (365 * 86400)) + ' a aujourd\'hui  ·  espece, extinction, effondrement, cap, fusion';
+    'an ' + Math.floor(t0 * secPer / (365 * 86400)) + ' a aujourd\'hui  ·  espece, extinction, effondrement, cap, fusion, division';
 }
 
 function drawSpark(id, arr, col) {
@@ -934,7 +1014,7 @@ function showRecord(label) {
 if (LIVE) {
   for (const e of (LIVE.events || [])) {
     if (e.card) seenTournants.add(e.tick + '|' + (e.card.head || e.text));
-    if (e.kind === 'fusion' && e.at) seenFusions.add(e.tick + '|' + e.at[0].toFixed(1));
+    if ((e.kind === 'fusion' || e.kind === 'division') && e.at) seenFusions.add(e.kind[0] + e.tick + '|' + e.at[0].toFixed(1));
   }
   prevRecords = Object.assign({}, LIVE.records || {});
   prevMerged = LIVE.cells_merged || 0;

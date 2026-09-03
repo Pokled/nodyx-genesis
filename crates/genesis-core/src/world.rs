@@ -86,6 +86,19 @@ pub struct Cell {
     pub genome_key: u16,
     /// Moyenne de chaque trait sur les membres. Sert au brin d'ADN et aux stats.
     pub mean_traits: [f32; N_TRAITS],
+    /// Allongement de la membrane : etalement le long de l'axe principal rapporte a l'axe
+    /// perpendiculaire. `1` = ronde, `>1` = etiree. Une cellule assez etiree, grande et mure
+    /// se divise en deux (schema v19). Recalcule chaque tick.
+    #[serde(default = "one_f32")]
+    pub elongation: f32,
+    /// Cellule mere : l'id de la cellule dont celle-ci s'est detachee par division. `None`
+    /// pour une cellule nee d'un amas d'entites libres. Schema v19.
+    #[serde(default)]
+    pub parent_cell: Option<u32>,
+}
+
+fn one_f32() -> f32 {
+    1.0
 }
 
 /// Etat des veilleurs. Fait partie du World State (donc des instantanes et du rejeu).
@@ -172,13 +185,15 @@ pub struct WorldState {
     /// Rend visible quand la matiere est le facteur limitant.
     #[serde(default)]
     pub repro_blocked_materials: u64,
-    /// Cellules formees, dissoutes et fusionnees depuis le debut du monde. Cumule.
+    /// Cellules formees, dissoutes, fusionnees et divisees depuis le debut du monde. Cumule.
     #[serde(default)]
     pub cells_formed_total: u64,
     #[serde(default)]
     pub cells_dissolved_total: u64,
     #[serde(default)]
     pub cells_merged_total: u64,
+    #[serde(default)]
+    pub cells_divided_total: u64,
 
     /// La Voix (0.0.4) : les signaux vivants du monde. Vides la plupart du temps ; en famine,
     /// une nuee d'alarmes. Bornes en nombre et en duree (voir `[voice]`).
@@ -259,6 +274,7 @@ impl WorldState {
             cells_formed_total: 0,
             cells_dissolved_total: 0,
             cells_merged_total: 0,
+            cells_divided_total: 0,
             signals: Vec::new(),
             watch: Watch {
                 pop_history: Vec::new(),

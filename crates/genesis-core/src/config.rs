@@ -470,6 +470,21 @@ pub struct CellsCfg {
     /// ... et distance L1 des genomes moyens des deux cellules sous ce seuil. Plus lache que
     /// `kin_dist` : ce sont deja des groupes organises, la parente se juge au niveau cellule.
     pub fuse_kin: f32,
+
+    /// Division (0.0.4, schema v19) : une cellule grande, mure et etiree se pince en deux.
+    /// `false` desactive (bouton d'A/B). C'est la reproduction cellulaire : les cellules
+    /// deviennent des unites qui naissent, grandissent et se divisent, la selection agit a
+    /// leur niveau.
+    pub divide: bool,
+    /// Effectif minimal pour se diviser. Doit etre bien au-dessus de `min_members` : une
+    /// cellule ne se divise que quand elle a de quoi faire deux cellules viables.
+    pub divide_members: u32,
+    /// Allongement minimal (`Cell.elongation`, etalement axe long / axe court) pour se
+    /// diviser. Une cellule ronde ne se pince pas ; une cellule etiree par la chimiotaxie
+    /// vers deux zones riches, oui.
+    pub divide_elongation: f32,
+    /// Age minimal avant la premiere division, en ticks. Laisse la cellule s'etablir.
+    pub divide_age_ticks: u64,
 }
 impl Default for CellsCfg {
     fn default() -> Self {
@@ -490,6 +505,10 @@ impl Default for CellsCfg {
             fuse: true,
             fuse_overlap: 0.5,
             fuse_kin: 0.9,
+            divide: true,
+            divide_members: 42,
+            divide_elongation: 1.9,
+            divide_age_ticks: 4000,
         }
     }
 }
