@@ -250,6 +250,7 @@ reach             = 1.4   # facteur de portée du contact entre cellules (x (r1 
 min_cells         = 3     # nombre minimal de cellules pour un organisme
 persist_checks    = 2     # contrôles tenus avant reconnaissance, et tolérance avant dissolution
 check_every       = 200   # période de détection, en ticks
+pool_share        = 0.15  # à chaque contrôle, chaque membre est ramené de cette fraction vers l'énergie moyenne de l'organisme (il a faim / est repu EN ENTIER). 0 = identité sans destin partagé (A/B)
 
 [cognition]
 # Cognition (0.0.3, tranche 1 « le premier souvenir »). Une entité qui perçoit assez bien

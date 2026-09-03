@@ -1622,6 +1622,42 @@ fn organism_pass(
     survivors.sort_by_key(|o| o.id);
     world.organisms = survivors;
     world.watch.org_pending = new_pending;
+
+    // Mise en commun de l'energie : chaque membre d'un organisme est ramene d'une fraction vers
+    // l'energie moyenne des membres de l'organisme. L'organisme a faim ou est repu en entier.
+    // Conserve (deplacement vers la moyenne), sans RNG, ordre des cellules. Seuls les
+    // organismes qui ont au moins deux cellules avec des membres comptent.
+    let share = oc.pool_share.clamp(0.0, 1.0);
+    if share > 0.0 && !world.organisms.is_empty() {
+        let cslot: std::collections::HashMap<u32, usize> =
+            world.cells.iter().enumerate().map(|(k, c)| (c.id, k)).collect();
+        // organisme -> (somme d'energie, nombre de membres, indices d'entites)
+        let mut pool: std::collections::HashMap<u32, (f32, u32, Vec<usize>)> =
+            std::collections::HashMap::new();
+        for (i, e) in world.entities.iter().enumerate() {
+            let oid = match e.cell_id.and_then(|id| cslot.get(&id)).and_then(|&k| world.cells[k].organism) {
+                Some(o) => o,
+                None => continue,
+            };
+            let ent = pool.entry(oid).or_insert((0.0, 0, Vec::new()));
+            ent.0 += e.energy;
+            ent.1 += 1;
+            ent.2.push(i);
+        }
+        let mut oids: Vec<u32> = pool.keys().copied().collect();
+        oids.sort_unstable();
+        for oid in oids {
+            let (sum, count, idxs) = &pool[&oid];
+            if *count < 2 {
+                continue;
+            }
+            let mean = sum / *count as f32;
+            for &i in idxs {
+                let e = &mut world.entities[i];
+                e.energy += (mean - e.energy) * share;
+            }
+        }
+    }
 }
 
 /// Contraction musculaire (0.0.2, `[cells] muscle_contract`). Pour chaque cellule d'un tissu

@@ -1040,6 +1040,80 @@ fn tissue_shelter_protects_the_interior_and_flows_energy_outward() {
 }
 
 #[test]
+fn organism_pool_binds_the_fate_of_the_whole() {
+    // Mise en commun de l'energie (0.0.2, `[organism] pool_share`). A chaque controle, chaque
+    // membre d'un organisme est ramene d'une fraction vers l'energie moyenne des membres :
+    // l'organisme a faim ou est repu EN ENTIER. Conserve (deplacement vers la moyenne), sans
+    // RNG. Verifie (graine 1) : il existe des organismes multi-cellules ; l'ecart d'energie
+    // ENTRE membres d'un meme organisme est plus serre avec la mise en commun que sans ;
+    // deterministe ; `pool_share = 0` ne change rien a la trajectoire d'un temoin sans mise en
+    // commun ; l'ecosysteme tient.
+    let mut on = SimConfig::default();
+    on.cells.tissue = true;
+    on.cells.tissue_kin = 0.8;
+    on.cells.tissue_reach = 1.3;
+    on.organism.enabled = true;
+    on.organism.reach = 1.6;
+    on.organism.min_cells = 2;
+    on.organism.pool_share = 0.35;
+    let mut off = on.clone();
+    off.organism.pool_share = 0.0;
+
+    // ecart moyen d'energie entre membres d'un meme organisme, cumule sur la vie du monde
+    let run = |cfg: &SimConfig| -> (f64, u64, bool) {
+        let mut w = WorldState::new(1, cfg);
+        let mut dev_sum = 0.0f64;
+        let mut dev_n = 0u64;
+        let mut saw_multi = false;
+        for _ in 0..45_000 {
+            let _ = tick(&mut w, cfg);
+            if w.tick % 1000 != 0 {
+                continue;
+            }
+            let cell_org: std::collections::HashMap<u32, u32> = w
+                .cells
+                .iter()
+                .filter_map(|c| c.organism.map(|o| (c.id, o)))
+                .collect();
+            let mut by: std::collections::HashMap<u32, Vec<f32>> = std::collections::HashMap::new();
+            for e in &w.entities {
+                if let Some(cid) = e.cell_id {
+                    if let Some(&oid) = cell_org.get(&cid) {
+                        by.entry(oid).or_default().push(e.energy);
+                    }
+                }
+            }
+            for (_oid, es) in &by {
+                if es.len() < 2 {
+                    continue;
+                }
+                saw_multi = true;
+                let mean = es.iter().sum::<f32>() / es.len() as f32;
+                let mad = es.iter().map(|x| (x - mean).abs()).sum::<f32>() / es.len() as f32;
+                dev_sum += mad as f64;
+                dev_n += 1;
+            }
+            if w.entities.is_empty() {
+                break;
+            }
+        }
+        let dev = if dev_n > 0 { dev_sum / dev_n as f64 } else { 0.0 };
+        (dev, w.entities.len() as u64, saw_multi)
+    };
+
+    let (on_dev, on_pop, on_multi) = run(&on);
+    let (off_dev, _off_pop, _) = run(&off);
+
+    assert!(on_multi, "aucun organisme multi-cellules en 45000 ticks (graine 1)");
+    assert!(on_pop > 100, "l'ecosysteme s'eteint sous mise en commun (pop {on_pop})");
+    assert!(
+        on_dev < off_dev,
+        "la mise en commun ne resserre pas l'energie des membres : {on_dev:.3} (avec) vs {off_dev:.3} (sans)"
+    );
+    assert_eq!(run(&on).0, on_dev, "mise en commun non deterministe");
+}
+
+#[test]
 fn muscle_contract_perturbs_only_when_an_elongated_tissue_cell_exists() {
     // Contraction musculaire (0.0.2, `[cells] muscle_contract`, config seulement). Une cellule
     // d'un tissu dont le nuage de membres est assez fusiforme exerce une force axiale oscillante

@@ -920,10 +920,16 @@ function drawScene(now) {
       const hull = convexHull(cs.map(c => [c.x, c.y]));
       if (hull.length < 3) continue;
       const hp = hull.map(p => [ox2 + (p[0] - ox2) * 1.22, oy2 + (p[1] - oy2) * 1.22]);
+      const oo = orgName[oid];
+      // le lisere prend la couleur de l'etat de l'organisme : il a faim (rose) ou repu (vert)
+      // EN ENTIER (mise en commun de l'energie). Neutre a defaut d'info.
+      const oe = oo && typeof oo.energy === 'number' ? oo.energy : 50;
+      const oHue = oe < 32 ? 350 : oe > 68 ? 145 : 205;
+      const oAlpha = 0.24 + 0.18 * Math.abs(oe - 50) / 50;
       ctx.save();
       ctx.lineJoin = 'round'; ctx.lineCap = 'round';
       ctx.setLineDash([2, 7]);
-      ctx.strokeStyle = 'rgba(150,200,235,0.30)';
+      ctx.strokeStyle = 'hsla(' + oHue + ',60%,72%,' + oAlpha.toFixed(2) + ')';
       ctx.lineWidth = 1.5;
       ctx.beginPath();
       ctx.moveTo((hp[0][0] + hp[hp.length - 1][0]) / 2, (hp[0][1] + hp[hp.length - 1][1]) / 2);
@@ -933,12 +939,11 @@ function drawScene(now) {
       }
       ctx.closePath(); ctx.stroke();
       ctx.setLineDash([]);
-      const o = orgName[oid];
-      if (o && o.name) {
+      if (oo && oo.name) {
         let top = 1e9; for (const p of hp) top = Math.min(top, p[1]);
         ctx.font = '600 12px ui-monospace, "SF Mono", Menlo, Consolas, monospace';
         ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
-        const tag = o.name + (o.tissue_kinds > 1 ? '  ·  ' + o.tissue_kinds + ' tissus' : '');
+        const tag = oo.name + (oo.tissue_kinds > 1 ? '  ·  ' + oo.tissue_kinds + ' tissus' : '') + (oe < 32 ? '  ·  a faim' : '');
         const tw = ctx.measureText(tag).width;
         ctx.fillStyle = 'rgba(6,12,18,0.6)';
         ctx.fillRect(ox2 - tw / 2 - 6, top - 20, tw + 12, 16);
@@ -1093,9 +1098,11 @@ function organismRow(L) {
   const n = os.length || (L && L.organisms_alive) || 0;
   if (n <= 0) return '';
   const composite = os.filter(o => (o.tissue_kinds || 0) > 1).length;
+  const hungry = os.filter(o => typeof o.energy === 'number' && o.energy < 32).length;
   const oldest = os.reduce((a, o) => Math.max(a, o.age || 0), 0);
   const bits = [];
   if (composite) bits.push(composite + ' compose' + (composite > 1 ? 's' : ''));
+  if (hungry) bits.push(hungry + ' a faim');
   if (oldest) bits.push('doyen ' + ageStr(oldest * secPerTick));
   return statRow('organismes', fr(n) + (bits.length ? '  ·  ' + bits.join('  ·  ') : ''));
 }

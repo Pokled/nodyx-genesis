@@ -182,11 +182,19 @@ contractiles, la trajectoire diverge du temoin des lors, l'ecosysteme tient, off
 deterministe. Ce que ca PRODUIT (le tissu qui bat visiblement, un vrai courant, une locomotion)
 est laisse a l'emergence et a l'A/B.
 
+**Le pool d'organisme (2026-09-03, `[organism] pool_share`).** A chaque controle, chaque membre
+d'un organisme est ramene d'une fraction (`pool_share`, defaut 0,15) vers l'energie moyenne des
+membres de l'organisme. Deplacement vers la moyenne -> conserve, sans RNG, ordre des cellules.
+L'organisme devient une **unite economique** : il a faim ou est repu EN ENTIER, pas cellule par
+cellule. `pool_share = 0` : l'organisme a une identite mais pas de destin partage (A/B).
+`OrganismView.energy` (0..100), overlay : le lisere prend la couleur de l'etat (rose = a faim,
+vert = repu), le nom ajoute « a faim », ligne « organismes » compte les affames. Test
+`organism_pool_binds_the_fate_of_the_whole` : l'ecart d'energie entre membres d'un meme
+organisme est plus serre avec la mise en commun que sans, deterministe, l'ecosysteme tient.
+
 **Ce qui reste pour l'organe** : (1) les autres types qui comptent (epithelium qui fait
-barriere, adipeux qui tamponne, squelettique qui tient la forme, nerveux qui relaie) ; (2) un
-**pool de ressources d'organisme** (les cellules cotisent et tirent, l'organisme a faim ou non
-en entier) ; (3) la **selection a l'echelle de l'organisme** + genome structurel (piste D /
-Sims).
+barriere, adipeux qui tamponne, squelettique qui tient la forme, nerveux qui relaie) ; (2) la
+**selection a l'echelle de l'organisme** + genome structurel (piste D / Sims).
 
 ### Piste B : la ligne germinale (le plus fidele a la biologie)
 

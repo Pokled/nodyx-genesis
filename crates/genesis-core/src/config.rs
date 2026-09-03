@@ -651,10 +651,23 @@ pub struct OrganismCfg {
     pub persist_checks: u32,
     /// Periode de detection, en ticks (comme `cells.check_every`).
     pub check_every: u64,
+    /// Mise en commun de l'energie (0.0.2). A chaque controle, chaque membre d'un organisme
+    /// est ramene de cette fraction vers l'energie moyenne des membres de l'organisme :
+    /// l'organisme a faim ou est repu EN ENTIER, il devient une unite economique et pas une
+    /// colonie. Conserve (deplacement vers la moyenne), sans RNG. `0` : l'organisme a une
+    /// identite mais pas de destin partage (A/B).
+    pub pool_share: f32,
 }
 impl Default for OrganismCfg {
     fn default() -> Self {
-        OrganismCfg { enabled: false, reach: 1.4, min_cells: 3, persist_checks: 2, check_every: 200 }
+        OrganismCfg {
+            enabled: false,
+            reach: 1.4,
+            min_cells: 3,
+            persist_checks: 2,
+            check_every: 200,
+            pool_share: 0.15,
+        }
     }
 }
 

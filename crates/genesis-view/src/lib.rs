@@ -68,6 +68,9 @@ pub struct OrganismView {
     pub age: u32,
     /// nombre de types de tissus distincts reunis (epithelium, muscle, ...).
     pub tissue_kinds: u8,
+    /// energie moyenne des membres, en pourcents du plafond (0..100). Bas = l'organisme a faim
+    /// EN ENTIER (mise en commun via `[organism] pool_share`).
+    pub energy: u8,
 }
 
 /// Un tissu vu de l'exterieur. Le `kind` est une lecture de la geometrie (ordre du pavage,
@@ -528,7 +531,7 @@ pub fn project(
         .collect();
 
     let tissues = build_tissues(world, energy_ceiling);
-    let organisms = build_organisms(world, &tissues);
+    let organisms = build_organisms(world, &tissues, energy_ceiling);
 
     // Une frame ne porte pas tous les evenements de l'intervalle : sur une grosse
     // population c'est des milliers de naissances et de morts. On garde tous les saillants
@@ -784,7 +787,11 @@ fn build_tissues(world: &WorldState, energy_ceiling: f32) -> Vec<TissueView> {
 /// Un `OrganismView` par organisme reconnu : nom, centroide, effectif, age, et le nombre de
 /// types de tissus distincts qu'il reunit (le signe qu'il devient un organe et plus une
 /// colonie). Ordre des ids.
-fn build_organisms(world: &WorldState, tissues: &[TissueView]) -> Vec<OrganismView> {
+fn build_organisms(
+    world: &WorldState,
+    tissues: &[TissueView],
+    energy_ceiling: f32,
+) -> Vec<OrganismView> {
     if world.organisms.is_empty() {
         return Vec::new();
     }
@@ -797,6 +804,15 @@ fn build_organisms(world: &WorldState, tissues: &[TissueView]) -> Vec<OrganismVi
             members.entry(oid).or_default().push(k);
         }
     }
+    // energie normalisee par cellule (une passe sur les entites)
+    let mut cell_e: BTreeMap<u32, (f32, u32)> = BTreeMap::new();
+    for e in world.entities.iter() {
+        if let Some(cid) = e.cell_id {
+            let ent = cell_e.entry(cid).or_insert((0.0, 0));
+            ent.0 += (e.energy / energy_ceiling).clamp(0.0, 1.0);
+            ent.1 += 1;
+        }
+    }
     let mut out = Vec::with_capacity(world.organisms.len());
     for o in &world.organisms {
         let idxs = match members.get(&o.id) {
@@ -805,10 +821,15 @@ fn build_organisms(world: &WorldState, tissues: &[TissueView]) -> Vec<OrganismVi
         };
         let m = idxs.len();
         let (mut cx, mut cy) = (0.0f32, 0.0f32);
+        let (mut e_sum, mut e_n) = (0.0f32, 0u32);
         let mut kinds: BTreeSet<&'static str> = BTreeSet::new();
         for &k in idxs {
             cx += world.cells[k].position.x;
             cy += world.cells[k].position.y;
+            if let Some((es, en)) = cell_e.get(&world.cells[k].id) {
+                e_sum += es;
+                e_n += en;
+            }
             if let Some(tid) = world.cells[k].tissue {
                 if let Some(&kd) = kind_of.get(&tid) {
                     if kd != "indifferencie" {
@@ -819,6 +840,7 @@ fn build_organisms(world: &WorldState, tissues: &[TissueView]) -> Vec<OrganismVi
         }
         cx /= m as f32;
         cy /= m as f32;
+        let energy = if e_n > 0 { (e_sum / e_n as f32 * 100.0).round().clamp(0.0, 100.0) as u8 } else { 0 };
         out.push(OrganismView {
             id: o.id,
             name: o.name.clone(),
@@ -829,6 +851,7 @@ fn build_organisms(world: &WorldState, tissues: &[TissueView]) -> Vec<OrganismVi
             cells: m.min(u16::MAX as usize) as u16,
             age: world.tick.saturating_sub(o.born_tick).min(u32::MAX as u64) as u32,
             tissue_kinds: kinds.len().min(255) as u8,
+            energy,
         });
     }
     out
