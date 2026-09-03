@@ -484,6 +484,36 @@ function frameAt(now) {
 function dispCell(c) { const d = CDISP.get(c.id); return d ? d : { x: c.pos[0], y: c.pos[1], r: c.radius }; }
 function dispEnt(e) { const d = e.id != null && EDISP.get(e.id); return d || { x: e.pos[0], y: e.pos[1] }; }
 
+// --- couleurs memoisees ---
+// Firefox (canvas 2D en logiciel) reparse la chaine CSS a CHAQUE `fillStyle = ...` : sur des
+// centaines de couleurs par image, `ParseColorSlow` + tokenizer + toString devient le poste
+// n°1 du trace. On quantifie (teinte/luminosite entieres, alpha par pas de ~1/40) et on
+// memoise : chaque couleur unique n'est fabriquee et parsee qu'une fois.
+const _colCache = new Map();
+function hsl(h, s, l, a) {
+  h = h | 0; s = s | 0; l = l | 0;
+  const ai = a >= 1 ? 40 : a <= 0 ? 0 : (a * 40 + 0.5) | 0;
+  const key = h * 4000000 + s * 20000 + l * 41 + ai;
+  let v = _colCache.get(key);
+  if (v === undefined) {
+    v = ai >= 40 ? 'hsl(' + h + ' ' + s + '% ' + l + '%)'
+      : 'hsla(' + h + ',' + s + '%,' + l + '%,' + (ai / 40) + ')';
+    _colCache.set(key, v);
+  }
+  return v;
+}
+function rgba(r, g, b, a) {
+  r = r | 0; g = g | 0; b = b | 0;
+  const ai = a >= 1 ? 40 : a <= 0 ? 0 : (a * 40 + 0.5) | 0;
+  const key = -1 - (r * 4000000 + g * 16000 + b * 41 + ai);
+  let v = _colCache.get(key);
+  if (v === undefined) {
+    v = 'rgba(' + r + ',' + g + ',' + b + ',' + (ai / 40) + ')';
+    _colCache.set(key, v);
+  }
+  return v;
+}
+
 // --- horloge de session (temps reel ecoule devant l'overlay) ---
 const sessionStart = Date.now();
 setInterval(() => {
@@ -511,25 +541,8 @@ let camX = null, camY = null, comX = null, comY = null, camMoving = false;
 let fx = [];                 // effets ponctuels sur la scene : {gx, gy, r0, t0}
 let seenFusions = new Set();  // fusions deja jouees (pas de rejeu au chargement)
 function bio(h, l, a) {
-  let d = ((h - 188) % 360 + 540) % 360 - 180;
-  return 'hsla(' + (188 + d * 0.6).toFixed(0) + ',78%,' + l + '%,' + a + ')';
-}
-// pastilles pre-rendues pour le fond de population : 6 teintes, un disque radial doux chacune.
-// Recopiees en `drawImage` (rapide, zero allocation) au lieu d'un degrade radial par amas.
-const BLOBS = [];
-function buildBlobs() {
-  BLOBS.length = 0;
-  for (let k = 0; k < 6; k++) {
-    const hue = 90 + k * 38;   // couvre la plage de teintes de `bio`
-    const bc = document.createElement('canvas'); bc.width = 64; bc.height = 64;
-    const bx = bc.getContext('2d');
-    const g = bx.createRadialGradient(32, 32, 0, 32, 32, 32);
-    g.addColorStop(0, bio(hue, 66, 1));
-    g.addColorStop(0.55, bio(hue, 62, 0.5));
-    g.addColorStop(1, bio(hue, 60, 0));
-    bx.fillStyle = g; bx.fillRect(0, 0, 64, 64);
-    BLOBS.push(bc);
-  }
+  const d = ((h - 188) % 360 + 540) % 360 - 180;
+  return hsl(188 + d * 0.6, 78, l, a);
 }
 // enveloppe convexe (Andrew monotone chain), pts = [[x,y],...]. Pour le pourtour d'un tissu.
 function convexHull(pts) {
@@ -613,20 +626,20 @@ function drawScene(now) {
     ctx.imageSmoothingEnabled = true;
     ctx.drawImage(resCv, ox, oy, s * gw, s * gh);
   }
-  // amas : le fond de population. Des centaines par image -> on ne cree PAS un degrade radial
-  // par amas (c'etait le vrai gouffre). Un jeu de pastilles douces pre-rendues (6 teintes), une
-  // seule `drawImage` par amas, l'energie pilote l'opacite.
-  if (!BLOBS.length) buildBlobs();
+  // amas : le fond de population. Des centaines par image. Ni degrade radial (couteux a creer),
+  // ni `drawImage` d'un canvas (force un Snapshot Skia sur Firefox en logiciel). Deux disques
+  // pleins par amas : un halo large tres translucide, un coeur plus net. Couleurs memoisees.
   const clu = S.clusters || [];
   for (let i = 0; i < clu.length; i++) {
     const c = clu[i];
     const x = ox + (c.pos[0] / PS) * s, y = oy + (c.pos[1] / PS) * s;
     const r = Math.max(4, (c.radius / PS) * s);
-    const bi = Math.max(0, Math.min(BLOBS.length - 1, Math.round((c.hue - 90) / 38)));
-    ctx.globalAlpha = 0.16 + (c.energy / 100) * 0.30;
-    ctx.drawImage(BLOBS[bi], x - r, y - r, r * 2, r * 2);
+    const e = c.energy / 100;
+    ctx.fillStyle = bio(c.hue, 60, 0.05 + e * 0.09);
+    ctx.beginPath(); ctx.arc(x, y, r * 1.35, 0, 6.2832); ctx.fill();
+    ctx.fillStyle = bio(c.hue, 64, 0.16 + e * 0.24);
+    ctx.beginPath(); ctx.arc(x, y, r * 0.72, 0, 6.2832); ctx.fill();
   }
-  ctx.globalAlpha = 1;
   // cellules : des membranes vivantes. Une masse translucide teintee du genome, un contour
   // qui ondule (l'ondulation gonfle avec l'allongement : une cellule proche de la division
   // se deforme), un noyau qui bat. Une cellule jeune (division ou fusion recente) a le
@@ -640,7 +653,7 @@ function drawScene(now) {
     const dc = dispCell(c);
     const x = ox + (dc.x / PS) * s, y = oy + (dc.y / PS) * s;
     const r = Math.max(7, (dc.r / PS) * s);
-    let d = ((c.hue - 188) % 360 + 540) % 360 - 180; const h = (188 + d * 0.55).toFixed(0);
+    let d = ((c.hue - 188) % 360 + 540) % 360 - 180; const h = Math.round(188 + d * 0.55);
     const big = Math.min(1, (c.count || 12) / 140);
     const elong = Math.max(1, Math.min(2.4, (c.elong || 100) / 100));
     // ondulation douce : elle grandit un peu avec l'allongement, mais reste bornee pour que
@@ -772,9 +785,9 @@ function drawScene(now) {
     //    dans sa teinte, sous tout le reste.
     {
       const hg = ctx.createRadialGradient(cx, cy, spread * 0.2, cx, cy, spread * 1.35 + 40);
-      hg.addColorStop(0, 'hsla(' + hueT + ',48%,26%,0.20)');
-      hg.addColorStop(0.7, 'hsla(' + hueT + ',44%,18%,0.10)');
-      hg.addColorStop(1, 'hsla(' + hueT + ',40%,12%,0)');
+      hg.addColorStop(0, hsl(hueT, 48, 26, 0.20));
+      hg.addColorStop(0.7, hsl(hueT, 44, 18, 0.10));
+      hg.addColorStop(1, hsl(hueT, 40, 12, 0));
       ctx.fillStyle = hg;
       ctx.beginPath(); ctx.arc(cx, cy, spread * 1.35 + 40, 0, 6.2832); ctx.fill();
     }
@@ -791,20 +804,20 @@ function drawScene(now) {
       ctx.save();
       ctx.beginPath(); tracePoly(s._v); ctx.clip();
       const g = ctx.createRadialGradient(s.x - s.r * 0.2, s.y - s.r * 0.22, 1, s.x, s.y, s.r * 2.1);
-      g.addColorStop(0, 'hsla(' + sc + ',' + (sat + 2) + '%,62%,' + (lift + 0.14).toFixed(3) + ')');
-      g.addColorStop(0.55, 'hsla(' + sc + ',' + sat + '%,46%,' + (lift - 0.06).toFixed(3) + ')');
-      g.addColorStop(1, 'hsla(' + sc + ',' + (sat - 4) + '%,26%,0.10)');
+      g.addColorStop(0, hsl(sc, sat + 2, 62, lift + 0.14));
+      g.addColorStop(0.55, hsl(sc, sat, 46, lift - 0.06));
+      g.addColorStop(1, hsl(sc, sat - 4, 26, 0.10));
       ctx.fillStyle = g;
       ctx.fillRect(s.x - s.r * 3, s.y - s.r * 3, s.r * 6, s.r * 6);
       // reflet specular : petite calotte vive decalee en haut a gauche (surface humide bombee)
       const sp = ctx.createRadialGradient(s.x - s.r * 0.42, s.y - s.r * 0.46, 0.5, s.x - s.r * 0.42, s.y - s.r * 0.46, s.r * 0.9);
-      sp.addColorStop(0, 'hsla(' + sc + ',45%,88%,0.20)');
-      sp.addColorStop(1, 'hsla(' + sc + ',45%,88%,0)');
+      sp.addColorStop(0, hsl(sc, 45, 88, 0.20));
+      sp.addColorStop(1, hsl(sc, 45, 88, 0));
       ctx.fillStyle = sp;
       ctx.fillRect(s.x - s.r * 3, s.y - s.r * 3, s.r * 6, s.r * 6);
       // ombre interne : un trait large et sombre le long du bord, moitie exterieure coupee par
       // le clip -> la case prend du volume.
-      ctx.strokeStyle = 'rgba(3,7,12,0.55)';
+      ctx.strokeStyle = rgba(3, 7, 12, 0.55);
       ctx.lineWidth = 7;
       ctx.beginPath(); tracePoly(s._v); ctx.stroke();
       ctx.restore();
@@ -817,28 +830,30 @@ function drawScene(now) {
     ctx.lineJoin = 'round';
     for (const s of sites) {
       if (!s._v) continue;
-      ctx.strokeStyle = 'hsla(' + hueT + ',35%,7%,0.6)';
+      ctx.strokeStyle = hsl(hueT, 35, 7, 0.6);
       // le bord de la nappe porte une paroi plus epaisse : c'est la barriere qui encaisse.
       ctx.lineWidth = (2.6 + 1.4 * tOrder) * (isCore(s) ? 1 : 1.5);
       ctx.beginPath(); tracePoly(s._v); ctx.stroke();
     }
     ctx.globalCompositeOperation = 'lighter';
+    const wLum = 70 + 16 * tOrder;
+    const wHaloA = 0.05 + 0.07 * tOrder;
     for (const s of sites) {
       if (!s._v) continue;
-      ctx.strokeStyle = 'hsla(' + hueT + ',80%,64%,' + (0.05 + 0.07 * tOrder).toFixed(3) + ')';
+      ctx.strokeStyle = hsl(hueT, 80, 64, wHaloA);
       ctx.lineWidth = 8;
       ctx.beginPath(); tracePoly(s._v); ctx.stroke();
       const flow = 0.5 + 0.5 * Math.sin((s.x + s.y * 1.3) * 0.03 - tsec * (1.5 + 1.4 * melt));
-      const lum = (70 + 16 * tOrder).toFixed(0);
-      ctx.strokeStyle = 'hsla(' + hueT + ',95%,' + lum + '%,' + (0.34 + 0.34 * flow * (0.6 + 0.4 * tOrder)).toFixed(3) + ')';
+      ctx.strokeStyle = hsl(hueT, 95, wLum, 0.34 + 0.34 * flow * (0.6 + 0.4 * tOrder));
       ctx.lineWidth = 1.2 + 0.7 * tOrder;
       ctx.beginPath(); tracePoly(s._v); ctx.stroke();
       // jonctions tricellulaires : un point vif + un halo doux a chaque sommet du pavage
+      const jr = 2.0 + 1.3 * tOrder;
+      const jc0 = hsl(hueT, 96, 88, 0.30 + 0.28 * tOrder), jc1 = hsl(hueT, 96, 88, 0);
       for (const p of s._v) {
-        const jr = 2.0 + 1.3 * tOrder;
         const jg = ctx.createRadialGradient(p[0], p[1], 0, p[0], p[1], jr * 2.6);
-        jg.addColorStop(0, 'hsla(' + hueT + ',96%,88%,' + (0.30 + 0.28 * tOrder).toFixed(2) + ')');
-        jg.addColorStop(1, 'hsla(' + hueT + ',96%,88%,0)');
+        jg.addColorStop(0, jc0);
+        jg.addColorStop(1, jc1);
         ctx.fillStyle = jg;
         ctx.beginPath(); ctx.arc(p[0], p[1], jr * 2.6, 0, 6.2832); ctx.fill();
       }
@@ -861,10 +876,10 @@ function drawScene(now) {
       };
       ctx.save();
       ctx.lineJoin = 'round'; ctx.lineCap = 'round';
-      ctx.strokeStyle = 'hsla(' + hueT + ',68%,54%,0.12)';
+      ctx.strokeStyle = hsl(hueT, 68, 54, 0.12);
       ctx.lineWidth = 16 + spread * 0.05;
       ctx.beginPath(); smooth(); ctx.stroke();
-      ctx.strokeStyle = 'hsla(' + hueT + ',88%,76%,' + (0.28 + 0.30 * tOrder).toFixed(2) + ')';
+      ctx.strokeStyle = hsl(hueT, 88, 76, 0.28 + 0.30 * tOrder);
       ctx.lineWidth = 2.0 + 1.0 * tOrder;
       ctx.beginPath(); smooth(); ctx.stroke();
       ctx.restore();
@@ -886,23 +901,23 @@ function drawScene(now) {
       if (core) {
         const mit = 0.5 + 0.5 * Math.sin(tsec * 1.6 - d * 0.03);
         const mg = ctx.createRadialGradient(nx, ny, nr * 0.6, nx, ny, nr * 3.0);
-        mg.addColorStop(0, 'hsla(' + nucHue + ',70%,78%,' + (0.06 + 0.10 * mit).toFixed(3) + ')');
-        mg.addColorStop(1, 'hsla(' + nucHue + ',70%,78%,0)');
+        mg.addColorStop(0, hsl(nucHue, 70, 78, 0.06 + 0.10 * mit));
+        mg.addColorStop(1, hsl(nucHue, 70, 78, 0));
         ctx.fillStyle = mg;
         ctx.beginPath(); ctx.arc(nx, ny, nr * 3.0, 0, 6.2832); ctx.fill();
       }
       const ng = ctx.createRadialGradient(nx - nr * 0.32, ny - nr * 0.32, 0.5, nx, ny, nr * 1.5);
-      ng.addColorStop(0, 'hsla(' + nucHue + ',64%,80%,0.95)');
-      ng.addColorStop(0.45, 'hsla(' + (nucHue - 6) + ',60%,50%,0.74)');
-      ng.addColorStop(1, 'hsla(' + (nucHue - 12) + ',54%,30%,0)');
+      ng.addColorStop(0, hsl(nucHue, 64, 80, 0.95));
+      ng.addColorStop(0.45, hsl(nucHue - 6, 60, 50, 0.74));
+      ng.addColorStop(1, hsl(nucHue - 12, 54, 30, 0));
       ctx.fillStyle = ng;
       ctx.beginPath(); ctx.arc(nx, ny, nr * 1.5, 0, 6.2832); ctx.fill();
       // enveloppe nucleaire : un fil fin et sombre
-      ctx.strokeStyle = 'hsla(' + (nucHue - 14) + ',55%,24%,0.5)';
+      ctx.strokeStyle = hsl(nucHue - 14, 55, 24, 0.5);
       ctx.lineWidth = 1;
       ctx.beginPath(); ctx.arc(nx, ny, nr, 0, 6.2832); ctx.stroke();
       // nucleole : un point clair decentre
-      ctx.fillStyle = 'hsla(' + (nucHue + 14) + ',90%,92%,0.75)';
+      ctx.fillStyle = hsl(nucHue + 14, 90, 92, 0.75);
       ctx.beginPath(); ctx.arc(nx + nr * 0.22, ny + nr * 0.16, nr * 0.28, 0, 6.2832); ctx.fill();
       ctx.restore();
     }
@@ -955,19 +970,19 @@ function drawScene(now) {
     ctx.beginPath(); cellPath(pts);
     // masse : gradient radial doux, centre plus lumineux
     const g = ctx.createRadialGradient(x, y, r * 0.12, x, y, r * 1.1);
-    g.addColorStop(0, 'hsla(' + h + ',72%,63%,' + (0.11 + big * 0.13).toFixed(3) + ')');
-    g.addColorStop(0.7, 'hsla(' + h + ',66%,55%,' + (0.05 + big * 0.06).toFixed(3) + ')');
-    g.addColorStop(1, 'hsla(' + h + ',64%,50%,0)');
+    g.addColorStop(0, hsl(h, 72, 63, 0.11 + big * 0.13));
+    g.addColorStop(0.7, hsl(h, 66, 55, 0.05 + big * 0.06));
+    g.addColorStop(1, hsl(h, 64, 50, 0));
     ctx.fillStyle = g; ctx.fill();
 
     // contour ondulant, plus vif si la cellule est jeune ou grosse
-    ctx.strokeStyle = 'hsla(' + h + ',80%,' + (72 + big * 10 + young * 12).toFixed(0) + '%,' + (0.5 + big * 0.35 + young * 0.3).toFixed(2) + ')';
+    ctx.strokeStyle = hsl(h, 80, 72 + big * 10 + young * 12, 0.5 + big * 0.35 + young * 0.3);
     ctx.lineWidth = 1.2 + big * 1.9 + young * 1.6;
     ctx.stroke();
 
     // noyau qui bat
     const beat = 1 + 0.2 * Math.sin(ph * 2.1);
-    ctx.fillStyle = 'hsla(' + h + ',88%,85%,' + (0.28 + big * 0.44).toFixed(2) + ')';
+    ctx.fillStyle = hsl(h, 88, 85, 0.28 + big * 0.44);
     ctx.beginPath(); ctx.arc(x, y, (1.6 + big * 2.6) * beat, 0, 6.2832); ctx.fill();
     ctx.restore();
   }
@@ -995,7 +1010,7 @@ function drawScene(now) {
       ctx.save();
       ctx.lineJoin = 'round'; ctx.lineCap = 'round';
       ctx.setLineDash([2, 7]);
-      ctx.strokeStyle = 'hsla(' + oHue + ',60%,72%,' + oAlpha.toFixed(2) + ')';
+      ctx.strokeStyle = hsl(oHue, 60, 72, oAlpha);
       ctx.lineWidth = 1.5;
       ctx.beginPath();
       ctx.moveTo((hp[0][0] + hp[hp.length - 1][0]) / 2, (hp[0][1] + hp[hp.length - 1][1]) / 2);
