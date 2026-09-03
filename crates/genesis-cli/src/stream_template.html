@@ -347,23 +347,117 @@ function worldAge(sec) {
 }
 
 // --- polling : fetch quand servi en http, sinon on garde le repli embarque ---
-// Le serveur envoie `no-store` sur ces fichiers : pas besoin de casse-cache. On relit la
-// scene une fois sur deux (c'est le gros fichier), et on espace les tentatives si le
-// serveur ne repond plus (relance de `genesis serve`), sans rien casser a l'ecran.
-let pollN = 0, pollMiss = 0, pollTimer = 0;
+// Le serveur envoie `no-store` sur ces fichiers : pas besoin de casse-cache. On relit les deux
+// a chaque tour (scene.json ~ quelques dizaines de ko en localhost) et on espace les tentatives
+// si le serveur ne repond plus (relance de `genesis serve`), sans rien casser a l'ecran.
+// `genesis serve` reecrit scene.json a chaque tranche (~1 s) : entre deux, on interpole
+// (`frameAt`) pour que les cellules glissent au lieu de sauter d'un tick a l'autre.
+let SCENE0 = null;                 // image precedente, pour interpoler DEPUIS
+let sceneT0 = performance.now();   // arrivee de SCENE
+let sceneSpan = 1400;              // ms observes entre deux images distinctes (adaptatif)
+let sceneFetched = false;
+function ingestScene(sc) {
+  if (!sc || !sc.grid) return;
+  // premiere image reelle : on cale sans interpoler (le repli embarque peut etre tres vieux)
+  if (!sceneFetched) { sceneFetched = true; SCENE = sc; SCENE0 = sc; sceneT0 = performance.now(); return; }
+  const prevTick = SCENE && (SCENE.tick != null ? SCENE.tick : (SCENE.stats && SCENE.stats.tick));
+  const curTick = sc.tick != null ? sc.tick : (sc.stats && sc.stats.tick);
+  // meme image (le serveur n'a pas encore avance) : on rafraichit sans relancer l'interpolation
+  if (SCENE && prevTick != null && curTick === prevTick) { SCENE = sc; return; }
+  const gap = performance.now() - sceneT0;
+  if (SCENE && gap > 120 && gap < 12000) sceneSpan = sceneSpan * 0.5 + gap * 0.5;
+  SCENE0 = SCENE || sc;
+  SCENE = sc;
+  sceneT0 = performance.now();
+}
+let pollMiss = 0, pollTimer = 0;
 async function poll() {
   let ok = false;
   try {
-    const l = await fetch('live.json').then(r => r.ok ? r.json() : null);
+    const [l, sc] = await Promise.all([
+      fetch('live.json').then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch('scene.json').then(r => r.ok ? r.json() : null).catch(() => null),
+    ]);
     if (l) { applyLive(l); ok = true; }
-    if (pollN++ % 2 === 0) {
-      const sc = await fetch('scene.json').then(r => r.ok ? r.json() : null);
-      if (sc) { SCENE = sc; }
-    }
+    if (sc) { ingestScene(sc); ok = true; }
   } catch (e) { /* file:// ou serveur absent : on garde le dernier etat */ }
   pollMiss = ok ? 0 : Math.min(pollMiss + 1, 6);
   clearTimeout(pollTimer);
-  pollTimer = setTimeout(poll, 3000 + pollMiss * 1500);
+  pollTimer = setTimeout(poll, 1400 + pollMiss * 1500);
+}
+
+// --- interpolation de la scene entre deux images ---
+// Les cellules sont appariees par id (glissement franc). Les amas et entites, faute d'id
+// stable, par plus proche voisin sous un seuil (ils bougent peu en ~1,4 s). Le champ de
+// ressources, case a case. Le reste (stats, grille, signaux, evenements) passe tel quel.
+const lerp = (a, b, k) => a + (b - a) * k;
+function matchNearest(prev, cur, maxD2) {
+  // renvoie, pour chaque element de `cur`, l'element de `prev` le plus proche (ou null)
+  const used = new Uint8Array(prev.length);
+  return cur.map(c => {
+    let bi = -1, bd = maxD2;
+    for (let i = 0; i < prev.length; i++) {
+      if (used[i]) continue;
+      const dx = prev[i].pos[0] - c.pos[0], dy = prev[i].pos[1] - c.pos[1];
+      const d2 = dx * dx + dy * dy;
+      if (d2 < bd) { bd = d2; bi = i; }
+    }
+    if (bi >= 0) { used[bi] = 1; return prev[bi]; }
+    return null;
+  });
+}
+function frameAt(now) {
+  const S = SCENE;
+  if (!S || !SCENE0 || SCENE0 === S) return S;
+  const k = Math.min(1, (now - sceneT0) / Math.max(200, sceneSpan * 1.12));
+  if (k >= 1) return S;
+  const S0 = SCENE0;
+  const out = Object.assign({}, S);
+
+  // cellules : appariement par id, interpolation pos + rayon ; une cellule neuve enfle depuis
+  // un rayon reduit (elle apparait au lieu de surgir a pleine taille).
+  if (S.cells && S.cells.length) {
+    const by = new Map();
+    for (const c of (S0.cells || [])) by.set(c.id, c);
+    out.cells = S.cells.map(c => {
+      const p = c.id != null ? by.get(c.id) : null;
+      if (!p) return Object.assign({}, c, { radius: Math.round(c.radius * (0.45 + 0.55 * k)) });
+      return Object.assign({}, c, {
+        pos: [Math.round(lerp(p.pos[0], c.pos[0], k)), Math.round(lerp(p.pos[1], c.pos[1], k))],
+        radius: Math.round(lerp(p.radius, c.radius, k)),
+      });
+    });
+  }
+  // amas : plus proche voisin sous ~24 cases, interpolation pos / rayon / energie
+  if (S.clusters && S.clusters.length) {
+    const m = matchNearest(S0.clusters || [], S.clusters, (24 * PS) * (24 * PS));
+    out.clusters = S.clusters.map((c, i) => {
+      const p = m[i];
+      if (!p) return c;
+      return Object.assign({}, c, {
+        pos: [Math.round(lerp(p.pos[0], c.pos[0], k)), Math.round(lerp(p.pos[1], c.pos[1], k))],
+        radius: Math.round(lerp(p.radius, c.radius, k)),
+        energy: Math.round(lerp(p.energy, c.energy, k)),
+      });
+    });
+  }
+  // entites (agents, en mode region) : par id si present, sinon plus proche voisin
+  if (S.entities && S.entities.length) {
+    const by = new Map();
+    for (const e of (S0.entities || [])) if (e.id != null) by.set(e.id, e);
+    const m = by.size ? null : matchNearest(S0.entities || [], S.entities, (16 * PS) * (16 * PS));
+    out.entities = S.entities.map((e, i) => {
+      const p = e.id != null ? by.get(e.id) : (m && m[i]);
+      if (!p) return e;
+      return Object.assign({}, e, {
+        pos: [Math.round(lerp(p.pos[0], e.pos[0], k)), Math.round(lerp(p.pos[1], e.pos[1], k))],
+      });
+    });
+  }
+  // le champ de ressources n'est pas interpole : il bouge peu en absolu d'une image a l'autre,
+  // et fondre une grille quantifiee ne ferait que la brouiller. Il passe tel quel (`out` a
+  // deja `S.resources` par l'Object.assign).
+  return out;
 }
 
 // --- horloge de session (temps reel ecoule devant l'overlay) ---
@@ -415,7 +509,7 @@ function drawScene(now) {
   requestAnimationFrame(drawScene);
   if (now - sceneLast < 30) return;
   sceneLast = now;
-  const S = SCENE;
+  const S = frameAt(now);
   const W = cv.width, H = cv.height;
   ctx.clearRect(0, 0, W, H);
   if (!sceneBg) {

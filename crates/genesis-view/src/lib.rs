@@ -51,6 +51,10 @@ pub struct ViewFrame {
 /// une membrane.
 #[derive(Debug, Clone, Serialize)]
 pub struct CellView {
+    /// id de la cellule : stable entre deux images tant qu'elle vit. L'overlay s'en sert pour
+    /// interpoler la position d'une image a l'autre (les cellules glissent au lieu de sauter).
+    #[serde(default)]
+    pub id: u32,
     /// centroide * POS_SCALE.
     pub pos: [u16; 2],
     /// rayon des membres * POS_SCALE.
@@ -458,6 +462,7 @@ pub fn project(
             let hue = (20.0 + (c.mean_traits[1] * 0.6 + c.mean_traits[2] * 0.4) * 260.0)
                 .rem_euclid(360.0) as u16;
             CellView {
+                id: c.id,
                 pos: [qpos(c.position.x), qpos(c.position.y)],
                 radius: (c.radius * POS_SCALE).round().clamp(1.0, 65535.0) as u16,
                 count: c.member_count,
