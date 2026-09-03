@@ -12,7 +12,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use genesis_core::event::{Event, EventKind};
+use genesis_core::event::{DeathCause, Event, EventKind};
 use genesis_core::genome::N_TRAITS;
 use genesis_core::names;
 use genesis_core::{EntityId, SimConfig, WorldState};
@@ -660,7 +660,10 @@ fn event_view(e: &Event) -> Option<EventView> {
         EventKind::EntityDivided { parent, child } => {
             ("division", vec![*parent, *child], String::new())
         }
-        EventKind::EntityDied { entity, .. } => ("mort", vec![*entity], String::new()),
+        EventKind::EntityDied { entity, cause } => {
+            let k = if matches!(cause, DeathCause::Predation) { "mange" } else { "mort" };
+            (k, vec![*entity], String::new())
+        }
         EventKind::ReplicationFailed { parent, .. } => ("echec", vec![*parent], String::new()),
         EventKind::WorldCreated => ("genese", vec![], String::new()),
         EventKind::LineageExtinct { lineage } => (

@@ -137,6 +137,7 @@
   .fe .b { color:var(--ink); }
   .fe.naissance .b { color:var(--green); }
   .fe.mort .b { color:var(--rose); }
+  .fe.mange .b { color:var(--amber); font-weight:600; }
   .fe.division .b { color:var(--blue); }
   .fe.eveil .b { color:var(--violet); }
   .fe.genese .b, .fe.palier .b { color:var(--amber); }
@@ -755,6 +756,7 @@ function applyLive(L) {
       statRow('naissances', fr(L.births)) +
       statRow('morts de faim', fr(L.deaths_starv)) +
       statRow('morts d\'age', fr(L.deaths_age)) +
+      ((L.deaths_predation || 0) > 0 ? statRow('morts mangees', fr(L.deaths_predation)) : '') +
       statRow('energie moy.', (L.mean_energy_pct * 100).toFixed(0) + ' %') +
     '</div>' +
     '<div class="h2">Evolution</div><div class="rows">' +

@@ -70,6 +70,8 @@ pub struct LiveState {
     pub births: u64,
     pub deaths_starv: u64,
     pub deaths_age: u64,
+    #[serde(default)]
+    pub deaths_predation: u64,
     pub mean_age_ticks: f64,
     pub mean_energy_pct: f32,
     pub biomass: f64,
@@ -233,6 +235,7 @@ fn ev_label(kind: &str, subjects: &[genesis_core::EntityId]) -> Option<(&'static
         "naissance" => Some(("naissance", format!("une entite est nee{who}"))),
         "division" => Some(("division", format!("l'entite{who} s'est scindee"))),
         "mort" => Some(("mort", format!("l'entite{who} est morte"))),
+        "mange" => Some(("mange", format!("l'entite{who} est mangee"))),
         "agent_eveille" => Some(("eveil", format!("l'individu{who} s'eveille"))),
         _ => None,
     }
@@ -567,6 +570,7 @@ pub fn write_live(
         births: st.births_total,
         deaths_starv: st.deaths_starvation,
         deaths_age: st.deaths_age,
+        deaths_predation: st.deaths_predation,
         mean_age_ticks: st.mean_age_ticks,
         mean_energy_pct: st.mean_energy_pct,
         biomass: st.biomass_energy,
