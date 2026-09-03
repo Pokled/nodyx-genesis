@@ -246,6 +246,8 @@ pub struct WorldStats {
     pub cells_alive: u32,
     #[serde(default)]
     pub tissues_alive: u32,
+    #[serde(default)]
+    pub tissue_order: f32,
     pub entities_in_cells: u32,
     pub mean_cell_size: f32,
     pub cells_formed_total: u64,
@@ -282,6 +284,8 @@ pub struct SeriesRow {
     pub cells_alive: u32,
     #[serde(default)]
     pub tissues_alive: u32,
+    #[serde(default)]
+    pub tissue_order: f32,
     pub entities_in_cells: u32,
     /// Agents vivants (0.0.3, tranche 1).
     pub agents_alive: u32,
@@ -320,6 +324,7 @@ pub fn series_row(world: &WorldState, cfg: &SimConfig) -> SeriesRow {
         dominant_lineage: world.dominant_lineage(),
         cells_alive,
         tissues_alive: world.tissues_alive,
+        tissue_order: world.tissue_order,
         entities_in_cells,
         agents_alive,
         carrying_capacity,
@@ -545,6 +550,7 @@ pub fn project(
             repro_blocked_materials: world.repro_blocked_materials,
             cells_alive,
             tissues_alive: world.tissues_alive,
+            tissue_order: world.tissue_order,
             entities_in_cells,
             mean_cell_size,
             cells_formed_total: world.cells_formed_total,

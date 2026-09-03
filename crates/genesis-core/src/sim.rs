@@ -1404,7 +1404,7 @@ fn cell_phase(
     //    connexe de telles cellules, d'au moins `tissue_min` membres. Derive chaque tick,
     //    union-find sur les positions, ordre stable (cellules triees par id) ; l'id du tissu
     //    est le plus petit id de cellule du groupe. Pas d'etat serialise, pas d'hysteresis.
-    tissue_pass(world, &cc, t);
+    tissue_pass(world, &cc, space, t);
 
     // -- 4. Detection de nouvelles cellules, tous les `check_every` ticks.
     if cc.check_every == 0 || t % cc.check_every != 0 {
@@ -1413,11 +1413,13 @@ fn cell_phase(
     cell_detect(world, &cc, space, t, events);
 }
 
-fn tissue_pass(world: &mut WorldState, cc: &crate::config::CellsCfg, _t: u64) {
+fn tissue_pass(world: &mut WorldState, cc: &crate::config::CellsCfg, space: &Space, _t: u64) {
     if !cc.tissue || world.cells.len() < 2 {
         for c in world.cells.iter_mut() {
             c.tissue = None;
         }
+        world.tissues_alive = 0;
+        world.tissue_order = 0.0;
         return;
     }
     let n = world.cells.len();
@@ -1425,6 +1427,7 @@ fn tissue_pass(world: &mut WorldState, cc: &crate::config::CellsCfg, _t: u64) {
     order.sort_by_key(|&k| world.cells[k].id);
 
     let mut uf: Vec<usize> = (0..n).collect();
+    let mut neigh: Vec<Vec<usize>> = vec![Vec::new(); n];
     fn find(uf: &mut [usize], mut x: usize) -> usize {
         while uf[x] != x {
             uf[x] = uf[uf[x]];
@@ -1443,6 +1446,8 @@ fn tissue_pass(world: &mut WorldState, cc: &crate::config::CellsCfg, _t: u64) {
             if trait_l1(&ca.mean_traits, &cb.mean_traits) > cc.tissue_kin {
                 continue;
             }
+            neigh[a].push(b);
+            neigh[b].push(a);
             let (ra, rb) = (find(&mut uf, a), find(&mut uf, b));
             if ra != rb {
                 // rattacher a la racine dont la cellule a le plus petit id : id de tissu stable
@@ -1473,6 +1478,88 @@ fn tissue_pass(world: &mut WorldState, cc: &crate::config::CellsCfg, _t: u64) {
         }
         ids.len() as u32
     };
+
+    // Ordre du tissu : ordre orientationnel a 6 plis (psi6) des centroides de cellules, moyenne
+    // sur toutes les cellules en tissu qui ont au moins 3 voisines. `1` = pavage hexagonal
+    // parfait, `0` = desordre (scenario KTHNY / phase hexatique). L'activite cellulaire fait
+    // monter la "temperature effective" et fondre l'ordre.
+    let mut psi_sum = 0.0f64;
+    let mut psi_n = 0usize;
+    for k in 0..n {
+        if world.cells[k].tissue.is_none() || neigh[k].len() < 3 {
+            continue;
+        }
+        let pk = world.cells[k].position;
+        let (mut re, mut im) = (0.0f64, 0.0f64);
+        for &j in &neigh[k] {
+            let pj = world.cells[j].position;
+            let ang = ((pj.y - pk.y) as f64).atan2((pj.x - pk.x) as f64);
+            re += (6.0 * ang).cos();
+            im += (6.0 * ang).sin();
+        }
+        psi_sum += (re * re + im * im).sqrt() / neigh[k].len() as f64;
+        psi_n += 1;
+    }
+    world.tissue_order = if psi_n > 0 { (psi_sum / psi_n as f64) as f32 } else { 0.0 };
+
+    // Adhesion : les cellules d'un meme tissu se rapprochent jusqu'au contact. C'est cette
+    // traction douce qui fait emerger le pavage. Poussee accumulee par entite puis appliquee,
+    // bornee, gardee dans la grille. Sequentiel, sans RNG, ordre des id.
+    let pull = cc.tissue_pull.max(0.0);
+    if pull <= 0.0 {
+        return;
+    }
+    let slot: std::collections::HashMap<u32, usize> =
+        world.cells.iter().enumerate().map(|(k, c)| (c.id, k)).collect();
+    let mut mem: Vec<Vec<usize>> = vec![Vec::new(); n];
+    for (i, e) in world.entities.iter().enumerate() {
+        if let Some(id) = e.cell_id {
+            if let Some(&k) = slot.get(&id) {
+                mem[k].push(i);
+            }
+        }
+    }
+    let snap: Vec<(Position, f32)> = world.cells.iter().map(|c| (c.position, c.radius)).collect();
+    let mut push = vec![(0.0f32, 0.0f32); world.entities.len()];
+    for a in 0..n {
+        if world.cells[a].tissue.is_none() {
+            continue;
+        }
+        for &b in &neigh[a] {
+            if b <= a || world.cells[b].tissue != world.cells[a].tissue {
+                continue;
+            }
+            let (pa, ra) = snap[a];
+            let (pb, rb) = snap[b];
+            let dx = pb.x - pa.x;
+            let dy = pb.y - pa.y;
+            let d = (dx * dx + dy * dy).sqrt().max(1e-3);
+            let touch = (ra + rb) * 0.98; // cible : membranes qui s'effleurent
+            let gap = d - touch;
+            if gap <= 0.0 {
+                continue;
+            }
+            let mag = (gap * pull).min(0.35);
+            let (nx, ny) = (dx / d, dy / d);
+            for &i in &mem[a] {
+                push[i].0 += nx * mag;
+                push[i].1 += ny * mag;
+            }
+            for &i in &mem[b] {
+                push[i].0 -= nx * mag;
+                push[i].1 -= ny * mag;
+            }
+        }
+    }
+    let (gw, gh) = (space.width as f32, space.height as f32);
+    for (i, (px, py)) in push.into_iter().enumerate() {
+        if px == 0.0 && py == 0.0 {
+            continue;
+        }
+        let e = &mut world.entities[i];
+        e.position.x = (e.position.x + px.clamp(-1.0, 1.0)).clamp(0.0, gw - 1e-3);
+        e.position.y = (e.position.y + py.clamp(-1.0, 1.0)).clamp(0.0, gh - 1e-3);
+    }
 }
 
 /// Detection d'amas coherents de parents, avec persistance. Emet `CellFormed`.

@@ -104,6 +104,8 @@ pub struct LiveState {
     pub cells_alive: u32,
     #[serde(default)]
     pub tissues_alive: u32,
+    #[serde(default)]
+    pub tissue_order: f32,
     pub cells_in_pct: f32,
     pub cell_size_mean: f32,
     pub cells_formed: u64,
@@ -603,6 +605,7 @@ pub fn write_live(
             .count() as u32,
         cells_alive: st.cells_alive,
         tissues_alive: st.tissues_alive,
+        tissue_order: st.tissue_order,
         cells_in_pct: if st.population > 0 {
             st.entities_in_cells as f32 / st.population as f32 * 100.0
         } else {

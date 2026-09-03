@@ -82,10 +82,22 @@ pour l'overlay. Phase 5b (3d), apres fusion/division, sequentiel sans RNG.
 
 C'est la **liaison** de la piste A, sans l'`organism_id` persistant ni le pool de ressources
 ni les roles : juste « ces cellules sont une meme etoffe ». Pas d'hysteresis pour l'instant, le
-compte de tissus flotte un peu. Ce qui manque pour que ce soit un vrai tissu (`Taille.md` :
-cellules specialisees + une meme fonction) : les **roles** (germinal / somatique / structurel /
-nourricier), suivants. Overlay : une nappe radiale douce + des liens d'adhesion sous les
-membranes ; il faudra une vraie enveloppe de la forme du tissu quand il comptera vraiment.
+compte de tissus flotte un peu.
+
+**Adhesion et ordre (meme jour).** `tissue_pull` : les cellules d'un meme tissu se rapprochent
+doucement jusqu'au contact (poussee accumulee par membre, bornee, gardee dans la grille). C'est
+cette traction qui fait **emerger le pavage**. Et un parametre d'ordre : `world.tissue_order` =
+ordre orientationnel a 6 plis (psi6) des centroides de cellules, moyenne sur les cellules en
+tissu a >= 3 voisines. `1` = pavage hexagonal parfait, `0` = desordre. Sur w2 avec la traction :
+~65 %, un vrai signal hexatique (scenario KTHNY, la phase hexatique ; l'agitation cellulaire =
+temperature effective, cf. l'apport de l'utilisateur sur la transition ordre-desordre des
+monocouches, confirmee a Leiden 2022). Sans la traction l'ordre reste a 0 (les cellules
+flottent, rien ne les pave). Overlay : ligne « tissus N · ordre X % » dans le panneau Cellules.
+
+Ce qui manque, dans l'ordre : le rendu tesselle (membranes poussees jusqu'au contact a
+l'ecran, le pavage visible), puis les **roles** (barriere / soutien / moteur / signal /
+germinal, `Taille.md` : cellules specialisees + une meme fonction), d'ou emergeront les **types
+de tissus** (epithelial / conjonctif / musculaire / nerveux) a nommer comme une espece.
 
 ### Piste B : la ligne germinale (le plus fidele a la biologie)
 

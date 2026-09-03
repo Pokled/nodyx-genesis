@@ -206,6 +206,9 @@ pub struct WorldState {
     /// Tissus vivants a cet instant (0.0.2, `[cells] tissue`). Derive chaque tick, pas cumule.
     #[serde(default)]
     pub tissues_alive: u32,
+    /// Ordre du tissu (0.0.2) : psi6 moyen des cellules en tissu. 1 = pavage hexagonal, 0 = desordre.
+    #[serde(default)]
+    pub tissue_order: f32,
 
     /// La Voix (0.0.4) : les signaux vivants du monde. Vides la plupart du temps ; en famine,
     /// une nuee d'alarmes. Bornes en nombre et en duree (voir `[voice]`).
@@ -289,6 +292,7 @@ impl WorldState {
             cells_merged_total: 0,
             cells_divided_total: 0,
             tissues_alive: 0,
+            tissue_order: 0.0,
             signals: Vec::new(),
             watch: Watch {
                 pop_history: Vec::new(),

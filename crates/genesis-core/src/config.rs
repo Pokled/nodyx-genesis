@@ -520,6 +520,11 @@ pub struct CellsCfg {
     pub tissue_kin: f32,
     /// Nombre minimal de cellules pour qu'un groupe compte comme un tissu.
     pub tissue_min: u32,
+    /// Force d'adhesion : fraction de l'ecart corrigee par tick, par membre, pour rapprocher
+    /// deux cellules d'un meme tissu jusqu'au contact. Bornee, douce. `0` : le tissu est
+    /// detecte mais ses cellules ne se pavent pas (l'ordre reste bas). C'est cette traction
+    /// qui fait emerger le pavage hexagonal (et la phase hexatique quand l'agitation monte).
+    pub tissue_pull: f32,
 }
 impl Default for CellsCfg {
     fn default() -> Self {
@@ -551,6 +556,7 @@ impl Default for CellsCfg {
             tissue_reach: 1.15,
             tissue_kin: 0.5,
             tissue_min: 3,
+            tissue_pull: 0.04,
         }
     }
 }

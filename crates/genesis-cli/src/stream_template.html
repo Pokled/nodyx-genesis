@@ -817,7 +817,9 @@ function applyLive(L) {
       statRow('formees / dissoutes', fr(L.cells_formed || 0) + ' / ' + fr(L.cells_dissolved || 0)) +
       statRow('fusions', fr(L.cells_merged || 0), 'fus' + (fusionHit ? ' hit' : '')) +
       statRow('divisions', fr(L.cells_divided || 0), 'divs' + (divisionHit ? ' hit' : '')) +
-      ((L.tissues_alive || 0) > 0 ? statRow('tissus', fr(L.tissues_alive)) : '') +
+      ((L.tissues_alive || 0) > 0
+        ? statRow('tissus', fr(L.tissues_alive) + '  ·  ordre ' + ((L.tissue_order || 0) * 100).toFixed(0) + ' %')
+        : '') +
     '</div>' +
     '<div class="h2">Cognition et voix</div><div class="rows">' +
       statRow('agents vivants', fr(L.agents_alive)) +

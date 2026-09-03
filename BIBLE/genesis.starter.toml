@@ -206,6 +206,7 @@ tissue            = false
 tissue_reach      = 1.15  # facteur de portée de l'adhésion (membranes qui se touchent)
 tissue_kin        = 0.5   # distance L1 max des génomes moyens (plus stricte que fuse_kin)
 tissue_min        = 3     # nombre minimal de cellules pour un tissu
+tissue_pull       = 0.04  # traction d'adhésion : rapproche les cellules d'un tissu jusqu'au contact (fait émerger le pavage)
 
 [predation]
 # Prédation (0.0.2, experiments/012_predation.md). Une entité qui a faim (energy < hunt_below)
