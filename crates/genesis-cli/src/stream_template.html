@@ -71,7 +71,7 @@
 
   .ident {
     position:absolute; left:30px; top:228px; z-index:3; max-width:470px;
-    background:rgba(5,8,13,.6); backdrop-filter:blur(4px);
+    background:rgba(6,9,14,.9);
     border:1px solid var(--line); border-radius:13px; padding:15px 18px;
   }
   .ident .line1 { font-family:var(--serif); font-weight:600; font-size:1.12rem; letter-spacing:.03em; }
@@ -95,8 +95,8 @@
   .statuschip.stable .v { color:var(--cyan); } .statuschip.stable .v .d { background:var(--cyan); }
 
   /* --- side : pouls + stats --- */
-  .side { grid-area:side; border-left:1px solid var(--line); background:var(--panel);
-    backdrop-filter:blur(10px); padding:16px 24px; display:flex; flex-direction:column; gap:11px; overflow:hidden; }
+  .side { grid-area:side; border-left:1px solid var(--line); background:#0a0e17;
+    padding:16px 24px; display:flex; flex-direction:column; gap:11px; overflow:hidden; }
   .side-groups { display:flex; flex-direction:column; gap:9px; }
   .side-groups .h2 { margin-bottom:3px; }
   .h2 {
@@ -306,16 +306,27 @@ let LIVE = parse('boot-live', null);
 let SCENE = parse('boot-scene', null);
 
 const cv = document.getElementById('c');
-const ctx = cv.getContext('2d');
+const ctx = cv.getContext('2d', { alpha: true });
 const dnaCv = document.getElementById('dna');
 const dctx = dnaCv.getContext('2d');
 const DPR = Math.min(window.devicePixelRatio || 1, 2);
+// La scene est tracee a resolution reduite puis etiree par le CSS : le rendu est organique et
+// flou, la douceur ne se voit pas, et c'est ~2x moins de pixels a remplir et a composer chaque
+// image. C'est le plus gros levier de fluidite du direct.
+const RENDER_SCALE = 0.72;
+// Champ de ressources : ~2300 petites cases qui ne changent qu'a l'arrivee d'une image. On le
+// peint une fois dans un petit canvas (en coordonnees du monde) et on le recopie ensuite en
+// une seule operation etiree, au lieu de milliers de fillRect par frame.
+const resCv = document.createElement('canvas');
+const resx = resCv.getContext('2d');
+let resDirty = true;
 let sceneBg = null, dnaGrad = null;
 function resize() {
-  cv.width = cv.clientWidth * DPR; cv.height = cv.clientHeight * DPR;
+  cv.width = Math.round(cv.clientWidth * RENDER_SCALE);
+  cv.height = Math.round(cv.clientHeight * RENDER_SCALE);
   dnaCv.width = dnaCv.clientWidth * DPR; dnaCv.height = dnaCv.clientHeight * DPR;
   dctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-  sceneBg = null; dnaGrad = null;
+  sceneBg = null; dnaGrad = null; resDirty = true;
 }
 window.addEventListener('resize', resize); resize();
 
@@ -361,6 +372,7 @@ function ingestScene(sc) {
   if (!sc || !sc.grid) return;
   // premiere image reelle : on repart des positions fraiches (le repli embarque peut etre vieux)
   if (!sceneFetched) { sceneFetched = true; SCENE = sc; sceneT0 = performance.now(); CDISP.clear(); EDISP.clear(); return; }
+  resDirty = true;
   const prevTick = SCENE && (SCENE.tick != null ? SCENE.tick : (SCENE.stats && SCENE.stats.tick));
   const curTick = sc.tick != null ? sc.tick : (sc.stats && sc.stats.tick);
   // meme image (le serveur n'a pas encore avance) : on remplace sans toucher a la cadence
@@ -408,46 +420,39 @@ function poll() { pollScene(); pollLive(); }
 const CDISP = new Map();   // id cellule -> {x, y, r}
 const EDISP = new Map();   // id entite  -> {x, y}
 let dispLast = performance.now();
-function smoothTo(d, tx, ty, a) { d.x += (tx - d.x) * a; d.y += (ty - d.y) * a; }
+// `frameAt` ne fait que faire AVANCER l'etat de lissage (CDISP / EDISP) : aucune allocation,
+// pas de nouveaux objets par frame (le GC est une source de saccade). `drawScene` lit la
+// position lissee via `dispCell` / `dispEnt` au moment de tracer.
 function frameAt(now) {
   const S = SCENE;
   if (!S || !S.grid) return S;
   let dt = (now - dispLast) / 1000; dispLast = now;
   dt = Math.max(0.001, Math.min(0.1, dt));
-  // demi-vie ~0,9 x la cadence : l'affichage est toujours en plein rattrapage -> vitesse
-  // presque constante (pas d'a-coup a l'arrivee de chaque image), au prix d'un retard d'a peu
-  // pres une image et demie, invisible pour un direct.
   const halfLife = Math.max(0.5, Math.min(1.7, sceneSpan / 1000 * 0.9));
   const a = 1 - Math.pow(0.5, dt / halfLife);
-  const out = Object.assign({}, S);
-
   if (S.cells && S.cells.length) {
-    const live = new Set();
-    out.cells = S.cells.map(c => {
-      live.add(c.id);
+    for (const c of S.cells) {
       const tx = c.pos[0], ty = c.pos[1], tr = c.radius;
       let d = CDISP.get(c.id);
-      if (!d) { d = { x: tx, y: ty, r: tr * 0.5 }; CDISP.set(c.id, d); }  // apparait : enfle
-      smoothTo(d, tx, ty, a); d.r += (tr - d.r) * a;
-      return Object.assign({}, c, { pos: [d.x, d.y], radius: d.r });
-    });
-    if (CDISP.size > S.cells.length + 32) for (const k of CDISP.keys()) if (!live.has(k)) CDISP.delete(k);
+      if (!d) { d = { x: tx, y: ty, r: tr * 0.5, seen: 0 }; CDISP.set(c.id, d); }  // apparait : enfle
+      d.x += (tx - d.x) * a; d.y += (ty - d.y) * a; d.r += (tr - d.r) * a; d.seen = now;
+    }
+    if (CDISP.size > S.cells.length + 32) for (const [k, d] of CDISP) if (now - d.seen > 4000) CDISP.delete(k);
   }
   if (S.entities && S.entities.length) {
-    const live = new Set();
-    out.entities = S.entities.map(e => {
-      if (e.id == null) return e;
-      live.add(e.id);
+    for (const e of S.entities) {
+      if (e.id == null) continue;
       let d = EDISP.get(e.id);
-      if (!d) { d = { x: e.pos[0], y: e.pos[1] }; EDISP.set(e.id, d); }
-      smoothTo(d, e.pos[0], e.pos[1], a);
-      return Object.assign({}, e, { pos: [d.x, d.y] });
-    });
-    if (EDISP.size > S.entities.length + 64) for (const k of EDISP.keys()) if (!live.has(k)) EDISP.delete(k);
+      if (!d) { d = { x: e.pos[0], y: e.pos[1], seen: 0 }; EDISP.set(e.id, d); }
+      d.x += (e.pos[0] - d.x) * a; d.y += (e.pos[1] - d.y) * a; d.seen = now;
+    }
+    if (EDISP.size > S.entities.length + 64) for (const [k, d] of EDISP) if (now - d.seen > 4000) EDISP.delete(k);
   }
-  // amas, ressources, signaux : tels quels (out a deja S.* par l'Object.assign).
-  return out;
+  return S;
 }
+// position lissee d'affichage (fallback sur la cible brute si pas encore d'etat)
+function dispCell(c) { const d = CDISP.get(c.id); return d ? d : { x: c.pos[0], y: c.pos[1], r: c.radius }; }
+function dispEnt(e) { const d = e.id != null && EDISP.get(e.id); return d || { x: e.pos[0], y: e.pos[1] }; }
 
 // --- horloge de session (temps reel ecoule devant l'overlay) ---
 const sessionStart = Date.now();
@@ -541,16 +546,25 @@ function drawScene(now) {
   const ox = W / 2 - camX * s, oy = H / 2 - camY * s;
   const tsec = performance.now() / 1000;
 
-  // champ de ressources
+  // champ de ressources : peint une fois par image du serveur dans `resCv` (une case = un
+  // pixel, coordonnees du monde), puis recopie ici en une seule operation etiree et lissee.
   const rv = S.resources;
-  if (rv && rv.cells) {
-    const cw = rv.w, cs = s * gw / cw;
-    for (let i = 0; i < rv.cells.length; i++) {
-      const v = rv.cells[i] / 255; if (v < 0.04) continue;
-      const x = ox + (i % cw) * cs, y = oy + Math.floor(i / cw) * cs;
-      ctx.fillStyle = 'rgba(90,230,150,' + (Math.pow(v, .9) * 0.20).toFixed(3) + ')';
-      ctx.fillRect(x, y, cs + 1, cs + 1);
+  if (rv && rv.cells && rv.w > 0) {
+    const cw = rv.w, ch = rv.h || Math.ceil(rv.cells.length / cw);
+    if (resDirty || resCv.width !== cw) {
+      resCv.width = cw; resCv.height = ch;
+      const img = resx.createImageData(cw, ch);
+      for (let i = 0; i < rv.cells.length; i++) {
+        const v = rv.cells[i] / 255;
+        const o = i * 4;
+        img.data[o] = 90; img.data[o + 1] = 230; img.data[o + 2] = 150;
+        img.data[o + 3] = v < 0.04 ? 0 : Math.round(Math.pow(v, 0.9) * 0.20 * 255);
+      }
+      resx.putImageData(img, 0, 0);
+      resDirty = false;
     }
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(resCv, ox, oy, s * gw, s * gh);
   }
   // amas
   for (const c of (S.clusters || [])) {
@@ -572,8 +586,9 @@ function drawScene(now) {
   // robustes qu'elle chevauche -> les membranes se touchent et s'epousent sans se croiser.
   const CELLS = [];
   for (const c of (S.cells || [])) {
-    const x = ox + (c.pos[0] / PS) * s, y = oy + (c.pos[1] / PS) * s;
-    const r = Math.max(7, (c.radius / PS) * s);
+    const dc = dispCell(c);
+    const x = ox + (dc.x / PS) * s, y = oy + (dc.y / PS) * s;
+    const r = Math.max(7, (dc.r / PS) * s);
     let d = ((c.hue - 188) % 360 + 540) % 360 - 180; const h = (188 + d * 0.55).toFixed(0);
     const big = Math.min(1, (c.count || 12) / 140);
     const elong = Math.max(1, Math.min(2.4, (c.elong || 100) / 100));
@@ -959,7 +974,8 @@ function drawScene(now) {
   // entites : pas de shadowBlur (mortel a plusieurs centaines par image). Le halo est un
   // second disque plus large et tres translucide, quasi gratuit.
   for (const en of (S.entities || [])) {
-    const x = ox + (en.pos[0] / PS) * s, y = oy + (en.pos[1] / PS) * s;
+    const de = dispEnt(en);
+    const x = ox + (de.x / PS) * s, y = oy + (de.y / PS) * s;
     const ep = (en.energy || 50) / 100;
     const rr = (1.4 + ep * 3.4) * Math.max(0.7, s / 5);
     if (ep > 0.3) {
@@ -1371,7 +1387,7 @@ let dnaLast = 0, dnaFlash = -1e9; // dnaFlash : instant d'un basculement du geno
 let seenShifts = new Set();
 function drawDna(now) {
   requestAnimationFrame(drawDna);
-  if (now - dnaLast < 40) return;   // ~24 images/s, largement assez pour une helice
+  if (now - dnaLast < 66) return;   // ~15 images/s : une helice qui tourne lentement, discrete
   dnaLast = now;
   const W = dnaCv.clientWidth, H = dnaCv.clientHeight;
   dctx.clearRect(0, 0, W, H);
