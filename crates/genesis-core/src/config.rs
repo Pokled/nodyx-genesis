@@ -12,6 +12,7 @@ use std::path::Path;
 pub struct SimConfig {
     pub world: WorldCfg,
     pub planet: PlanetCfg,
+    pub season: SeasonCfg,
     pub time: TimeCfg,
     pub resources: ResourcesCfg,
     pub bricks: BricksCfg,
@@ -35,6 +36,7 @@ impl Default for SimConfig {
         SimConfig {
             world: WorldCfg::default(),
             planet: PlanetCfg::default(),
+            season: SeasonCfg::default(),
             time: TimeCfg::default(),
             resources: ResourcesCfg::default(),
             bricks: BricksCfg::default(),
@@ -117,6 +119,32 @@ impl Default for PlanetCfg {
     }
 }
 
+/// Les saisons (0.0.4, experiments/011). Le milieu n'est plus fige : la capacite nourriciere
+/// de chaque case (son plafond et sa vitesse de regeneration) oscille lentement autour de sa
+/// base, une sinusoide pure du tick (donc deterministe, et qui reprend juste apres un
+/// rechargement). Une saison d'abondance laisse la population deborder, une saison maigre la
+/// rabote d'un bon tiers : le monde respire au lieu d'etre epingle au plafond, et les goulots
+/// de disette re-brassent le centre genetique de la population. `amplitude = 0` : milieu fige,
+/// aucun effet, byte-identique a avant (bouton d'A/B). Pour que la saison morde il faut que la
+/// nourriture, pas la matiere structurelle, soit le frein qui compte : voir `BricksCfg`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct SeasonCfg {
+    /// Amplitude de l'oscillation, en fraction de la base. A 0,5 : la capacite nourriciere des
+    /// cases va de 0,5x a 1,5x au fil de l'annee. `0` = pas de saisons.
+    pub amplitude: f32,
+    /// Duree d'un cycle complet (une abondance + une disette), en annees-monde.
+    pub period_years: f32,
+    /// Plancher : meme au creux, `season_factor` ne descend pas sous cette fraction de la
+    /// base. Evite l'effondrement total deterministe d'un monde a forte amplitude.
+    pub regen_floor: f32,
+}
+impl Default for SeasonCfg {
+    fn default() -> Self {
+        SeasonCfg { amplitude: 0.5, period_years: 1.6, regen_floor: 0.15 }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct TimeCfg {
@@ -179,7 +207,7 @@ pub struct BricksCfg {
 impl Default for BricksCfg {
     fn default() -> Self {
         BricksCfg {
-            matter_per_cell: 0.14,
+            matter_per_cell: 0.26,
             body_matter: 1.0,
             comfort_frac: 0.06,
             retry_frac: 0.4,

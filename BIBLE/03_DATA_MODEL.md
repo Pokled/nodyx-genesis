@@ -144,6 +144,20 @@ struct ResourceField {
 }
 ```
 
+### Les saisons (0.0.4, `experiments/011`)
+
+Pas d'état, une fonction pure du tick. En phase 1, la **capacité nourricière** de chaque case
+(`resources.max_per_cell`) est multipliée par `season_factor(cfg, t) = max(regen_floor,
+1 + amplitude * sin(2 pi t / periode))`, période en `season.period_years` années-monde. Saison
+grasse, les cases portent plus, la population déborde ; saison maigre, le plafond descend, les
+agents mangent la réserve puis c'est la disette, une famine synchrone qui rebrasse les
+lignées. Une case au-dessus de son plafond descendu n'est pas vidée, juste plus alimentée. Le
+`bricks.matter_per_cell` est monté (0,14 -> 0,26) pour que la matière soit un frein lointain :
+sinon elle tient la ligne et les saisons ne se voient pas. Bloc `[season]` : `amplitude`
+(`0` = saisons coupées, `season_factor` vaut 1 partout, byte-identique), `period_years`,
+`regen_floor`. `sim::season_phase(cfg, t)` dans [-1, 1] part à l'overlay (abondance `+1`,
+disette `-1`).
+
 ## Entité
 
 En 0.0.1, une entité est un organisme sans cognition. À partir de 0.0.3 elle peut porter un
@@ -415,6 +429,11 @@ temperature_c    = 15.0               # °C ; s'écarter de temp_optimal_c rench
 temp_optimal_c   = 15.0
 temp_metab_slope = 0.012              # surcoût métabolique par °C d'écart (0 = inerte)
 gravity          = 1.0                # x Terre ; multiplie move_cost
+
+[season]                              # les saisons (0.0.4, experiments/011)
+amplitude    = 0.45                   # oscillation de la régén, fraction de la base ; 0 = coupé
+period_years = 1.5                    # durée d'un cycle abondance + disette, en années-monde
+regen_floor  = 0.15                   # plancher de régén même au creux
 medium           = "eau"             # affiché, sans effet mécanisé pour l'instant
 pressure_atm     = 1.0               # idem
 
@@ -430,7 +449,8 @@ initial_fill  = 0.5
 regen_every   = 4      # la régén ne tourne qu'un tick sur N (taux multiplié par N)
 
 [bricks]                # matière structurelle (0.0.2), voir « Matière structurelle » ci-dessus
-matter_per_cell = 0.14  # matière totale = ceci x nombre de cases ; capacité ~ total / body_matter
+matter_per_cell = 0.26  # matière totale = ceci x nombre de cases ; capacité ~ total / body_matter
+                        # (monté de 0,14 le 2026-09-03 : plafond lointain, la nourriture est le frein)
 body_matter     = 1.0   # matière immobilisée par un corps vivant
 comfort_frac    = 0.06  # V2 : coussin sous lequel la division devient probabiliste
 retry_frac      = 0.4   # patience après un échec de division faute de matière

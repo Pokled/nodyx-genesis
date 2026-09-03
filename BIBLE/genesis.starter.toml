@@ -24,6 +24,19 @@ medium          = "eau"     # milieu où baigne la vie : eau, acide, air, ...
 gravity         = 1.0       # en multiples de la gravité terrestre ; multiplie le coût du déplacement
 pressure_atm    = 1.0       # en atmosphères ; affichée, sans effet mécanisé pour l'instant
 
+[season]
+# Les saisons (2026-09-03, experiments/011). Le milieu n'est plus figé : la capacité
+# nourricière de chaque case (plafond ET vitesse de régén) oscille lentement autour de sa base,
+# une sinusoïde pure du tick (donc déterministe, et qui reprend juste après un rechargement).
+# Saison grasse, la population déborde ; saison maigre, une famine synchrone la rabote (~35 %)
+# et rebrasse les lignées. Pour que ça morde, la capacité de la matière est un plafond lointain
+# (voir [bricks]). A/B graine 1 : population 5300 <-> 9600 au fil de l'année (contre une ligne
+# plate sans saisons), deux basculements de génome au lieu d'un. amplitude = 0 : aucun effet,
+# byte-identique à un monde sans saisons.
+amplitude    = 0.5          # oscillation de la capacité nourricière, fraction de la base (0,5x à 1,5x)
+period_years = 1.6          # durée d'un cycle complet (une abondance + une disette), en années-monde
+regen_floor  = 0.15         # même au creux, le plafond ne descend pas sous cette fraction de la base
+
 [time]
 tick_duration_seconds        = 3600   # 1 tick = 1 heure-monde en 0.0.1
 target_ticks_per_real_second = 60     # la sim vise environ 60 fois le temps réel
@@ -44,12 +57,13 @@ regen_every  = 4      # la régénération ne tourne qu'un tick sur N (taux mult
 # immobilise body_matter ; le reste est le stock libre. Une division prend body_matter du
 # stock pour bâtir l'enfant ; si le stock est à sec, la division cale et le parent patiente.
 # La mort rend body_matter au stock. Somme conservée exactement.
-# C'est le vrai frein de capacité : la population plafonne autour de
-# matter_per_cell x cases / body_matter, avec une oscillation (au plafond les divisions
-# calent, des morts libèrent de la matière, ça repart). Distinct de l'énergie (le carburant)
-# et de la surexploitation (la fatigue du sol). Non spatial en 0.0.2 : une géographie de la
+# Plafond dur de capacité. Depuis les saisons (2026-09-03) il est réglé haut exprès : la
+# capacité de la matière (~9600 sur 192x192) est un plafond lointain que seuls les pics de
+# saison grasse approchent, et c'est la nourriture qui tient la population au quotidien. Sans
+# ça, la matière tenait la ligne et les saisons ne se voyaient pas. Distinct de l'énergie (le
+# carburant) et de la surexploitation (la fatigue du sol). Non spatial : la géographie de la
 # matière viendra avec les biomes.
-matter_per_cell = 0.14   # matière totale du monde = ceci x nombre de cases (192x192 -> ~5160)
+matter_per_cell = 0.26   # matière totale du monde = ceci x nombre de cases (192x192 -> ~9600)
 body_matter     = 1.0    # matière immobilisée par un corps vivant, libérée à la mort
 comfort_frac    = 0.06   # V2 : sous ce coussin (fraction de la matière totale), la division
                          # devient probabiliste. La population respire dans cette bande au

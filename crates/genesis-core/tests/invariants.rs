@@ -9,14 +9,17 @@ fn small_cfg() -> SimConfig {
     c
 }
 
-/// Config de reference historique : grille 128x128 (capacite de charge ~2293). La grille par
-/// defaut est passee a 192x192 le 2026-09-02 ; les tests dont les seuils sont calibres sur la
-/// dynamique du plateau ~2293, ou qui n'ont pas besoin d'un grand monde, s'y epinglent pour
-/// rester stables et rapides. Le mecanisme teste ne depend pas de la taille de grille.
+/// Config de reference historique : le monde d'avant les grands reglages de septembre 2026
+/// (grille 128x128, capacite de charge ~2293, pas de saisons). La grille par defaut est passee
+/// a 192x192 et `matter_per_cell` a 0,26 le 2026-09-02/03 ; les tests dont les seuils sont
+/// calibres sur la dynamique du plateau ~2293, ou qui n'ont pas besoin d'un grand monde, s'y
+/// epinglent pour rester stables et rapides. Le mecanisme teste ne depend pas de ces reglages.
 fn ref_cfg() -> SimConfig {
     let mut c = SimConfig::default();
     c.world.grid_width = 128;
     c.world.grid_height = 128;
+    c.bricks.matter_per_cell = 0.14;
+    c.season.amplitude = 0.0;
     c
 }
 
@@ -763,4 +766,61 @@ fn bounty_calls_are_heard() {
     let heard = run_pop(0.35);
     let inert = run_pop(0.0);
     assert_ne!(heard, inert, "l'appel entendu ne change rien au monde");
+}
+
+#[test]
+fn seasons_swing_the_world() {
+    // Les saisons (config seulement, pas d'etat) : la regeneration des ressources oscille,
+    // sinusoide pure du tick. `amplitude = 0` -> inerte, byte-identique. Sinon le monde
+    // diverge et respire (plus de morts de faim, la disette mord). Deterministe.
+    use genesis_core::sim::{season_phase, season_factor};
+
+    // Bornes et forme de la sinusoide.
+    let mut seasoned = ref_cfg();
+    seasoned.season.amplitude = 0.5;
+    seasoned.season.period_years = 1.5;
+    assert_eq!(season_phase(&seasoned, 0), 0.0, "la saison ne demarre pas a l'intersaison");
+    for t in [0u64, 137, 5000, 99999, 250_000] {
+        let p = season_phase(&seasoned, t);
+        assert!((-1.0..=1.0).contains(&p), "phase hors bornes a {t}");
+        let f = season_factor(&seasoned, t);
+        assert!(f >= seasoned.season.regen_floor && f <= 1.0 + seasoned.season.amplitude + 1e-6,
+            "facteur de regen hors bornes a {t} : {f}");
+    }
+
+    // amplitude = 0 : byte-identique a un monde sans bloc [season].
+    let plain = ref_cfg();
+    let mut off = ref_cfg();
+    off.season.amplitude = 0.0;
+    let mut wa = WorldState::new(1, &plain);
+    let mut wb = WorldState::new(1, &off);
+    for _ in 0..8_000 {
+        let _ = tick(&mut wa, &plain);
+        let _ = tick(&mut wb, &off);
+    }
+    assert_eq!(state_json(&wa), state_json(&wb), "les saisons coupees ne sont pas inertes");
+
+    // amplitude > 0 : le monde diverge du monde fige, et la disette tue davantage.
+    let run = |cfg: &SimConfig| {
+        let mut w = WorldState::new(1, cfg);
+        for _ in 0..60_000 {
+            let _ = tick(&mut w, cfg);
+            if w.entities.is_empty() {
+                break;
+            }
+        }
+        (w.deaths_starvation, w.population(), state_json(&w))
+    };
+    let (flat_starv, _, flat_json) = run(&plain);
+    let (seas_starv, seas_pop, seas_json) = run(&seasoned);
+    assert!(seas_pop > 100, "le monde a saisons s'est effondre");
+    assert_ne!(flat_json, seas_json, "les saisons ne changent rien au monde");
+    assert!(
+        seas_starv > flat_starv,
+        "les saisons ne coutent rien : {seas_starv} morts de faim contre {flat_starv} sans"
+    );
+
+    // Deterministe : meme config, meme monde.
+    let (a, _, _) = run(&seasoned);
+    assert_eq!(a, seas_starv, "saisons non deterministes");
 }

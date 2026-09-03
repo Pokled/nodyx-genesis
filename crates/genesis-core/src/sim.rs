@@ -96,6 +96,33 @@ fn emit_caused(
     seq
 }
 
+/// Nombre de ticks dans une annee-monde, d'apres la duree d'un tick (`[time]`).
+pub fn ticks_per_year(cfg: &SimConfig) -> f64 {
+    let secs = cfg.time.tick_duration_seconds.max(1) as f64;
+    (365.25 * 86_400.0) / secs
+}
+
+/// Phase de la saison au tick `t`, dans [-1, 1] : `+1` plein ete (abondance), `-1` plein
+/// hiver (disette), `0` aux intersaisons. Sinusoide pure : deterministe, et un rechargement
+/// depuis un instantane la retrouve exactement.
+pub fn season_phase(cfg: &SimConfig, t: u64) -> f32 {
+    if cfg.season.amplitude <= 0.0 {
+        return 0.0;
+    }
+    let period = (cfg.season.period_years.max(0.01) as f64 * ticks_per_year(cfg)).max(1.0);
+    ((t as f64 / period) * std::f64::consts::TAU).sin() as f32
+}
+
+/// Multiplicateur applique a la capacite nourriciere des cases par la saison courante. `1.0`
+/// quand les saisons sont coupees (`amplitude = 0`), sinon `1 + amplitude * phase`, borne en
+/// bas par `regen_floor` pour eviter l'effondrement total deterministe.
+pub fn season_factor(cfg: &SimConfig, t: u64) -> f32 {
+    if cfg.season.amplitude <= 0.0 {
+        return 1.0;
+    }
+    (1.0 + cfg.season.amplitude * season_phase(cfg, t)).max(cfg.season.regen_floor.max(0.0))
+}
+
 /// Fait avancer le monde d'un tick. Renvoie les evenements produits, `seq` deja attribue.
 pub fn tick(world: &mut WorldState, cfg: &SimConfig) -> Vec<Event> {
     world.tick += 1;
@@ -113,8 +140,13 @@ pub fn tick(world: &mut WorldState, cfg: &SimConfig) -> Vec<Event> {
     // d'autant : le milieu change lentement, ca evite de balayer 16 000 cases chaque tick.
     let regen_every = cfg.resources.regen_every.max(1) as u64;
     if t % regen_every == 0 {
-        let max_cell = cfg.resources.max_per_cell;
-        let regen_rate = cfg.resources.regen_rate * regen_every as f32;
+        // Les saisons : la capacite nourriciere des cases oscille autour de sa base, sinusoide
+        // pure du tick. En saison maigre, le plafond ET la vitesse de regeneration baissent :
+        // les cases portent moins et reviennent moins vite, une famine synchrone. Une case
+        // au-dessus de son plafond descendu n'est pas videe, juste plus alimentee (lag).
+        let season = season_factor(cfg, t);
+        let max_cell = cfg.resources.max_per_cell * season;
+        let regen_rate = cfg.resources.regen_rate * regen_every as f32 * season;
         let strain_decay = cfg.environment.strain_decay.powi(regen_every as i32);
         let ResourceField { cell, strain, fertility } = &mut world.resources;
         cell.par_iter_mut()

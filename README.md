@@ -41,11 +41,21 @@ plus rude. La gravite renchit le deplacement. A graine egale, un monde plus froi
 diversite genetique s'effondrer d'un tiers ; un monde plus chaud tourne plus vite, plus de
 generations, une vitesse moyenne bien plus haute. Meme graine, autre planete, autre vie.
 
+Ce qui change, en revanche, ce sont les saisons. La capacite nourriciere du sol oscille
+lentement au fil de l'annee-monde : une saison d'abondance, la population deborde ; une saison
+maigre, une famine synchrone la rabote de moitie. Le monde de reference n'est plus une ligne
+plate collee a son plafond, il respire, et chaque goulot de disette rebrasse le centre
+genetique de la population. A graine egale, mettre les saisons fait passer la population d'une
+oscillation de quelques dizaines a une oscillation de plusieurs milliers, et double les
+basculements de genome dominant.
+
 Le jalon 0.0.4, "Voix", a commence. Un agent qui frole la mort par famine emet une alarme a
-sa position. Les agents proches l'entendent et ont un sursaut de peur, sans qu'aucun souvenir
-ne se forme. Aucun lexique n'est code. A graine egale, cette seule regle divise les morts par
-famine d'environ un dixieme et augmente nettement la diversite genetique : un cri, et les
-voisins quittent une zone qui tue.
+sa position ; les agents proches l'entendent et ont un sursaut de peur, sans qu'aucun souvenir
+ne se forme. Un agent qui mange bien sur une case franchement riche lance a l'inverse un appel
+"bon coin ici", et les agents proches qui decident ou aller inflechissent leur cible vers lui.
+Deux genres de signal, fixes, aucun lexique code. A graine egale, l'alarme divise les morts
+par famine d'environ un dixieme, l'appel augmente les naissances et la diversite genetique :
+la panique disperse, l'appel rassemble.
 
 Tout changement de regle passe par une comparaison a graine egale, avec son effet documente.
 On ne regle jamais une regle parce qu'elle a produit un monde plus plaisant.
@@ -124,29 +134,32 @@ comportement depend vraiment du souvenir.
 
 Le depot definit quatre mondes de reference par leur graine. Ils ne sont pas versionnes,
 trop gros, mais toujours regenerables a l'identique : `genesis run --seed <N> --ticks 60000
---out worlds/<nom>`. La grille par defaut est 192x192, capacite de charge autour de cinq mille
-cent. La commande `genesis gallery` reconstruit `worlds/index.html`, la grille qui les
-rassemble.
+--out worlds/<nom>`. La grille par defaut est 192x192 ; le milieu suit des saisons, donc la
+population ne se colle pas a un plafond : elle oscille entre cinq mille et neuf mille six cents
+au fil de l'annee-monde. La commande `genesis gallery` reconstruit `worlds/index.html`, la
+grille qui les rassemble.
 
 ![La bibliotheque des mondes](docs/images/gallery.png)
 
 Le monde **w2**, graine 1, est le monde de reference du projet et celui tenu en direct. A
-soixante mille ticks il a vecu pres de sept annees-monde, atteint dix-huit generations et sa
-population plafonne vers cinq mille cent cinquante. Quatre especes emergent, le genome
-dominant bascule une fois, une lignee fondatrice s'eteint, les cellules fusionnent pres de
-cent quatre-vingts fois. On y meurt a peu pres deux fois plus de faim que de vieillesse.
+soixante mille ticks il a vecu pres de sept annees-monde et atteint vingt-quatre generations ;
+apres la croissance initiale, chaque annee et demie une disette rabote la population de moitie
+puis la saison grasse la ramene. Six especes emergent, le genome dominant bascule une fois. On
+n'y meurt presque plus de vieillesse : une disette vous prend avant.
 
-Le monde **w1**, graine 7, atteint le meme plateau mais reste dur : pres de douze mille morts
-de faim en sept ans, une longevite et une fertilite basses. Un monde stable et pauvre.
+Le monde **w1**, graine 7, suit le meme rythme mais reste pauvre : une perception tres poussee,
+une longevite qui ne decolle jamais, une seule espece se detache, une lignee fondatrice
+s'eteint.
 
-Le monde **w4**, graine 42, est le plus varie : vingt-deux generations, la plus haute
-diversite genetique des quatre, une longevite et une fertilite qui montent ensemble. Une
-lignee fondatrice s'y eteint.
+Le monde **w4**, graine 42, est le plus profond : trente generations, la plus haute diversite
+genetique des quatre, une longevite et une fertilite qui montent ensemble. Ses disettes sont
+les plus violentes (la population descend sous deux mille trois cents), une lignee fondatrice
+s'y eteint.
 
 Le monde **w3**, graine 12, ne prend pas. Les deux fondateurs se divisent une poignee de
-fois, puis les deux lignees s'eteignent l'une apres l'autre avant meme la fin de la premiere
-annee-monde. Toutes les graines ne donnent pas un monde viable, et c'est voulu. Sa page de
-garde le dit sans detour.
+fois, puis les deux lignees s'eteignent l'une apres l'autre avant la premiere annee-monde.
+Toutes les graines ne donnent pas un monde viable, et c'est voulu. Sa page de garde le dit
+sans detour.
 
 ## Installer et lancer
 
@@ -187,9 +200,9 @@ cargo test
 
 Les tests d'invariants sont dans `crates/genesis-core/tests/invariants.rs` : meme graine
 meme monde a la frame pres, instantane plus rejeu egal etat vivant, ordre des evenements,
-memoire et besoins bornes sur quarante mille ticks, les alarmes emises et bornees, les
-cellules coherentes y compris aux ticks de fusion, le climat qui faconne le monde sans le
-casser, la personnalite et la sante dans leurs limites.
+memoire et besoins bornes sur quarante mille ticks, les alarmes et les appels emis et bornes,
+les cellules coherentes y compris aux ticks de fusion, le climat et les saisons qui faconnent
+le monde sans le casser, la personnalite et la sante dans leurs limites.
 
 ## Le corpus
 

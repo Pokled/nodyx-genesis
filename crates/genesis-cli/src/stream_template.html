@@ -275,6 +275,7 @@
   <div class="bar" id="bar">
     <span>graine __SEED__</span><b>&middot;</b>
     <span id="barenv">grille -- &middot; 1 tick = 1 heure-monde</span><b>&middot;</b>
+    <span id="barseason" hidden></span><b id="barseasonsep" hidden>&middot;</b>
     <span>simulation deterministe, replay disponible</span><b>&middot;</b>
     <span>24/7</span>
   </div>
@@ -521,6 +522,16 @@ function drawScene(now) {
     }
     ctx.globalAlpha = 1;
   }
+
+  // saisons : un voile tres leger sur toute la scene, chaud vers l'abondance, froid vers la
+  // disette. Atmosphere, pas decor : l'alpha plafonne bas.
+  const sph = (LIVE && LIVE.season_label) ? (LIVE.season_phase || 0) : 0;
+  if (Math.abs(sph) > 0.02) {
+    ctx.globalAlpha = Math.min(0.07, Math.abs(sph) * 0.07);
+    ctx.fillStyle = sph > 0 ? '#ffcf72' : '#5aa0e6';
+    ctx.fillRect(0, 0, W, H);
+    ctx.globalAlpha = 1;
+  }
 }
 
 // --- application d'un etat live ---
@@ -600,6 +611,16 @@ function applyLive(L) {
     'milieu ' + (L.medium || 'eau') + '  ·  ' + tc + ' °C  ·  ' + g + ' g  ·  ' + atm + ' atm  ·  ' +
     'grille ' + (L.grid ? L.grid[0] + ' × ' + L.grid[1] : '--') + '  ·  densite ' + dens +
     ' ind/case  ·  1 tick = 1 heure-monde';
+  const bs = document.getElementById('barseason'), bsep = document.getElementById('barseasonsep');
+  if (L.season_label) {
+    const ph = L.season_phase || 0;
+    bs.textContent = 'saison : ' + L.season_label;
+    bs.style.color = ph >= 0 ? 'rgba(255,207,114,' + (0.55 + 0.4 * ph) + ')'
+                             : 'rgba(126,180,240,' + (0.55 - 0.4 * ph) + ')';
+    bs.hidden = false; bsep.hidden = false;
+  } else {
+    bs.hidden = true; bsep.hidden = true;
+  }
 
   // pouls
   const P = L.pulse || {};

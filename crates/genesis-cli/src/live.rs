@@ -58,6 +58,10 @@ pub struct LiveState {
     pub medium: String,
     pub gravity: f32,
     pub pressure_atm: f32,
+    /// Les saisons : phase courante dans [-1, 1] (`+1` abondance, `-1` disette, `0`
+    /// intersaison). `0` fixe quand les saisons sont coupees. `season_label` la nomme.
+    pub season_phase: f32,
+    pub season_label: &'static str,
 
     // -- Vie du monde
     pub population: u32,
@@ -178,6 +182,22 @@ fn read_json<T: serde::de::DeserializeOwned>(path: &std::path::Path) -> Option<T
 
 fn write_json<T: Serialize>(path: &std::path::Path, v: &T) -> std::io::Result<()> {
     std::fs::write(path, serde_json::to_string_pretty(v).unwrap_or_default())
+}
+
+/// Nomme la saison d'apres sa phase. `""` quand les saisons sont coupees.
+fn season_label(phase: f32, amplitude: f32) -> &'static str {
+    if amplitude <= 0.0 {
+        return "";
+    }
+    if phase >= 0.5 {
+        "abondance"
+    } else if phase <= -0.5 {
+        "disette"
+    } else if phase >= 0.0 {
+        "vers l'abondance"
+    } else {
+        "vers la disette"
+    }
 }
 
 /// Echantillonne un vecteur a au plus `n` points, en forcant le dernier point d'origine.
@@ -498,6 +518,7 @@ pub fn write_live(
         strain: st.mean_strain.clamp(0.0, 1.0),
     };
 
+    let sphase = genesis_core::sim::season_phase(cfg, world.tick);
     let live = LiveState {
         world: world_name.to_string(),
         seed,
@@ -511,6 +532,8 @@ pub fn write_live(
         medium: cfg.planet.medium.clone(),
         gravity: cfg.planet.gravity,
         pressure_atm: cfg.planet.pressure_atm,
+        season_phase: sphase,
+        season_label: season_label(sphase, cfg.season.amplitude),
         population: st.population,
         births: st.births_total,
         deaths_starv: st.deaths_starvation,
