@@ -1,239 +1,298 @@
+<div align="center">
+
 # Nodyx Genesis
 
-Nodyx Genesis est un moteur de simulation qui fait pousser un monde vivant a partir d'une
-graine. On pose des regles simples, de la matiere, du temps, et on regarde ce qui arrive :
-des molecules qui se divisent, des amas de parents qui se referment en cellules, deux
-membranes qui n'en font plus qu'une, des individus qui gardent des souvenirs et changent de
-comportement selon ce qu'ils ont vecu. Le monde continue tout seul, sans joueur, et rien de
-ce qui s'y passe n'est ecrit d'avance. Aucun modele de langage n'intervient dans la
-simulation.
+**Un monde vivant qui pousse à partir d'une graine, et que personne ne dirige.**
 
-Le projet fait partie de l'ecosysteme Nodyx. Ce qu'il cherche vraiment, et pourquoi, est
-decrit dans `BIBLE/01_VISION.md`. Le registre complet des decisions, avec leur statut, est
-dans `BIBLE/00_INDEX.md`.
+[![licence](https://img.shields.io/badge/licence-MIT-3b6ea5)](LICENSE)
+[![moteur](https://img.shields.io/badge/moteur-Rust%20stable-b7622a)](rust-toolchain.toml)
+[![simulation](https://img.shields.io/badge/dans%20la%20simulation-aucun%20LLM-5a5a5a)](#le-pari)
+[![rejeu](https://img.shields.io/badge/rejeu-byte--identique-3f8f5f)](#le-pari)
 
-![L'overlay du direct 24/24](docs/images/stream.png)
+![L'overlay du direct 24/24 : des cellules en pavage, des tissus, des organismes qui portent un nom](docs/images/stream.png)
 
-## Ce que fait le moteur aujourd'hui
+</div>
 
-Le jalon 0.0.3, "Individus", est atteint. Sa cible etait modeste et verifiable : un individu
-qui se souvient, dont on peut lire la biographie. Une entite s'eveille en agent quand elle
-percoit assez bien et a vecu assez longtemps ; elle gagne alors une memoire faite de lieux,
-chacun marque par un peril, une aubaine ou la mort d'un proche, avec une force qui s'efface
-avec le temps. Trois jauges internes, la faim, la peur et la solitude, pesent sur ses choix.
-A chaque decision elle retient explicitement un mode : chercher a manger, fuir un lieu de
-danger, suivre les siens, retourner a une aubaine, ou errer. Elle reconnait les autres
-agents qu'elle croise souvent. Sous tout cela, un corps, avec une sante qui integre lentement
-les famines repetees et la vieillesse.
+Genesis pose des règles simples, de la matière, du temps, et regarde ce qui arrive. Des
+molécules qui se divisent et mutent. Des amas de parents qui se referment en cellules. Deux
+membranes qui n'en font plus qu'une. Des cellules qui adhèrent en tissus, un tissu qui se
+contracte comme un muscle, des tissus qui tiennent ensemble en organismes, et un organisme
+qui a faim ou qui est repu **en entier**, pas cellule par cellule.
 
-En dessous des individus, il y a les cellules. Un groupe d'entites proches, genetiquement
-parentes, cohesives et persistant devient une unite reconnue, une membrane qui partage
-l'energie et protege la reproduction de ses membres. Depuis peu, deux cellules stables dont
-les membranes se chevauchent et dont les genomes se ressemblent fusionnent : la plus grosse
-garde son identite, la petite y disparait, le genome de l'ensemble est remanie. Personne ne
-declenche une fusion. C'est une condition geometrique et genetique que le monde franchit
-quand deux colonies parentes derivent l'une dans l'autre.
+Le monde continue tout seul, sans joueur, sans pause. Aucun modèle de langage n'intervient
+dans la simulation. Et surtout :
 
-Le monde a aussi un climat. Sa temperature moyenne, sa gravite, sa pression sont fixees a la
-creation. La temperature agit sur le cout du metabolisme : un monde loin de son optimum
-thermique est plus dur a habiter, on y meurt plus de faim, la selection y est plus rude. La
-gravite renchit le deplacement. A graine egale, un monde nettement plus froid porte deux fois
-moins de monde ; meme graine, autre planete, autre vie.
+> **L'histoire n'est jamais écrite.**
+> Aucune règle ne nomme un prédateur, un muscle, un organisme. Ce sont des conditions
+> d'énergie, de forme, de contact, de durée, que le monde franchit de lui-même. On ne peut pas
+> le corriger en douce pour obtenir un monde plus plaisant. C'est ce qui lui laisse la
+> possibilité de surprendre ceux qui l'ont fait.
 
-Ce qui change au fil du temps, ce sont les saisons. La capacite nourriciere du sol oscille
-lentement au fil de l'annee-monde : une saison d'abondance, la population deborde ; une saison
-maigre, une famine synchrone la rabote de moitie. En decale d'un quart d'annee, la temperature
-oscille elle aussi. Le monde de reference n'est plus une ligne plate collee a son plafond, il
-respire entre cinq mille et neuf mille six cents, et chaque goulot de disette rebrasse le
-centre genetique de la population. Un dixieme trait, la tolerance a la chaleur, laisse la
-population s'adapter au climat. A graine egale, ajouter les saisons fait passer la population
-d'une oscillation de quelques dizaines a plusieurs milliers, et leve la diversite genetique
-des deux tiers.
+Le projet fait partie de l'écosystème **Nodyx**. Ce qu'il cherche vraiment est dans
+[`BIBLE/01_VISION.md`](BIBLE/01_VISION.md). Le registre complet des décisions, avec leur
+statut et leur effet mesuré, est dans [`BIBLE/00_INDEX.md`](BIBLE/00_INDEX.md).
 
-Le jalon 0.0.4, "Voix", a commence. Un agent qui frole la mort par famine emet une alarme a
-sa position ; les agents proches l'entendent et ont un sursaut de peur, sans qu'aucun souvenir
-ne se forme. Un agent qui mange bien sur une case franchement riche lance a l'inverse un appel
-"bon coin ici", et les agents proches qui decident ou aller inflechissent leur cible vers lui.
-Deux genres de signal, fixes, aucun lexique code. A graine egale, l'alarme divise les morts
-par famine d'environ un dixieme, l'appel augmente les naissances et la diversite genetique :
-la panique disperse, l'appel rassemble.
+---
 
-Tout changement de regle passe par une comparaison a graine egale, avec son effet documente.
-On ne regle jamais une regle parce qu'elle a produit un monde plus plaisant.
+## Ce qui vit dans le monde
 
-## Le pari du determinisme
+Genesis monte un escalier. À chaque marche, une nouvelle échelle de vie, et rien de nouveau
+qui n'ait été franchi par le monde lui-même.
 
-Meme graine, meme configuration, meme version du moteur : le monde est identique a l'octet
-pres, tick apres tick. C'est ce qui rend les experiences reproductibles, et c'est aussi ce
-qui permet au monde de surprendre ses createurs, puisqu'on ne peut pas le corriger en douce.
+### La matière et le temps
 
-```
-genesis replay worlds/w2
-```
+Une grille bornée, une quantité **finie** de matière structurelle, une horloge où un tick
+vaut une heure-monde. Deux entités fondatrices. Rien d'autre au départ.
 
-La commande rejoue le monde depuis sa graine et affiche `deterministe : OK`, ou `DIFF` avec
-la position exacte de la divergence. Le determinisme est verifie a un thread et a huit
-threads, journaux et instantanes byte-identiques.
+### Les entités
 
-## Un monde en direct
+Elles se déplacent par chimiotaxie vers la nourriture, brûlent de l'énergie, se divisent
+avec mutation, vieillissent, meurent de faim ou d'âge. La **sélection naturelle** est le
+seul tri, personne ne la déclare. Le génome compte dix traits, dont la tolérance à la
+chaleur qui laisse la population s'adapter au climat de sa planète.
 
-Un monde n'a pas besoin de s'arreter. `genesis serve` reprend un monde depuis son dernier
-instantane et le fait avancer sans fin, par petits pas paces, en refaisant ses pages a
-mesure. Avec `--port`, il sert le monde en HTTP, et un tableau de bord de direct devient
-accessible dans un navigateur ou une source OBS.
+### Le climat et les saisons
+
+La température moyenne, la gravité, la pression sont fixées à la création. Un monde loin de
+son optimum thermique est plus dur à habiter. À graine égale, une planète nettement plus
+froide porte deux fois moins de monde.
+
+La capacité nourricière du sol **oscille** au fil de l'année-monde. Saison grasse, la
+population déborde. Saison maigre, une famine synchrone la rabote de moitié, et chaque goulot
+de disette rebrasse le centre génétique de la population. Le monde de référence n'est plus une
+ligne plate collée à son plafond, il respire.
+
+### Les agents qui se souviennent
+
+Une entité qui perçoit assez bien et a vécu assez longtemps **s'éveille** en agent. Elle
+gagne une mémoire faite de lieux, chacun marqué par un péril, une aubaine, ou la mort d'un
+proche vue de ses yeux, avec une force qui s'efface avec le temps. Trois jauges internes, la
+faim, la peur, la solitude, pèsent sur ses choix. À chaque décision elle retient un mode :
+chercher à manger, fuir un danger, suivre les siens, revenir à une aubaine, ou errer. Elle
+reconnaît les autres agents qu'elle croise souvent.
+
+Chaque agent a une **biographie**, engendrée à partir des données sans aucun modèle de
+langage : naissance, souvenirs tracés jusqu'à leur fait d'origine, tempérament, relations,
+mort.
+
+### La Voix
+
+Un agent qui frôle la mort par famine émet une **alarme** à sa position. Les agents proches
+l'entendent et ont un sursaut de peur. Un agent qui mange bien sur une case franchement riche
+lance à l'inverse un **appel**, et les agents proches infléchissent leur trajectoire vers
+lui. Deux genres de signal, fixes, aucun lexique codé. La panique disperse, l'appel rassemble.
+
+### Les cellules
+
+Un groupe d'entités proches, génétiquement parentes, cohésives et persistant devient une
+**cellule** : une membrane qui partage l'énergie et protège la reproduction de ses membres.
+Deux cellules stables aux membranes chevauchantes et aux génomes proches **fusionnent**. Une
+cellule grande, mûre et assez étirée se **pince en deux**. La cellule devient une unité qui
+se reproduit, et la sélection agit désormais à son niveau.
+
+### Les tissus
+
+Des cellules de génome proche dont les membranes se touchent **adhèrent**. Une traction douce
+les rapproche jusqu'au contact, et le tissu prend la forme d'un pavage. Un paramètre d'ordre,
+l'ordre orientationnel à six plis, mesure à quel point ce pavage tend vers l'hexagone : c'est
+le signal de la phase hexatique, la fusion 2D, le même que celui mesuré sur de vraies
+monocouches de cellules.
+
+Chaque tissu reçoit un **type**, jamais décrété, lu de sa forme et de sa composition comme on
+quantifie un génome en clé d'espèce : épithélium (une nappe ordonnée), conjonctif (une trame
+lâche), muscle (des cellules étirées), adipeux (des cellules gorgées d'énergie), squelettique
+(vieux et ordonné), nerveux (peuplé d'agents). Et le premier type qui **compte** : une cellule
+assez fusiforme dans un tissu exerce une force axiale oscillante, déphasée par une onde qui
+traverse le tissu. Le muscle se contracte.
+
+### Les organismes
+
+Une composante connexe de cellules qui se touchent, **sans exiger qu'elles soient parentes**,
+ce qui laisse plusieurs types de tissus tenir dans une même unité. Reconnue après quelques
+contrôles tenus, elle reçoit une identité stable et un **nom**, qu'elle garde même quand sa
+composition change. Elle naît, elle peut fusionner avec une autre, elle se défait. Et son
+énergie est **mise en commun** : l'organisme a faim ou est repu en entier. C'est ce qui le
+fait individu et plus colonie.
+
+### La prédation
+
+Une entité qui a faim et qui a à portée une entité nettement plus faible la mange. Aucune
+règle ne nomme un prédateur, c'est une condition d'énergie et de distance. La prédation
+diversifie le génome, à l'inverse de la fusion, et pousse les traits dans le sens de
+l'explosion cambrienne : prudence, fécondité, perception.
+
+---
+
+## Le direct
+
+Un monde n'a pas besoin de s'arrêter.
 
 ```
 genesis serve worlds/w2 --port 8080 --rate 45
 ```
 
-Ce tableau de bord, `stream.html`, est une vue publique des donnees que Genesis produit deja.
-Une horloge de l'age du monde, le pouls du monde en cinq jauges, le genome dominant en double
-helice avec la derive de chaque trait depuis la genese, le fil des evenements, la courbe de
-population de toute la vie du monde avec les grands tournants poses dessus, les records du
-monde. Quand deux membranes fusionnent, la scene s'assombrit une seconde, un projecteur sur
-le point. Rien n'est invente : chaque chiffre affiche raconte quelque chose du monde.
+`genesis serve` reprend un monde depuis son dernier instantané et le fait avancer sans fin,
+par petits pas pacés. Avec `--port`, il sert le monde en HTTP, et `stream.html`, un tableau
+de bord de direct pensé pour OBS, devient accessible dans un navigateur.
 
-Un monde qui tourne pendant des mois finit par manquer de memoire ou de disque. Les
-biographies terminees sont oubliees au fil de l'eau, la serie temporelle est plafonnee, on
-ne garde que les instantanes recents, et le journal ne recoit plus le bruit de plateau.
-Avec `--restart`, quand le monde meurt, une nouvelle graine repart au meme endroit et les
-records se transmettent de monde en monde.
+C'est une **vue publique des données que Genesis produit déjà**, rien n'est inventé : l'âge du
+monde, le pouls du monde en cinq jauges, le génome dominant en double hélice avec la dérive de
+chaque trait depuis la genèse, le fil des événements, la courbe de population de toute la vie
+du monde avec ses grands tournants, les records, et la scène où les cellules glissent d'un
+tick à l'autre au lieu de sauter, où les tissus se pavent, où les organismes portent leur nom.
+
+Un monde qui tourne des mois finit par manquer de mémoire. Les biographies terminées sont
+oubliées au fil de l'eau, la série temporelle est plafonnée, le journal roule en pyramide.
+Avec `--restart`, quand le monde meurt, une nouvelle graine repart au même endroit et les
+records se transmettent.
+
+---
 
 ## Regarder un monde
 
-Chaque monde genere s'ouvre par sa page de garde, `index.html`. Un chapeau ecrit a partir de
-ses chiffres, sans modele de langage, raconte l'essentiel : les annees vecues, les
-naissances, la plus longue vie d'agent et sa lignee, les especes qui ont emerge, les lignees
-qui se sont eteintes, de quoi on y meurt. Une courbe montre la population sur toute la vie du
-monde. Trois portes menent aux lecteurs.
+Chaque monde généré s'ouvre par sa page de garde, `index.html`, avec un chapeau écrit à
+partir de ses chiffres, sans modèle de langage. Trois portes en partent.
 
-![La page de garde d'un monde](docs/images/world-cover.png)
+| | |
+|---|---|
+| ![La scène](docs/images/view-inspect.png) | **La scène** (`view.html`) montre le monde en mouvement, image par image. On peut lire, rejouer, changer la vitesse. Un clic sur un point ouvre la carte de l'individu : sa lignée, son âge, sa santé, et s'il se souvient, ses jauges, ses souvenirs les plus forts, ses relations. Le bouton suivre garde la caméra sur lui pendant qu'il vit. |
+| ![L'évolution](docs/images/series.png) | **L'évolution** (`series.html`) trace la dérive des dix traits du génome sur toute la durée du monde. Pas seulement la moyenne : la distribution complète, du dixième au quatre-vingt-dixième centile, parce qu'une bande qui se scinde signale une spéciation. |
+| ![Les vies](docs/images/lives.png) | **Les vies** (`lives.html`) sont des biographies engendrées à partir des données, sans aucun modèle de langage. Naissance, souvenirs tracés jusqu'à leur fait d'origine, tempérament, mode de décision, relations, mort. C'est là qu'on lit, individu par individu, si le comportement dépend vraiment du souvenir. |
 
-**La scene**, `view.html`, montre le monde en mouvement, image par image. On peut lire,
-rejouer, changer la vitesse, se mettre en plein cadre. Un clic sur un point ouvre la carte de
-l'individu : sa lignee, son age, sa sante, et s'il se souvient, son eveil, ce qu'il fait, ses
-jauges, ses souvenirs les plus forts, ses relations. Le bouton suivre cadre la camera sur lui
-et le garde au centre pendant qu'il vit ; la molette zoome ou l'on veut.
+![La bibliothèque des mondes](docs/images/gallery.png)
 
-![Suivre un individu dans la scene](docs/images/view-inspect.png)
+`genesis gallery` reconstruit `worlds/index.html`, la grille qui rassemble tous les mondes
+générés.
 
-**L'evolution**, `series.html`, trace la derive des dix traits du genome sur toute la duree
-du monde. Pas seulement la moyenne : la distribution complete, du dixieme au quatre-vingt-
-dixieme centile, parce que c'est une bande qui se scinde qui signale une speciation. La
-selection naturelle est le seul moteur ici, personne ne la declare.
+---
 
-![L'evolution genetique du monde](docs/images/series.png)
+## Le pari
 
-**Les vies**, `lives.html`, sont des biographies engendrees a partir des donnees, sans aucun
-modele de langage. Naissance, souvenirs traces jusqu'a leur fait d'origine, temperament,
-mode de decision, relations, mort. C'est la qu'on lit, individu par individu, si le
-comportement depend vraiment du souvenir.
-
-![Une biographie d'agent](docs/images/lives.png)
-
-## Les mondes de demonstration
-
-Le depot definit quatre mondes de reference par leur graine. Ils ne sont pas versionnes,
-trop gros, mais toujours regenerables a l'identique : `genesis run --seed <N> --ticks 60000
---out worlds/<nom>`. La grille par defaut est 192x192 ; le milieu suit des saisons, donc la
-population ne se colle pas a un plafond : elle oscille entre cinq mille et neuf mille six cents
-au fil de l'annee-monde. La commande `genesis gallery` reconstruit `worlds/index.html`, la
-grille qui les rassemble.
-
-![La bibliotheque des mondes](docs/images/gallery.png)
-
-Le monde **w2**, graine 1, est le monde de reference du projet et celui tenu en direct. A
-soixante mille ticks il a vecu pres de sept annees-monde et atteint vingt-neuf generations ;
-une des deux lignees fondatrices s'eteint des la premiere annee, puis la population monte a
-la capacite en trois ans. Ensuite chaque annee et demie une disette la rabote (jusque sous
-six mille) et la saison grasse la ramene ; le genome dominant bascule une fois. On n'y meurt
-presque plus de vieillesse, une disette vous prend avant. Depuis `cell_burn_relief` (0.0.2),
-la vie multicellulaire **tient** : une centaine de cellules vivantes, pres de la moitie de la
-population dans une membrane, et les lignees de cellules encaissent les disettes au lieu de
-s'eteindre.
-
-Le monde **w1**, graine 8, suit le meme rythme mais ses disettes sont les plus violentes (la
-population descend sous deux mille cent) : c'est le monde a la plus haute diversite genetique
-des quatre, une perception tres poussee.
-
-Le monde **w4**, graine 13, est le plus foisonnant : trente generations, treize emergences
-d'espece, une efficacite metabolique qui reste basse. Une lignee fondatrice s'y eteint.
-
-Le monde **w3**, graine 4, ne prend pas. Les deux fondateurs se divisent une poignee de fois,
-puis les deux lignees s'eteignent avant la premiere annee-monde. Toutes les graines ne
-donnent pas un monde viable, et c'est voulu. Sa page de garde le dit sans detour.
-
-## Installer et lancer
-
-Le moteur est ecrit en Rust. Le fichier `rust-toolchain.toml` fixe la chaine a stable, et
-`rustup` la recupere automatiquement.
+Même graine, même configuration, même version du moteur : le monde est identique **à l'octet
+près**, tick après tick. C'est ce qui rend les expériences reproductibles, et c'est aussi ce
+qui empêche de tricher.
 
 ```
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+genesis replay worlds/w2
 ```
 
-Sous Windows, l'installeur est sur `https://rustup.rs`.
+La commande rejoue le monde depuis sa graine et affiche `deterministe : OK`, ou `DIFF` avec la
+position exacte de la divergence. Le déterminisme est vérifié à un thread et à huit threads,
+journaux et instantanés byte-identiques.
 
-Pour installer le binaire une fois, puis faire naitre un monde :
+Tout changement de règle passe par une **comparaison à graine égale**, avec son effet
+documenté (population, diversité génétique, dérive des traits, causes de mort). On ne règle
+jamais une règle parce qu'elle a produit un monde plus agréable à regarder.
+
+---
+
+## Démarrer
+
+Le moteur est écrit en Rust. Le fichier `rust-toolchain.toml` fixe la chaîne, `rustup` la
+récupère.
 
 ```
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh   # Windows : https://rustup.rs
 cargo install --path crates/genesis-cli
 genesis run --seed 1 --ticks 60000 --out worlds/w2
 ```
 
-Sans installation, `cargo run --release -p genesis-cli -- run --seed 1 --ticks 60000 --out
-worlds/w2` fait la meme chose. Les options utiles sont `--out` pour le dossier de sortie,
-`--config` pour pointer une configuration `.toml` (par defaut, les chiffres de
-`BIBLE/genesis.starter.toml`), et `--frame-every` pour l'intervalle entre deux images
-visuelles. Soixante mille ticks font environ sept annees-monde et une vingtaine de
-generations.
+Sans installation : `cargo run --release -p genesis-cli -- run --seed 1 --ticks 60000 --out
+worlds/w2`. Soixante mille ticks font environ sept années-monde et une trentaine de
+générations. Les options utiles : `--config` pour pointer une configuration `.toml` (par
+défaut, les chiffres de `BIBLE/genesis.starter.toml`), `--frame-every` pour l'intervalle
+entre deux images.
 
-Le dossier de sortie contient la configuration utilisee, les metadonnees du monde, les
-instantanes du World State, le journal des evenements et sa version reduite a la chronique,
-les frames du ViewState, la serie temporelle des statistiques, les pages HTML (`index.html`,
-`view.html`, `series.html`, `lives.html`, `stream.html`), et le petit etat vivant relu par
-l'overlay du direct.
-
-## Tester
+Le dossier de sortie contient la configuration utilisée, les métadonnées du monde, les
+instantanés du World State, le journal des événements et sa chronique, les frames du
+ViewState, la série temporelle, les pages HTML, et le petit état vivant relu par l'overlay.
 
 ```
 cargo test
 ```
 
-Les tests d'invariants sont dans `crates/genesis-core/tests/invariants.rs` : meme graine
-meme monde a la frame pres, instantane plus rejeu egal etat vivant, ordre des evenements,
-memoire et besoins bornes sur quarante mille ticks, les alarmes et les appels emis et bornes,
-les cellules coherentes y compris aux ticks de fusion, le climat et les saisons qui faconnent
-le monde sans le casser, la personnalite et la sante dans leurs limites.
+Les tests d'invariants sont dans `crates/genesis-core/tests/invariants.rs` : même graine même
+monde à la frame près, instantané plus rejeu égal état vivant, ordre des événements, mémoire
+et besoins bornés, alarmes et appels bornés, cellules cohérentes y compris aux ticks de
+fusion, tissus qui se forment et se classent, organismes dont l'identité ne clignote pas,
+prédation qui conserve le compte des morts, climat et saisons qui façonnent le monde sans le
+casser.
+
+---
+
+## Les mondes de démonstration
+
+Le dépôt définit ses mondes de référence par leur **graine**. Ils ne sont pas versionnés
+(trop gros), mais toujours régénérables à l'identique.
+
+**w2**, graine 1, est le monde de référence et celui tenu en direct. Grille 240 sur 240,
+plafond de population vers quinze mille, une population qui respire entre six mille et
+quatorze mille au fil de l'année. Prédation, tissus, abri du tissu et organismes tous
+allumés : une centaine de cellules vivantes, des tissus qui se forment, des organismes qui
+naissent et se nomment. Il dérive, c'est voulu.
+
+**w1** (graine 8) a les disettes les plus violentes et la plus haute diversité génétique.
+**w4** (graine 13) est le plus foisonnant, une douzaine d'émergences d'espèce. **w3**
+(graine 4) ne prend pas : les deux lignées fondatrices s'éteignent avant la première
+année-monde. Toutes les graines ne donnent pas un monde viable, et sa page de garde le dit
+sans détour.
+
+---
 
 ## Le corpus
 
-`BIBLE/` rassemble la reference du projet. Le point d'entree est `00_INDEX.md`, qui liste
-toutes les decisions avec leur statut. `01_VISION.md` dit ce que le projet cherche.
-`02_ARCHITECTURE.md` pose les dix invariants et le contrat du ViewState. `03_DATA_MODEL.md`
-decrit le modele de donnees. `04_SIMULATION.md` traite du temps. `05_COGNITION.md` suit le
-pont de l'entite vers l'agent, tranche par tranche. `10_ROADMAP.md` tient les jalons et
-l'escalier des echelles, de la molecule a la civilisation. `GENESIS_FIDELITY.md` verifie
-l'ecart entre le projet voulu et le projet decide.
+[`BIBLE/`](BIBLE/) rassemble la référence du projet. Point d'entrée :
+[`00_INDEX.md`](BIBLE/00_INDEX.md), toutes les décisions avec leur statut et leur effet
+mesuré. [`01_VISION.md`](BIBLE/01_VISION.md) dit ce que le projet cherche.
+[`02_ARCHITECTURE.md`](BIBLE/02_ARCHITECTURE.md) pose les dix invariants et le contrat du
+ViewState. [`03_DATA_MODEL.md`](BIBLE/03_DATA_MODEL.md) décrit le modèle de données.
+[`10_ROADMAP.md`](BIBLE/10_ROADMAP.md) tient les jalons. `experiments/` garde les prototypes
+et leurs A/B, notamment [`009_organism.md`](BIBLE/experiments/009_organism.md), le chemin
+cellule vers tissu vers organe.
 
-## Structure du depot
+---
+
+## Structure du dépôt
 
 ```
-Cargo.toml               le workspace
-rust-toolchain.toml
 crates/
-  genesis-core/          World State, tick, evenements, cognition, cellules, climat ; ne connait aucun rendu
-  genesis-view/          le contrat ViewState : projection pure du monde en flux observable
-  genesis-cli/           le binaire genesis : run, replay, continue, serve, gallery ; generation des pages et de l'overlay
-BIBLE/                   le corpus de reference
-experiments/             les prototypes numeriques
-worlds/                  les mondes generes, regenerables par leur graine
-docs/                    les captures de cette page
+  genesis-core/     World State, tick, evenements, cognition, cellules, tissus, organismes, climat ; ne connait aucun rendu
+  genesis-view/     le contrat ViewState : projection pure du monde en flux observable
+  genesis-cli/      le binaire genesis : run, replay, continue, serve, gallery ; pages HTML et overlay
+BIBLE/              le corpus de reference
+experiments/        les prototypes numeriques et leurs A/B
+worlds/             les mondes generes, regenerables par leur graine
+docs/               les captures de cette page
 ```
 
-La frontiere est verrouillee : `genesis-core` ne connait pas le rendu, `genesis-view` depend
+La frontière est verrouillée : `genesis-core` ne connaît pas le rendu, `genesis-view` dépend
 de `genesis-core` et jamais l'inverse.
+
+---
+
+## Où va le projet
+
+Sept jalons, de la molécule au monde qui parle. La cible probante minimale, un individu qui
+se souvient et dont on peut lire la biographie, est **atteinte**. Le travail actuel creuse le
+passage de la cellule à l'organe.
+
+| Jalon | Ce que ça ajoute | État |
+|---|---|---|
+| 0.0.1 Deux | énergie, mouvement, reproduction, mutation, mort, graine, ViewState, rejeu déterministe | fait |
+| 0.0.2 Vie | génome complet, sélection naturelle, cellules, fusion, division, tissus, types de tissus, organismes, prédation, muscle | en cours, profond |
+| 0.0.3 Individus | mémoire, personnalité, besoins, relations, biographie, sans LLM | **cible probante atteinte** |
+| 0.0.4 Voix | signaux, saisons, tolérance à la chaleur, langage émergent | démarré |
+| 0.0.5 Société | culture, mémoire collective, premier LLM en cloud | à venir |
+| 0.0.6 Civilisation | villages, économie, institutions, toutes émergentes | à venir |
+| 0.1.0 Le monde qui parle | couche numérique Nodyx : wiki, forum, émissaire ; la bibliothèque de mondes devient publique | à venir |
+
+Reste sur le chemin de l'organe : que les autres types de tissus comptent (l'épithélium qui
+fait barrière, l'adipeux qui tamponne, le nerveux qui relaie les signaux), et la sélection à
+l'échelle de l'organisme, avec un génome structurel hérité, à la façon des créatures de Karl
+Sims.
+
+---
 
 ## Licence
 
-MIT. Voir `LICENSE`.
+MIT. Voir [`LICENSE`](LICENSE).
