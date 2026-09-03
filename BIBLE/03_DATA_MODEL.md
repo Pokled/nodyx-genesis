@@ -114,7 +114,23 @@ moins `min_members`, sinon pas de division. `WorldState.cells_divided_total` cum
 sans RNG, cellules triées par id, une division par cellule et par tick. **La cellule devient
 une unité qui se reproduit** : elle naît (agrégat), grandit, fusionne, se divise ou se
 dissout ; la sélection agit à son niveau (les génomes qui bâtissent des membranes stables et
-grandes se répandent). L'invariant d'effectif tient aussi les ticks de division. A/B graine 1,
+grandes se répandent). L'invariant d'effectif tient aussi les ticks de division.
+
+**Répulsion (v19, config seulement).** En phase 5b (3a), deux cellules dont les membranes se
+frôlent (`distance < 1.6 * (radius1 + radius2)`, une distance de garde et pas seulement le
+recouvrement) mais dont les `mean_traits` sont trop distants pour fusionner (`L1 > fuse_kin`)
+se repoussent : les membres de chaque cellule reçoivent une petite poussée à l'opposé de
+l'autre centre (`repel_strength * proximité`, bornée). La membrane devient une frontière ;
+des cellules non parentes se côtoient au lieu de se traverser. Séquentiel, sans RNG, poussée
+accumulée par entité puis appliquée dans l'ordre des id, gardée dans la grille. `[cells] repel`
+(A/B). A/B graine 1, monde complet (grille 192, saisons), contre `repel = false` : diversité
+génétique de plateau 0,108 -> 0,136 (+26 %), cellules vivantes 61 -> 42, fusions 276 -> 239.
+La répulsion garde les lignées de cellules distinctes (elles ne se traversent plus, donc
+fusionnent moins) ; la cohésion ramène vite les membres, l'écart de position moyen au voisin
+ne bouge que de 2 %, mais l'effet sur la diversité est net et se répète. Déterministe (1 vs 8
+threads byte-identique).
+
+A/B graine 1,
 120k ticks, contre `divide = false` : 156 divisions, cellules vivantes 28 -> 54, part de la
 population en cellule 13 % -> 22 %, diversité génétique de plateau quasi inchangée (division
 rare : des seuils plus bas l'écrasent, les cellules à succès copiant leur génome).

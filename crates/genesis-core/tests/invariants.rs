@@ -23,6 +23,7 @@ fn ref_cfg() -> SimConfig {
     c.season.temp_amplitude_c = 0.0;
     c.planet.heat_tol_span_c = 0.0;
     c.cells.divide = false;
+    c.cells.repel = false;
     c
 }
 
@@ -779,6 +780,60 @@ fn cells_divide_when_large_and_stretched() {
         }
     }
     assert_eq!(w2.cells_divided_total, 0);
+}
+
+#[test]
+fn cells_repel_when_they_overlap_without_fusing() {
+    // Repulsion (schema v19, config seulement) : deux cellules qui se frolent sans etre
+    // parentes se repoussent. La repulsion ne bouge que des positions (l'invariant d'effectif
+    // tient), et son effet mesurable est une distance au voisin plus grande et une diversite
+    // genetique plus haute (les cellules non parentes restent distinctes). Deterministe.
+    let on = SimConfig::default();
+    let mut off = on.clone();
+    off.cells.repel = false;
+
+    let run = |cfg: &SimConfig| -> (f64, f32) {
+        let mut w = WorldState::new(1, cfg);
+        let mut sep_sum = 0.0f64;
+        let mut samples = 0usize;
+        for step in 0..45_000 {
+            let _ = tick(&mut w, cfg);
+            let tagged = w.entities.iter().filter(|e| e.cell_id.is_some()).count() as u32;
+            let members: u32 = w.cells.iter().map(|c| c.member_count).sum();
+            assert_eq!(members, tagged, "effectifs incoherents au tick {}", w.tick);
+            if step >= 22_000 && step % 500 == 0 && w.cells.len() >= 3 {
+                for i in 0..w.cells.len() {
+                    let mut nearest = f64::MAX;
+                    for j in 0..w.cells.len() {
+                        if i == j {
+                            continue;
+                        }
+                        let reach = (w.cells[i].radius + w.cells[j].radius).max(0.1) as f64;
+                        let d = w.cells[i].position.dist2(&w.cells[j].position).sqrt() as f64;
+                        nearest = nearest.min(d / reach);
+                    }
+                    if nearest < 1e5 {
+                        sep_sum += nearest;
+                        samples += 1;
+                    }
+                }
+            }
+            if w.entities.is_empty() {
+                break;
+            }
+        }
+        assert!(samples > 200, "pas assez de cellules echantillonnees ({samples})");
+        (sep_sum / samples as f64, w.genetic_diversity())
+    };
+
+    let (on_sep, on_div) = run(&on);
+    let (off_sep, off_div) = run(&off);
+    assert!(
+        on_sep >= off_sep && on_div > off_div,
+        "la repulsion ne separe / ne diversifie pas : voisin {on_sep:.3} vs {off_sep:.3}, \
+         diversite {on_div:.3} vs {off_div:.3}"
+    );
+    assert_eq!(run(&on).1, on_div, "repulsion non deterministe");
 }
 
 #[test]

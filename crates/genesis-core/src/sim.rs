@@ -1061,6 +1061,65 @@ fn cell_phase(
         }
     }
 
+    // -- 3a. Repulsion : deux membranes qui se chevauchent mais dont les genomes sont trop
+    //    distants pour fusionner (`> fuse_kin`) se repoussent doucement. Les membres de chaque
+    //    cellule glissent a l'oppose de l'autre centre : la membrane devient une frontiere, des
+    //    cellules non parentes se cotoient au lieu de se traverser. Sequentiel, sans RNG, ordre
+    //    d'id ; poussee accumulee par entite puis appliquee, bornee, gardee dans la grille.
+    if cc.repel && world.cells.len() >= 2 {
+        let slot: std::collections::HashMap<u32, usize> =
+            world.cells.iter().enumerate().map(|(k, c)| (c.id, k)).collect();
+        let mut mem: Vec<Vec<usize>> = vec![Vec::new(); world.cells.len()];
+        for (i, e) in world.entities.iter().enumerate() {
+            if let Some(id) = e.cell_id {
+                if let Some(&k) = slot.get(&id) {
+                    mem[k].push(i);
+                }
+            }
+        }
+        let snap: Vec<(Position, f32, [f32; N_TRAITS])> =
+            world.cells.iter().map(|c| (c.position, c.radius, c.mean_traits)).collect();
+        let mut order: Vec<usize> = (0..world.cells.len()).collect();
+        order.sort_by_key(|&k| world.cells[k].id);
+
+        let mut push = vec![(0.0f32, 0.0f32); world.entities.len()];
+        for ii in 0..order.len() {
+            for jj in (ii + 1)..order.len() {
+                let (a, b) = (order[ii], order[jj]);
+                let (pa, ra, ta) = &snap[a];
+                let (pb, rb, tb) = &snap[b];
+                let dx = pb.x - pa.x;
+                let dy = pb.y - pa.y;
+                let d = (dx * dx + dy * dy).sqrt().max(1e-3);
+                // On agit des que les membranes se frolent (facteur 1,6), pas seulement quand
+                // les nuages de membres se recouvrent : ca cree une vraie distance de garde.
+                let reach = (ra + rb) * 1.6;
+                if d >= reach || trait_l1(ta, tb) <= cc.fuse_kin {
+                    continue;
+                }
+                let mag = (((reach - d) / reach) * cc.repel_strength.max(0.0)).min(0.4);
+                let (nx, ny) = (dx / d, dy / d);
+                for &i in &mem[a] {
+                    push[i].0 -= nx * mag;
+                    push[i].1 -= ny * mag;
+                }
+                for &i in &mem[b] {
+                    push[i].0 += nx * mag;
+                    push[i].1 += ny * mag;
+                }
+            }
+        }
+        let (gw, gh) = (space.width as f32, space.height as f32);
+        for (i, (px, py)) in push.into_iter().enumerate() {
+            if px == 0.0 && py == 0.0 {
+                continue;
+            }
+            let e = &mut world.entities[i];
+            e.position.x = (e.position.x + px.clamp(-1.2, 1.2)).clamp(0.0, gw - 1e-3);
+            e.position.y = (e.position.y + py.clamp(-1.2, 1.2)).clamp(0.0, gh - 1e-3);
+        }
+    }
+
     // -- 3b. Fusion : deux membranes stables qui se chevauchent et dont les genomes moyens se
     //    ressemblent n'en font plus qu'une. La plus grosse garde son identite et son histoire ;
     //    la petite y disparait. Rien ne declenche ca a la main : c'est une condition

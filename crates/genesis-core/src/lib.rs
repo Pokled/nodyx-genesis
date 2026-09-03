@@ -76,6 +76,8 @@ pub const ENGINE_VERSION: &str = env!("CARGO_PKG_VERSION");
 ///       La pression s'inverse, la selection ne se fige plus sur cet axe.
 /// v19 : division cellulaire (`Cell.elongation`, `Cell.parent_cell`, `WorldState.cells_divided_total`,
 ///       `EventKind::CellDivided`). Une cellule grande, mure et etiree se pince en deux : la
-///       cellule devient une unite qui se reproduit, la selection agit a son niveau.
+///       cellule devient une unite qui se reproduit, la selection agit a son niveau. Plus la
+///       repulsion entre cellules non parentes qui se chevauchent (`[cells] repel`, config
+///       seulement, pas d'etat) : la membrane devient une frontiere.
 pub const SCHEMA_VERSION: u32 = 19;
 

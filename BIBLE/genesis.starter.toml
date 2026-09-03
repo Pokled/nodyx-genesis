@@ -186,6 +186,12 @@ divide            = true
 divide_members    = 42    # effectif minimal pour se diviser (bien au-dessus de min_members)
 divide_elongation = 1.9   # allongement minimal (étalement axe long / axe court)
 divide_age_ticks  = 4000  # âge minimal avant la première division
+# Répulsion : deux cellules qui se chevauchent mais dont les génomes sont trop distants pour
+# fusionner se repoussent doucement (leurs membres glissent à l'opposé de l'autre centre). La
+# membrane devient une frontière : des cellules non parentes se côtoient au lieu de se
+# traverser. repel = false coupe (A/B).
+repel             = true
+repel_strength    = 0.06  # fraction du chevauchement corrigée par tick, par membre (bornée)
 
 [cognition]
 # Cognition (0.0.3, tranche 1 « le premier souvenir »). Une entité qui perçoit assez bien

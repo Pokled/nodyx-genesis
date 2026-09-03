@@ -485,6 +485,15 @@ pub struct CellsCfg {
     pub divide_elongation: f32,
     /// Age minimal avant la premiere division, en ticks. Laisse la cellule s'etablir.
     pub divide_age_ticks: u64,
+
+    /// Repulsion (schema v19) : deux cellules qui se chevauchent mais dont les genomes sont
+    /// trop distants pour fusionner (`> fuse_kin`) se repoussent doucement, leurs membres
+    /// glissent a l'oppose de l'autre centre. La membrane devient une frontiere : des cellules
+    /// non parentes ne se traversent plus, elles se cotoient. `false` desactive (A/B).
+    pub repel: bool,
+    /// Force de la repulsion : fraction du chevauchement corrigee par tick, par membre.
+    /// Bornee, tres douce pour ne pas casser la chimiotaxie ni la cohesion.
+    pub repel_strength: f32,
 }
 impl Default for CellsCfg {
     fn default() -> Self {
@@ -509,6 +518,8 @@ impl Default for CellsCfg {
             divide_members: 42,
             divide_elongation: 1.9,
             divide_age_ticks: 4000,
+            repel: true,
+            repel_strength: 0.06,
         }
     }
 }
