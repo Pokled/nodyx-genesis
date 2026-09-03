@@ -149,6 +149,29 @@ Le SENS (l'abri fait-il durer le tissu ? localise-t-il la division ? sous quelle
 predation ?) est une **question d'A/B a mener sur w2**, pas tranchee par le test. A surveiller :
 le bord ne doit pas s'effondrer plus vite qu'il n'est reconstitue par les divisions du coeur.
 
+**L'organisme, identite persistante (2026-09-03, `[organism] enabled`).** La marche choisie
+comme socle des suivantes. `organism_pass` (phase 5b, aux controles `organism.check_every`)
+reconnait les **composantes connexes de cellules qui se touchent** (`organism.reach` x (r1+r2),
+**aucune parente exigee** : c'est ce qui laisse plusieurs types de tissus tenir dans une meme
+unite). Ce qui fait l'organisme et pas un simple groupe : une **identite stable**. Une
+composante reconnue apres `persist_checks` controles tenus recoit un id et un nom
+(`names::organism_name`), qu'elle garde tant qu'une composante contient une majorite de ses
+cellules -- meme quand des cellules entrent, sortent, se divisent. Fusion (deux organismes dans
+une composante) : le plus ancien absorbe. Perte : `persist_checks` controles sans composante
+correspondante -> defait (`OrganismDissolved`). `Cell.organism: Option<u32>`,
+`world.organisms: Vec<Organism { id, born_tick, name, cells, miss }>`, `#[serde(default)]`,
+schema inchange. Evenements `OrganismFormed` (chapitre) / `OrganismDissolved`. Overlay :
+`ViewFrame.organisms: Vec<OrganismView>` (avec `tissue_kinds` = nombre de types distincts
+reunis : 1 = colonie, >1 = organe en germe), un lisere pointille + le nom autour du complexe,
+ligne « organismes » dans le panneau. Test `organisms_form_and_keep_a_stable_id` (il s'en
+forme, id non clignotant sur >= 5 controles, coherence `Cell.organism`, off -> zero,
+deterministe). Config seulement, `enabled = false` par defaut.
+
+**Ce qui reste pour l'organe** : (1) que le type de tissu COMPTE (muscle qui se contracte,
+epithelium qui fait barriere, adipeux qui tamponne) ; (2) un **pool de ressources d'organisme**
+(les cellules cotisent et tirent, l'organisme a faim ou non en entier) ; (3) la **selection a
+l'echelle de l'organisme** + genome structurel (piste D / Sims).
+
 ### Piste B : la ligne germinale (le plus fidele a la biologie)
 
 On saute la colonie et on va directement a l'idee-cle : **une seule cellule d'un groupe se

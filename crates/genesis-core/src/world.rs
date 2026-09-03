@@ -108,10 +108,32 @@ pub struct Cell {
     /// decoulent sans qu'une regle les nomme.
     #[serde(default)]
     pub tissue_bonds: u8,
+    /// Organisme (0.0.2, `[organism] enabled`) auquel cette cellule appartient, `None` si elle
+    /// n'est pas prise dans un complexe reconnu. Un organisme peut reunir plusieurs types de
+    /// tissus (pas de parente exigee, contrairement au tissu). Recalcule aux controles.
+    #[serde(default)]
+    pub organism: Option<u32>,
 }
 
 fn one_f32() -> f32 {
     1.0
+}
+
+/// Un organisme : une composante connexe de cellules qui adherent, reconnue et gardee dans le
+/// temps (0.0.2, `[organism] enabled`). Ce qui le distingue d'un simple groupe : une identite
+/// stable qui survit aux changements de composition, une naissance datee, un nom.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Organism {
+    pub id: u32,
+    pub born_tick: u64,
+    /// Nom frappe a la reconnaissance (`names::coined`), stable pour la vie de l'organisme.
+    pub name: String,
+    /// Nombre de cellules au dernier controle.
+    pub cells: u16,
+    /// Controles consecutifs sans composante correspondante. Au-dela de `persist_checks`,
+    /// l'organisme est declare defait.
+    #[serde(default)]
+    pub miss: u8,
 }
 
 /// Etat des veilleurs. Fait partie du World State (donc des instantanes et du rejeu).
@@ -133,6 +155,10 @@ pub struct Watch {
     /// consecutifs tenus. Sert a exiger la persistance avant de former (0.0.2, tranche 2).
     #[serde(default)]
     pub cell_pending: Vec<(Position, u16)>,
+    /// Composantes candidates a la reconnaissance d'un organisme : centroide et nombre de
+    /// controles consecutifs tenus (0.0.2, `[organism]`).
+    #[serde(default)]
+    pub org_pending: Vec<(Position, u16)>,
     /// seq des `EntityDied` depuis le dernier controle des veilleurs (plafonne). Un
     /// `PopulationCrash` les cite comme causes (0.0.2, tranche 3b).
     #[serde(default)]
@@ -217,6 +243,17 @@ pub struct WorldState {
     #[serde(default)]
     pub tissue_order: f32,
 
+    /// Organismes vivants (0.0.2, `[organism] enabled`). Une composante connexe de cellules qui
+    /// adherent, avec une identite stable. Persiste dans l'etat : porte un tick de naissance et
+    /// un nom. Vide si la marche est coupee.
+    #[serde(default)]
+    pub organisms: Vec<Organism>,
+    #[serde(default)]
+    pub next_organism_id: u32,
+    /// Organismes reconnus depuis le debut du monde. Cumule.
+    #[serde(default)]
+    pub organisms_formed_total: u64,
+
     /// La Voix (0.0.4) : les signaux vivants du monde. Vides la plupart du temps ; en famine,
     /// une nuee d'alarmes. Bornes en nombre et en duree (voir `[voice]`).
     #[serde(default)]
@@ -300,6 +337,9 @@ impl WorldState {
             cells_divided_total: 0,
             tissues_alive: 0,
             tissue_order: 0.0,
+            organisms: Vec::new(),
+            next_organism_id: 0,
+            organisms_formed_total: 0,
             signals: Vec::new(),
             watch: Watch {
                 pop_history: Vec::new(),
@@ -309,6 +349,7 @@ impl WorldState {
                 next_species_id: 0,
                 lineages: 2,
                 cell_pending: Vec::new(),
+                org_pending: Vec::new(),
                 deaths_since_check: Vec::new(),
                 last_death_seq_by_lineage: BTreeMap::new(),
                 dominant_genome_key: 0,

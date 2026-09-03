@@ -67,6 +67,11 @@ pub fn species_name(species: u32) -> String {
     coined(species as u64, 0xC2B2_AE35)
 }
 
+/// Nom d'un organisme reconnu (identifiant sequentiel, 0.0.2).
+pub fn organism_name(organism: u32) -> String {
+    coined(organism as u64, 0x0126_5EED_0000_0001)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

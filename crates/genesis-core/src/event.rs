@@ -87,6 +87,12 @@ pub enum EventKind {
     /// La cle de genome la plus repandue du monde a bascule et s'est tenue : l'evolution a
     /// deplace le centre de la population. `generation` = generation moyenne a ce moment.
     GenomeShift { from: u16, to: u16, generation: u32 },
+    /// Des cellules qui adherent (pas forcement parentes : plusieurs types de tissus) tiennent
+    /// ensemble assez longtemps pour compter comme une unite : un organisme est ne (0.0.2,
+    /// `[organism] enabled`). `cells` = nombre de cellules au moment de la reconnaissance.
+    OrganismFormed { organism: u32, cells: u32 },
+    /// Un organisme s'est defait : fragmente ou reduit sous le seuil. Bascule reversible.
+    OrganismDissolved { organism: u32 },
     /// Une entite s'est eveillee en agent : elle percoit assez, a vecu assez, et vient de
     /// subir un choc. Elle gagne une memoire (0.0.3, tranche 1).
     AgentAwoke { entity: EntityId },
@@ -105,7 +111,9 @@ impl EventKind {
             EventKind::GenomeShift { .. } => 234,
             EventKind::CellsMerged { .. } => 232,
             EventKind::CellDivided { .. } => 231,
+            EventKind::OrganismFormed { .. } => 233,
             EventKind::CellFormed { .. } => 230,
+            EventKind::OrganismDissolved { .. } => 205,
             EventKind::LineageExtinct { .. } => 225,
             EventKind::AgentAwoke { .. } => 215,
             EventKind::PopulationCrash { .. } => 210,
@@ -136,6 +144,7 @@ impl EventKind {
                 | EventKind::CellsMerged { .. }
                 | EventKind::CellDivided { .. }
                 | EventKind::GenomeShift { .. }
+                | EventKind::OrganismFormed { .. }
         )
     }
 }

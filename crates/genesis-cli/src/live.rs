@@ -106,6 +106,8 @@ pub struct LiveState {
     pub tissues_alive: u32,
     #[serde(default)]
     pub tissue_order: f32,
+    #[serde(default)]
+    pub organisms_alive: u32,
     pub cells_in_pct: f32,
     pub cell_size_mean: f32,
     pub cells_formed: u64,
@@ -349,6 +351,19 @@ fn chronicle(e: &Event) -> Option<(&'static str, String, EventCard, Option<[f32;
                 tone: "bascule",
             },
         ),
+        EventKind::OrganismFormed { organism, cells } => {
+            let name = names::organism_name(*organism);
+            (
+                "organisme",
+                format!("un organisme se reconnait : {name}, {cells} cellules"),
+                EventCard {
+                    badge: "ORGANISME",
+                    head: format!("{name} se reconnait"),
+                    sub: format!("{cells} cellules qui adherent tiennent ensemble comme une unite"),
+                    tone: "organisme",
+                },
+            )
+        }
         _ => return None,
     };
     Some((kind, text, card, at))
@@ -606,6 +621,7 @@ pub fn write_live(
         cells_alive: st.cells_alive,
         tissues_alive: st.tissues_alive,
         tissue_order: st.tissue_order,
+        organisms_alive: st.organisms_alive,
         cells_in_pct: if st.population > 0 {
             st.entities_in_cells as f32 / st.population as f32 * 100.0
         } else {

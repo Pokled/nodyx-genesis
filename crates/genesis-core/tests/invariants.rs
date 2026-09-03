@@ -1040,6 +1040,67 @@ fn tissue_shelter_protects_the_interior_and_flows_energy_outward() {
 }
 
 #[test]
+fn organisms_form_and_keep_a_stable_id() {
+    // Organisme (0.0.2, `[organism] enabled`, config seulement). Une composante connexe de
+    // cellules qui adherent (aucune parente exigee) reconnue apres quelques controles tenus,
+    // gardee avec un id stable tant qu'un noyau persiste. Verifie (graine 1) : il s'en forme ;
+    // une cellule qui pointe un organisme pointe un organisme vivant ; un id reconnu tient
+    // plusieurs controles (il ne clignote pas) ; `enabled = false` n'en forme aucun et laisse
+    // tous les `Cell.organism` a None ; deterministe.
+    let mut on = SimConfig::default();
+    on.organism.enabled = true;
+    on.organism.reach = 1.6; // membranes qui se frolent, fenetre courte a l'echelle du test
+    on.organism.min_cells = 2;
+    let mut off = on.clone();
+    off.organism.enabled = false;
+
+    let run = |cfg: &SimConfig| -> (u64, u32, bool, u32) {
+        let mut w = WorldState::new(1, cfg);
+        let mut consistent = true;
+        let mut max_lifespan = 0u32; // plus longue suite de controles ou un meme id est reste
+        let mut seen: std::collections::HashMap<u32, u32> = std::collections::HashMap::new();
+        let mut off_clean = true;
+        for _ in 0..45_000 {
+            let _ = tick(&mut w, cfg);
+            let live: std::collections::HashSet<u32> = w.organisms.iter().map(|o| o.id).collect();
+            for c in &w.cells {
+                if let Some(oid) = c.organism {
+                    if !live.contains(&oid) {
+                        consistent = false;
+                    }
+                    if !cfg.organism.enabled {
+                        off_clean = false;
+                    }
+                }
+            }
+            if !cfg.organism.enabled && !w.organisms.is_empty() {
+                off_clean = false;
+            }
+            for o in &w.organisms {
+                let e = seen.entry(o.id).or_insert(0);
+                *e += 1;
+                max_lifespan = max_lifespan.max(*e);
+            }
+            if w.entities.is_empty() {
+                break;
+            }
+        }
+        (w.organisms_formed_total, w.organisms.len() as u32, consistent && off_clean, max_lifespan)
+    };
+
+    let (on_formed, _on_alive, on_ok, on_life) = run(&on);
+    let (off_formed, off_alive, off_ok, _off_life) = run(&off);
+
+    assert!(on_formed > 0, "aucun organisme reconnu en 45000 ticks (graine 1)");
+    assert!(on_ok, "une cellule pointe un organisme mort");
+    assert!(on_life >= 5, "les id d'organisme clignotent (suite max {on_life} controles)");
+    assert_eq!(off_formed, 0, "organisme reconnu alors que enabled = false");
+    assert_eq!(off_alive, 0, "organismes vivants alors que enabled = false");
+    assert!(off_ok, "Cell.organism non nul alors que enabled = false");
+    assert_eq!(run(&on).0, on_formed, "reconnaissance d'organisme non deterministe");
+}
+
+#[test]
 fn bounty_calls_are_heard() {
     // La Voix tranche 2 (schema v17) : un agent qui mange bien sur une case franchement riche
     // lance un appel `Bounty`. Il s'en emet reellement (graine 1, monde mur) ; `bounty_call =

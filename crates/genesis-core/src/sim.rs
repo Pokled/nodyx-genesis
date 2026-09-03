@@ -1395,6 +1395,7 @@ fn cell_phase(
                 parent_cell: Some(parent_id),
                 tissue: None,
                 tissue_bonds: 0,
+                organism: None,
             });
             let at = if let Some(pc) = world.cell_mut(parent_id) {
                 pc.member_count = pc.member_count.saturating_sub(leaving.len() as u32);
@@ -1434,11 +1435,186 @@ fn cell_phase(
         cfg.reproduction.energy_threshold * 2.0,
     );
 
+    // -- 3e. Organismes (0.0.2, `[organism] enabled`, config seulement). Une composante connexe
+    //    de cellules qui adherent (sans parente exigee), reconnue apres quelques controles et
+    //    gardee avec un id stable. Aux controles seulement.
+    organism_pass(world, &cfg.organism, t, events);
+
     // -- 4. Detection de nouvelles cellules, tous les `check_every` ticks.
     if cc.check_every == 0 || t % cc.check_every != 0 {
         return;
     }
     cell_detect(world, &cc, space, t, events);
+}
+
+/// Reconnait et suit les organismes : composantes connexes de cellules qui se touchent
+/// (`organism.reach`, pas de parente), avec une identite stable dans le temps. Tourne aux
+/// controles (`organism.check_every`). Sequentiel, sans RNG, ordre des id de cellule.
+fn organism_pass(
+    world: &mut WorldState,
+    oc: &crate::config::OrganismCfg,
+    t: u64,
+    events: &mut Vec<Event>,
+) {
+    use std::collections::{HashMap, HashSet};
+    if !oc.enabled {
+        if !world.organisms.is_empty() {
+            world.organisms.clear();
+            world.watch.org_pending.clear();
+        }
+        for c in world.cells.iter_mut() {
+            c.organism = None;
+        }
+        return;
+    }
+    if t % oc.check_every.max(1) != 0 {
+        return;
+    }
+
+    let n = world.cells.len();
+    // 1. composantes connexes par contact des membranes (aucune parente exigee).
+    let reach = oc.reach.max(0.1);
+    let mut uf: Vec<usize> = (0..n).collect();
+    fn find(uf: &mut [usize], mut x: usize) -> usize {
+        while uf[x] != x {
+            uf[x] = uf[uf[x]];
+            x = uf[x];
+        }
+        x
+    }
+    let mut order: Vec<usize> = (0..n).collect();
+    order.sort_by_key(|&k| world.cells[k].id);
+    for ii in 0..n {
+        for jj in (ii + 1)..n {
+            let (a, b) = (order[ii], order[jj]);
+            let (ca, cb) = (&world.cells[a], &world.cells[b]);
+            let rr = (ca.radius + cb.radius) * reach;
+            if ca.position.dist2(&cb.position) <= rr * rr {
+                let (ra, rb) = (find(&mut uf, a), find(&mut uf, b));
+                if ra != rb {
+                    let (lo, hi) = if world.cells[ra].id <= world.cells[rb].id { (ra, rb) } else { (rb, ra) };
+                    uf[hi] = lo;
+                }
+            }
+        }
+    }
+    let mut comps: HashMap<usize, Vec<usize>> = HashMap::new();
+    for k in 0..n {
+        let r = find(&mut uf, k);
+        comps.entry(r).or_default().push(k);
+    }
+    let mut cands: Vec<Vec<usize>> =
+        comps.into_values().filter(|g| g.len() as u32 >= oc.min_cells.max(2)).collect();
+    cands.sort_by_key(|g| g.iter().map(|&k| world.cells[k].id).min().unwrap_or(0));
+
+    // 2. faire continuer les organismes existants : chacun prend la composante qui contient le
+    //    plus de ses cellules actuelles. Ordre des id (le plus ancien choisit en premier).
+    let mut orgs = std::mem::take(&mut world.organisms);
+    orgs.sort_by_key(|o| o.id);
+    let mut claimed = vec![false; cands.len()];
+    let mut claimed_cells: HashMap<u32, HashSet<usize>> = HashMap::new();
+    let mut survivors: Vec<crate::world::Organism> = Vec::new();
+    for mut o in orgs {
+        let mut best: Option<(usize, usize)> = None;
+        for (ci, g) in cands.iter().enumerate() {
+            if claimed[ci] {
+                continue;
+            }
+            let ov = g.iter().filter(|&&k| world.cells[k].organism == Some(o.id)).count();
+            if ov > 0 && best.map_or(true, |(_, b)| ov > b) {
+                best = Some((ci, ov));
+            }
+        }
+        if let Some((ci, _)) = best {
+            claimed[ci] = true;
+            o.miss = 0;
+            o.cells = cands[ci].len().min(u16::MAX as usize) as u16;
+            let set: HashSet<usize> = cands[ci].iter().copied().collect();
+            for &k in &cands[ci] {
+                world.cells[k].organism = Some(o.id);
+            }
+            claimed_cells.insert(o.id, set);
+            survivors.push(o);
+        } else {
+            o.miss = o.miss.saturating_add(1);
+            if o.miss as u32 > oc.persist_checks.max(1) {
+                emit(
+                    events,
+                    &mut world.next_event_seq,
+                    t,
+                    EventKind::OrganismDissolved { organism: o.id },
+                );
+            } else {
+                survivors.push(o); // en sursis : garde son id, pas de cellules ce controle
+            }
+        }
+    }
+
+    // 3. nettoyage : une cellule qui pointe un organisme disparu, ou qui n'est plus dans la
+    //    composante revendiquee par le sien, redevient libre.
+    let alive: HashSet<u32> = survivors.iter().map(|o| o.id).collect();
+    for k in 0..n {
+        if let Some(x) = world.cells[k].organism {
+            let ok = alive.contains(&x) && claimed_cells.get(&x).is_some_and(|s| s.contains(&k));
+            if !ok {
+                world.cells[k].organism = None;
+            }
+        }
+    }
+
+    // 4. composantes non revendiquees : candidates, reconnues apres `persist_checks` controles
+    //    tenus (appariement par centroide, comme la formation de cellule).
+    let old_pending = std::mem::take(&mut world.watch.org_pending);
+    let mut new_pending: Vec<(Position, u16)> = Vec::new();
+    let match_r2 = 7.0f32 * 7.0;
+    for (ci, g) in cands.iter().enumerate() {
+        if claimed[ci] {
+            continue;
+        }
+        let (mut cx, mut cy) = (0.0f32, 0.0f32);
+        for &k in g {
+            cx += world.cells[k].position.x;
+            cy += world.cells[k].position.y;
+        }
+        cx /= g.len() as f32;
+        cy /= g.len() as f32;
+        let mut streak = 1u16;
+        let mut best = f32::MAX;
+        for &(op, os) in &old_pending {
+            let d2 = (cx - op.x).powi(2) + (cy - op.y).powi(2);
+            if d2 <= match_r2 && d2 < best {
+                best = d2;
+                streak = os.saturating_add(1);
+            }
+        }
+        if streak >= oc.persist_checks.max(1) as u16 {
+            let id = world.next_organism_id;
+            world.next_organism_id += 1;
+            let name = crate::names::organism_name(id);
+            for &k in g {
+                world.cells[k].organism = Some(id);
+            }
+            survivors.push(crate::world::Organism {
+                id,
+                born_tick: t,
+                name,
+                cells: g.len().min(u16::MAX as usize) as u16,
+                miss: 0,
+            });
+            world.organisms_formed_total += 1;
+            emit(
+                events,
+                &mut world.next_event_seq,
+                t,
+                EventKind::OrganismFormed { organism: id, cells: g.len() as u32 },
+            );
+        } else {
+            new_pending.push((Position { x: cx, y: cy }, streak));
+        }
+    }
+    survivors.sort_by_key(|o| o.id);
+    world.organisms = survivors;
+    world.watch.org_pending = new_pending;
 }
 
 fn tissue_pass(
@@ -1841,6 +2017,7 @@ fn cell_detect(
                 parent_cell: None,
                 tissue: None,
                 tissue_bonds: 0,
+                organism: None,
             });
             world.cells_formed_total += 1;
             emit(

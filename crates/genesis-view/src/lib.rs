@@ -47,8 +47,27 @@ pub struct ViewFrame {
     /// et de sa composition (pas decrete). L'overlay les nomme comme une espece.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub tissues: Vec<TissueView>,
+    /// Organismes (0.0.2, `[organism]`) : les complexes de cellules reconnus, avec un nom stable.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub organisms: Vec<OrganismView>,
     pub events: Vec<EventView>,
     pub stats: WorldStats,
+}
+
+/// Un organisme vu de l'exterieur : un nom, un centroide, un effectif, un age, et le nombre de
+/// types de tissus distincts qu'il reunit (1 = colonie d'un seul type, >1 = vrai organe en
+/// germe).
+#[derive(Debug, Clone, Serialize)]
+pub struct OrganismView {
+    pub id: u32,
+    pub name: String,
+    /// centroide * POS_SCALE.
+    pub pos: [u16; 2],
+    pub cells: u16,
+    /// age en ticks depuis la reconnaissance.
+    pub age: u32,
+    /// nombre de types de tissus distincts reunis (epithelium, muscle, ...).
+    pub tissue_kinds: u8,
 }
 
 /// Un tissu vu de l'exterieur. Le `kind` est une lecture de la geometrie (ordre du pavage,
@@ -106,6 +125,10 @@ pub struct CellView {
     /// L'overlay s'en sert pour distinguer coeur et bord du tissu.
     #[serde(default)]
     pub tissue_bonds: u8,
+    /// id de l'organisme (0.0.2, `[organism]`), `0` si la cellule n'est prise dans aucun
+    /// complexe reconnu. L'overlay ceint les cellules d'un meme organisme.
+    #[serde(default)]
+    pub organism: u32,
 }
 
 /// Un amas : plusieurs entites d'une meme region resumees en un point. Ce qui rend un
@@ -282,6 +305,8 @@ pub struct WorldStats {
     pub tissues_alive: u32,
     #[serde(default)]
     pub tissue_order: f32,
+    #[serde(default)]
+    pub organisms_alive: u32,
     pub entities_in_cells: u32,
     pub mean_cell_size: f32,
     pub cells_formed_total: u64,
@@ -497,11 +522,13 @@ pub fn project(
                 age: world.tick.saturating_sub(c.formed_tick).min(u32::MAX as u64) as u32,
                 tissue: c.tissue.unwrap_or(0),
                 tissue_bonds: c.tissue_bonds,
+                organism: c.organism.unwrap_or(0),
             }
         })
         .collect();
 
     let tissues = build_tissues(world, energy_ceiling);
+    let organisms = build_organisms(world, &tissues);
 
     // Une frame ne porte pas tous les evenements de l'intervalle : sur une grosse
     // population c'est des milliers de naissances et de morts. On garde tous les saillants
@@ -559,6 +586,7 @@ pub fn project(
             })
             .collect(),
         tissues,
+        organisms,
         events,
         stats: WorldStats {
             population: world.population(),
@@ -590,6 +618,7 @@ pub fn project(
             cells_alive,
             tissues_alive: world.tissues_alive,
             tissue_order: world.tissue_order,
+            organisms_alive: world.organisms.len() as u32,
             entities_in_cells,
             mean_cell_size,
             cells_formed_total: world.cells_formed_total,
@@ -747,6 +776,59 @@ fn build_tissues(world: &WorldState, energy_ceiling: f32) -> Vec<TissueView> {
             order,
             elong: (elong * 100.0).round().clamp(100.0, 65535.0) as u16,
             bonds,
+        });
+    }
+    out
+}
+
+/// Un `OrganismView` par organisme reconnu : nom, centroide, effectif, age, et le nombre de
+/// types de tissus distincts qu'il reunit (le signe qu'il devient un organe et plus une
+/// colonie). Ordre des ids.
+fn build_organisms(world: &WorldState, tissues: &[TissueView]) -> Vec<OrganismView> {
+    if world.organisms.is_empty() {
+        return Vec::new();
+    }
+    use std::collections::{BTreeMap, BTreeSet};
+    let kind_of: BTreeMap<u32, &'static str> = tissues.iter().map(|t| (t.id, t.kind)).collect();
+    // cellules groupees par organisme
+    let mut members: BTreeMap<u32, Vec<usize>> = BTreeMap::new();
+    for (k, c) in world.cells.iter().enumerate() {
+        if let Some(oid) = c.organism {
+            members.entry(oid).or_default().push(k);
+        }
+    }
+    let mut out = Vec::with_capacity(world.organisms.len());
+    for o in &world.organisms {
+        let idxs = match members.get(&o.id) {
+            Some(v) if !v.is_empty() => v,
+            _ => continue, // en sursis ce controle : pas de cellules, on ne le dessine pas
+        };
+        let m = idxs.len();
+        let (mut cx, mut cy) = (0.0f32, 0.0f32);
+        let mut kinds: BTreeSet<&'static str> = BTreeSet::new();
+        for &k in idxs {
+            cx += world.cells[k].position.x;
+            cy += world.cells[k].position.y;
+            if let Some(tid) = world.cells[k].tissue {
+                if let Some(&kd) = kind_of.get(&tid) {
+                    if kd != "indifferencie" {
+                        kinds.insert(kd);
+                    }
+                }
+            }
+        }
+        cx /= m as f32;
+        cy /= m as f32;
+        out.push(OrganismView {
+            id: o.id,
+            name: o.name.clone(),
+            pos: [
+                (cx * POS_SCALE).round().clamp(0.0, 65535.0) as u16,
+                (cy * POS_SCALE).round().clamp(0.0, 65535.0) as u16,
+            ],
+            cells: m.min(u16::MAX as usize) as u16,
+            age: world.tick.saturating_sub(o.born_tick).min(u32::MAX as u64) as u32,
+            tissue_kinds: kinds.len().min(255) as u8,
         });
     }
     out
@@ -911,6 +993,16 @@ fn event_view(e: &Event) -> Option<EventView> {
         ),
         EventKind::AgentAwoke { entity } => ("agent_eveille", vec![*entity], String::new()),
         EventKind::AgentLapsed { entity } => ("agent_endormi", vec![*entity], String::new()),
+        EventKind::OrganismFormed { organism, cells } => (
+            "organisme_ne",
+            vec![],
+            format!("l'organisme {} se reconnait, {cells} cellules", names::organism_name(*organism)),
+        ),
+        EventKind::OrganismDissolved { organism } => (
+            "organisme_defait",
+            vec![],
+            format!("l'organisme {} se defait", names::organism_name(*organism)),
+        ),
         // EntityAte et SnapshotTaken sont trop bruyants, on ne les remonte pas.
         _ => return None,
     };

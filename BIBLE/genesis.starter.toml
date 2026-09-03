@@ -229,6 +229,19 @@ hunt_below        = 4.0   # le prédateur ne chasse que sous ce niveau d'énergi
 prey_frac         = 0.5   # la proie doit valoir moins que cette fraction de l'énergie du prédateur
 transfer          = 0.55  # part de l'énergie de la proie qui passe au prédateur
 
+[organism]
+# Organisme (0.0.2, vers les organes). Une composante connexe de cellules dont les membranes
+# se touchent, SANS exiger qu'elles soient parentes : c'est ce qui permet à plusieurs types de
+# tissus de tenir dans une même unité. On lui donne une identité STABLE (elle survit aux
+# changements de composition) : reconnue après persist_checks contrôles tenus, gardée tant
+# qu'un noyau persiste, un nom frappé à la naissance. Aucune règle ne nomme un organisme.
+# enabled = false par défaut (bouton d'A/B).
+enabled           = false
+reach             = 1.4   # facteur de portée du contact entre cellules (x (r1 + r2))
+min_cells         = 3     # nombre minimal de cellules pour un organisme
+persist_checks    = 2     # contrôles tenus avant reconnaissance, et tolérance avant dissolution
+check_every       = 200   # période de détection, en ticks
+
 [cognition]
 # Cognition (0.0.3, tranche 1 « le premier souvenir »). Une entité qui perçoit assez bien
 # (perception_min), a vécu assez longtemps (age_min_frac) et vient de subir un choc s'éveille

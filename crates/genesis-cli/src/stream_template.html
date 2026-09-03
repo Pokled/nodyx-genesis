@@ -599,7 +599,7 @@ function drawScene(now) {
       pts.push([x + lx * ca - ly * sa, y + lx * sa + ly * ca]);
     }
     // robustesse : une grosse cellule (grand rayon) impose sa forme a la petite.
-    CELLS.push({ x, y, r, h, big, young, ph, N, pts, tissue: c.tissue || 0, bonds: c.tissue_bonds || 0 });
+    CELLS.push({ x, y, r, h, big, young, ph, N, pts, tissue: c.tissue || 0, bonds: c.tissue_bonds || 0, org: c.organism || 0 });
   }
 
   // -- tissus : un pavage vivant (0.0.2, `[cells] tissue`). Les cellules d'un meme tissu ne
@@ -903,6 +903,50 @@ function drawScene(now) {
     ctx.beginPath(); ctx.arc(x, y, (1.6 + big * 2.6) * beat, 0, 6.2832); ctx.fill();
     ctx.restore();
   }
+
+  // organismes (0.0.2, `[organism]`) : un liseré souple autour des cellules d'un même complexe,
+  // avec son nom. Plusieurs types de tissus dans le même contour = un organe en germe.
+  {
+    const byOrg = {};
+    for (const c of CELLS) if (c.org) (byOrg[c.org] = byOrg[c.org] || []).push(c);
+    const orgName = {}; for (const o of (S.organisms || [])) orgName[o.id] = o;
+    for (const oid in byOrg) {
+      const cs = byOrg[oid];
+      if (cs.length < 3) continue;
+      let ox2 = 0, oy2 = 0; for (const c of cs) { ox2 += c.x; oy2 += c.y; }
+      ox2 /= cs.length; oy2 /= cs.length;
+      const hull = convexHull(cs.map(c => [c.x, c.y]));
+      if (hull.length < 3) continue;
+      const hp = hull.map(p => [ox2 + (p[0] - ox2) * 1.22, oy2 + (p[1] - oy2) * 1.22]);
+      ctx.save();
+      ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+      ctx.setLineDash([2, 7]);
+      ctx.strokeStyle = 'rgba(150,200,235,0.30)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo((hp[0][0] + hp[hp.length - 1][0]) / 2, (hp[0][1] + hp[hp.length - 1][1]) / 2);
+      for (let i = 0; i < hp.length; i++) {
+        const a = hp[i], b = hp[(i + 1) % hp.length];
+        ctx.quadraticCurveTo(a[0], a[1], (a[0] + b[0]) / 2, (a[1] + b[1]) / 2);
+      }
+      ctx.closePath(); ctx.stroke();
+      ctx.setLineDash([]);
+      const o = orgName[oid];
+      if (o && o.name) {
+        let top = 1e9; for (const p of hp) top = Math.min(top, p[1]);
+        ctx.font = '600 12px ui-monospace, "SF Mono", Menlo, Consolas, monospace';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+        const tag = o.name + (o.tissue_kinds > 1 ? '  ·  ' + o.tissue_kinds + ' tissus' : '');
+        const tw = ctx.measureText(tag).width;
+        ctx.fillStyle = 'rgba(6,12,18,0.6)';
+        ctx.fillRect(ox2 - tw / 2 - 6, top - 20, tw + 12, 16);
+        ctx.fillStyle = 'rgba(190,225,240,0.95)';
+        ctx.fillText(tag, ox2, top - 8);
+      }
+      ctx.restore();
+    }
+  }
+
   const fnow = now;
   fx = fx.filter(f => fnow - f.t0 < 2400);
   // entites : pas de shadowBlur (mortel a plusieurs centaines par image). Le halo est un
@@ -1042,6 +1086,17 @@ function tissueRow(L) {
   }
   return statRow('tissus', fr(n) + '  ·  ordre ' + (((L && L.tissue_order) || 0) * 100).toFixed(0) + ' %');
 }
+function organismRow(L) {
+  const os = (typeof SCENE !== 'undefined' && SCENE && SCENE.organisms) || [];
+  const n = os.length || (L && L.organisms_alive) || 0;
+  if (n <= 0) return '';
+  const composite = os.filter(o => (o.tissue_kinds || 0) > 1).length;
+  const oldest = os.reduce((a, o) => Math.max(a, o.age || 0), 0);
+  const bits = [];
+  if (composite) bits.push(composite + ' compose' + (composite > 1 ? 's' : ''));
+  if (oldest) bits.push('doyen ' + ageStr(oldest * secPerTick));
+  return statRow('organismes', fr(n) + (bits.length ? '  ·  ' + bits.join('  ·  ') : ''));
+}
 const PULSE_DEFS = [
   ['fill', 'remplissage', 'var(--cyan)'],
   ['resources', 'ressources', 'var(--green)'],
@@ -1171,6 +1226,7 @@ function applyLive(L) {
       statRow('fusions', fr(L.cells_merged || 0), 'fus' + (fusionHit ? ' hit' : '')) +
       statRow('divisions', fr(L.cells_divided || 0), 'divs' + (divisionHit ? ' hit' : '')) +
       tissueRow(L) +
+      organismRow(L) +
     '</div>' +
     '<div class="h2">Cognition et voix</div><div class="rows">' +
       statRow('agents vivants', fr(L.agents_alive)) +

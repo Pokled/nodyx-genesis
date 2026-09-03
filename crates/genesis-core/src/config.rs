@@ -24,6 +24,7 @@ pub struct SimConfig {
     pub cohesion: CohesionCfg,
     pub cells: CellsCfg,
     pub predation: PredationCfg,
+    pub organism: OrganismCfg,
     pub cognition: CognitionCfg,
     pub voice: VoiceCfg,
     pub watch: WatchCfg,
@@ -49,6 +50,7 @@ impl Default for SimConfig {
             cohesion: CohesionCfg::default(),
             cells: CellsCfg::default(),
             predation: PredationCfg::default(),
+            organism: OrganismCfg::default(),
             cognition: CognitionCfg::default(),
             voice: VoiceCfg::default(),
             watch: WatchCfg::default(),
@@ -605,6 +607,33 @@ pub struct PredationCfg {
 impl Default for PredationCfg {
     fn default() -> Self {
         PredationCfg { enabled: false, reach: 2.0, hunt_below: 4.0, prey_frac: 0.5, transfer: 0.55 }
+    }
+}
+
+/// Organisme (0.0.2, vers les organes ; config seulement, schema inchange). Un organisme est
+/// une composante connexe de cellules dont les membranes se touchent (`reach`), SANS exiger
+/// qu'elles soient parentes : c'est ce qui permet a plusieurs types de tissus de tenir dans
+/// une meme unite. On lui donne une identite STABLE (elle survit aux changements de
+/// composition) : reconnue apres `persist_checks` controles tenus, gardee tant qu'un noyau
+/// persiste, perdue apres autant de controles sans correspondance. Aucune regle ne nomme un
+/// organisme ; c'est une condition de contact et de duree, comme la cellule. `enabled = false`
+/// par defaut (bouton d'A/B).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct OrganismCfg {
+    pub enabled: bool,
+    /// Facteur de portee du contact entre cellules (x (r1 + r2)). Pas de parente exigee.
+    pub reach: f32,
+    /// Nombre minimal de cellules pour qu'un groupe compte comme un organisme.
+    pub min_cells: u32,
+    /// Controles consecutifs tenus avant reconnaissance, et tolerance avant dissolution.
+    pub persist_checks: u32,
+    /// Periode de detection, en ticks (comme `cells.check_every`).
+    pub check_every: u64,
+}
+impl Default for OrganismCfg {
+    fn default() -> Self {
+        OrganismCfg { enabled: false, reach: 1.4, min_cells: 3, persist_checks: 2, check_every: 200 }
     }
 }
 

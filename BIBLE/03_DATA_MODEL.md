@@ -61,6 +61,10 @@ struct WorldState {
 
     cells:            Vec<Cell>,     // (0.0.2, tranche 2) cellules vivantes, triées par id
     next_cell_id:     u32,
+
+    organisms:        Vec<Organism>, // (0.0.2, [organism]) complexes de cellules reconnus, id stable
+    next_organism_id: u32,
+    organisms_formed_total: u64,
 }
 
 struct Watch {                       // état des veilleurs (phase 8b), voir 07_EVENTS.md
@@ -81,6 +85,15 @@ struct Cell {                        // un amas cohérent de parents, reconnu co
     parent_cell:   Option<u32>,       // (v19) la cellule dont celle-ci s'est détachée par division
     tissue:        Option<u32>,       // (0.0.2) id du tissu (plus petit id du groupe), None si isolée ; dérivé chaque tick
     tissue_bonds:  u8,                // (0.0.2) nb de cellules voisines du même tissu ; beaucoup = intérieure (abri), peu = bord
+    organism:      Option<u32>,       // (0.0.2) id de l'organisme, None si hors complexe ; recalculé aux contrôles
+}
+
+struct Organism {                    // (0.0.2, [organism]) une composante connexe de cellules qui adhèrent, suivie dans le temps
+    id:          u32,
+    born_tick:   u64,
+    name:        String,             // frappé à la reconnaissance (names::organism_name), stable
+    cells:       u16,                 // effectif au dernier contrôle
+    miss:        u8,                  // contrôles consécutifs sans composante correspondante
 }
 ```
 
