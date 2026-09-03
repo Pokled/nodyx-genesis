@@ -80,14 +80,57 @@ Déterminisme byte-identique 1 vs 8 threads (config par défaut et config figée
 `amplitude = 0` inerte à l'octet, `amplitude > 0` fait diverger le monde et coûte plus de
 morts de faim, le tout déterministe.
 
+## Tranche 2 : la saison thermique et `heat_tol` (2026-09-03, schema v18)
+
+La saison nourriciere fait respirer la population, mais la selection reste la meme a chaque
+disette. On ajoute deux choses.
+
+- **Temperature effective** : `temperature_c + season.temp_amplitude_c * season_temp_phase(cfg, t)`,
+  ou `season_temp_phase` est **decalee d'un quart de cycle** sur la saison nourriciere (le plus
+  froid n'est pas le plus maigre). La population affronte donc deux periodes de stress
+  distinctes par annee : la disette (a temperature moyenne) et le grand froid (a nourriture
+  correcte). `temp_amplitude_c` (`[season]`, 5 degres ; 8 tuait trop de graines marginales
+  apres le decalage RNG du 10e trait) ; `0` = pas de saison thermique.
+- **Trait `heat_tol`** (genome, indice 9, `#[serde(default = "half")]`, schema v18). Il place
+  l'optimum metabolique propre a une entite entre `temp_optimal_c - heat_tol_span_c/2` (froid)
+  et `+ span/2` (chaud). En phase 5 le surcout metabolique passe d'un facteur commun a un
+  facteur **par entite**, `1 + temp_metab_slope * |temp_effective - optimum_du_corps|`.
+  `heat_tol_span_c` (`[planet]`, 16) ; `0` = trait inerte. `SPECIES_TRAITS` reste 7 : c'est
+  un ecotype, pas une espece. `VIEW_VERSION` 10, brin d'ADN a 10 barreaux.
+
+Resultats (graine 1, 130 000 ticks, monde de reference complet, `temp_amplitude_c = 5`,
+diversite = moyenne du dernier tiers) :
+
+| bras | diversite genetique | `heat_tol` moyen |
+|---|---|---|
+| saison thermique coupee (`temp_amplitude_c = 0`) | 0,085 | 0,47 (inerte, il derive) |
+| saison thermique + `heat_tol` actif (defaut) | **0,122 (+44 %)** | 0,36 (adapte au froid) |
+
+Lecture : le second stress annuel (le grand froid, decale de la disette) entretient la
+diversite genetique, +44 %. `heat_tol` derive vers l'adaptation a la saison la plus dure : la
+disette pese plus que le grand froid, donc le trait glisse vers le froid sans s'inverser au
+fil de l'annee. **L'ambition de depart, une selection qui alterne (froid l'hiver, chaud
+l'ete), n'a pas pris** : l'ete est toujours facile (nourriture abondante), etre adapte au
+chaud n'est jamais un avantage de survie. Ce qui reste vrai et mesure : un axe genetique de
+plus qui repond au climat, et une diversite sensiblement plus haute. La selection sur `heat_tol`
+passe par une survie un peu meilleure, pas par plus de descendance (au plafond de matiere,
+plus d'energie ne fait pas plus d'enfants). A temperature statique, un monde chaud tient
+`heat_tol` plus haut qu'un monde froid ; l'ecart s'efface a `span = 0` (test
+`heat_tolerance_is_selected`). Determinisme byte-identique 1 vs 8 threads, rejeu OK.
+
+Le 10e trait decale le flux RNG : les graines viables changent, `worlds/` est regenere avec
+de nouvelles graines (`w2` reste la graine 1).
+
+Ce n'est pas le feu d'artifice espere, mais c'est le premier axe genetique qui repond au
+climat, et surtout : le monde a enfin l'environnement changeant, nourricier **et** thermique,
+que le sexue emergent attendait. Prochain gros pas.
+
 ## Ce qui reste
 
-- **Saison thermique** : coupler la temperature (deja branchee, `008`) a la saison, un optimum
-  qui oscille. Demande un trait de genome de preference thermique pour que la selection
-  *alterne* vraiment entre genomes chauds et froids (aujourd'hui la disette selectionne les
-  memes traits d'economie a chaque cycle).
 - **Derive spatiale** : les bosses de fertilite qui migrent lentement sur la carte, pour des
   deplacements de population et de l'adaptation locale. Plus lourd (la fertilite alimente
   toute la regeneration).
+- **Sexue emergent** : la roadmap le defere jusqu'a un environnement changeant. Il existe
+  maintenant (saison nourriciere + saison thermique). Prochain gros pas.
 - **Cataclysme** : un evenement rare qui decale durablement le climat ou rase une region
   (`00_INDEX.md`). Distinct des saisons : une rupture, pas un cycle.

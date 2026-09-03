@@ -70,5 +70,9 @@ pub const ENGINE_VERSION: &str = env!("CARGO_PKG_VERSION");
 /// v17 : la Voix tranche 2, l'appel (`Signal.kind: SignalKind`). Un agent qui trouve un repas
 ///       exceptionnel lance un appel ; les agents proches qui decident ou aller inflechissent
 ///       leur cible vers lui. Deux genres fixes (Alarm, Bounty), aucun lexique.
-pub const SCHEMA_VERSION: u32 = 17;
+/// v18 : genome a 10 traits (`heat_tol`, tolerance a la chaleur). Sous des saisons thermiques
+///       (`season.temp_amplitude_c`), la temperature du monde oscille et l'optimum metabolique
+///       de chaque entite depend de `heat_tol` : l'hiver selectionne le froid, l'ete le chaud.
+///       La pression s'inverse, la selection ne se fige plus sur cet axe.
+pub const SCHEMA_VERSION: u32 = 18;
 

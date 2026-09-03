@@ -102,15 +102,30 @@ pub fn ticks_per_year(cfg: &SimConfig) -> f64 {
     (365.25 * 86_400.0) / secs
 }
 
-/// Phase de la saison au tick `t`, dans [-1, 1] : `+1` plein ete (abondance), `-1` plein
-/// hiver (disette), `0` aux intersaisons. Sinusoide pure : deterministe, et un rechargement
-/// depuis un instantane la retrouve exactement.
+fn season_theta(cfg: &SimConfig, t: u64) -> f64 {
+    let period = (cfg.season.period_years.max(0.01) as f64 * ticks_per_year(cfg)).max(1.0);
+    (t as f64 / period) * std::f64::consts::TAU
+}
+
+/// Phase de la saison nourriciere au tick `t`, dans [-1, 1] : `+1` abondance, `-1` disette,
+/// `0` aux intersaisons. Sinusoide pure : deterministe, et un rechargement depuis un
+/// instantane la retrouve exactement.
 pub fn season_phase(cfg: &SimConfig, t: u64) -> f32 {
     if cfg.season.amplitude <= 0.0 {
         return 0.0;
     }
-    let period = (cfg.season.period_years.max(0.01) as f64 * ticks_per_year(cfg)).max(1.0);
-    ((t as f64 / period) * std::f64::consts::TAU).sin() as f32
+    season_theta(cfg, t).sin() as f32
+}
+
+/// Phase de la saison thermique, dans [-1, 1] : `+1` plein ete, `-1` plein hiver. **Decalee
+/// d'un quart de cycle** sur la saison nourriciere : le grand froid tombe quand la nourriture
+/// est correcte, la disette quand la temperature est moyenne. La population affronte deux
+/// stress distincts par annee au lieu d'un seul, ce qui entretient la diversite genetique.
+pub fn season_temp_phase(cfg: &SimConfig, t: u64) -> f32 {
+    if cfg.season.temp_amplitude_c <= 0.0 {
+        return 0.0;
+    }
+    (season_theta(cfg, t) - std::f64::consts::FRAC_PI_2).sin() as f32
 }
 
 /// Multiplicateur applique a la capacite nourriciere des cases par la saison courante. `1.0`
@@ -380,13 +395,16 @@ pub fn tick(world: &mut WorldState, cfg: &SimConfig) -> Vec<Event> {
     // (`colony_support`), mange un peu moins et fatigue beaucoup moins la case partagee.
     let energy_ceiling = cfg.reproduction.energy_threshold * 2.0;
     let support_cap = coh.support_cap.max(0.001);
-    // Le climat : un monde loin de la temperature optimale coute plus cher a habiter. Le
-    // surcout frappe la depense de base de toutes les entites, egalement. `temperature_c ==
-    // temp_optimal_c` (defaut) ou `temp_metab_slope == 0` : aucun effet.
-    let temp_factor = 1.0
-        + cfg.planet.temp_metab_slope.max(0.0)
-            * (cfg.planet.temperature_c - cfg.planet.temp_optimal_c).abs();
-    let base_burn = cfg.metabolism.base_burn * temp_factor;
+    // Le climat : un corps loin de sa temperature optimale coute plus cher a habiter. La
+    // temperature effective du monde oscille avec la saison thermique ; l'optimum propre a
+    // chaque entite depend de son trait `heat_tol` (schema v18). Le surcout est donc calcule
+    // par entite, dans la boucle. `temp_metab_slope == 0` : aucun effet.
+    let base_burn = cfg.metabolism.base_burn;
+    let temp_slope = cfg.planet.temp_metab_slope.max(0.0);
+    let eff_temp = cfg.planet.temperature_c
+        + cfg.season.temp_amplitude_c * season_temp_phase(cfg, t);
+    let heat_span = cfg.planet.heat_tol_span_c.max(0.0);
+    let temp_optimal = cfg.planet.temp_optimal_c;
     let eat_rate = cfg.metabolism.eat_rate;
     let strain_per_harvest = cfg.environment.strain_per_harvest;
     // Cognition (0.0.3) : seuils de choc, ecrits pour toutes les entites (graine d'un souvenir).
@@ -408,9 +426,14 @@ pub fn tick(world: &mut WorldState, cfg: &SimConfig) -> Vec<Event> {
             let restraint = (e.genome.traits.cohesion
                 * (e.colony_support / support_cap).clamp(0.0, 1.0))
                 .clamp(0.0, 1.0);
+            // Optimum thermique propre a l'entite : `heat_tol` 0..1 le place entre
+            // `optimum - span/2` (froid) et `+ span/2` (chaud). `span = 0` : tout le monde
+            // partage l'optimum du monde, `heat_tol` est inerte.
+            let organism_optimal = temp_optimal + (e.genome.traits.heat_tol - 0.5) * heat_span;
+            let temp_factor = 1.0 + temp_slope * (eff_temp - organism_optimal).abs();
             (
                 e.position,
-                base_burn * (0.5 + e.genome.traits.metabolism),
+                base_burn * temp_factor * (0.5 + e.genome.traits.metabolism),
                 eat_rate * (0.5 + e.genome.traits.efficiency),
                 restraint,
             )

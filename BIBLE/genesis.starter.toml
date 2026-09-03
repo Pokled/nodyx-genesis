@@ -20,6 +20,9 @@ bounded     = true          # des bords, pas de repli toroïdal
 temperature_c   = 15.0      # température moyenne de l'environnement, degrés Celsius
 temp_optimal_c  = 15.0      # température où le métabolisme est le moins cher
 temp_metab_slope = 0.012    # surcoût métabolique par degré d'écart à l'optimum (0 = inerte)
+heat_tol_span_c = 16.0      # amplitude thermique du génome : l'optimum d'un corps va de
+                            # temp_optimal_c - span/2 (heat_tol=0, froid) à + span/2 (chaud) ;
+                            # 0 = trait heat_tol inerte (A/B)
 medium          = "eau"     # milieu où baigne la vie : eau, acide, air, ...
 gravity         = 1.0       # en multiples de la gravité terrestre ; multiplie le coût du déplacement
 pressure_atm    = 1.0       # en atmosphères ; affichée, sans effet mécanisé pour l'instant
@@ -33,9 +36,15 @@ pressure_atm    = 1.0       # en atmosphères ; affichée, sans effet mécanisé
 # (voir [bricks]). A/B graine 1 : population 5300 <-> 9600 au fil de l'année (contre une ligne
 # plate sans saisons), deux basculements de génome au lieu d'un. amplitude = 0 : aucun effet,
 # byte-identique à un monde sans saisons.
-amplitude    = 0.5          # oscillation de la capacité nourricière, fraction de la base (0,5x à 1,5x)
-period_years = 1.6          # durée d'un cycle complet (une abondance + une disette), en années-monde
-regen_floor  = 0.15         # même au creux, le plafond ne descend pas sous cette fraction de la base
+# La saison a aussi une composante THERMIQUE (schema v18) : la température effective oscille de
+# +/- temp_amplitude_c degrés, DÉCALÉE d'un quart de cycle sur la saison nourricière (le plus
+# froid n'est pas le plus maigre). La population affronte deux stress par an au lieu d'un ;
+# couplé au trait heat_tol, ça lève la diversité génétique d'environ 44 % (A/B graine 1,
+# 130k ticks : 0,085 -> 0,122). 8 °C tuait trop de graines marginales, on tient 5.
+amplitude       = 0.5       # oscillation de la capacité nourricière, fraction de la base (0,5x à 1,5x)
+temp_amplitude_c = 5.0      # amplitude thermique de la saison, degrés Celsius (0 = pas de saison thermique)
+period_years    = 1.6       # durée d'un cycle complet (une abondance + une disette), en années-monde
+regen_floor     = 0.15      # même au creux, le plafond ne descend pas sous cette fraction de la base
 
 [time]
 tick_duration_seconds        = 3600   # 1 tick = 1 heure-monde en 0.0.1

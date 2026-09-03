@@ -281,7 +281,7 @@ struct Genome {
     parent_b:  Option<EntityId>,
 }
 
-struct GenomeTraits {   // 9 traits, tous normalisés 0..1 (genome.rs::N_TRAITS)
+struct GenomeTraits {   // 10 traits, tous normalisés 0..1 (genome.rs::N_TRAITS)
     // -- 7 traits de corps (genome.rs::SPECIES_TRAITS ; seuls eux forment la signature d'espèce) :
     metabolism:  f32,   // énergie brûlée par tick
     speed:       f32,   // distance de déplacement max par tick
@@ -293,8 +293,23 @@ struct GenomeTraits {   // 9 traits, tous normalisés 0..1 (genome.rs::N_TRAITS)
     // -- 2 traits de personnalité (0.0.3 tranche 5, hérités, ne comptent pas dans l'espèce) :
     caution:     f32,   // haut = l'agent évite plus fort ses souvenirs de danger
     curiosity:   f32,   // haut = l'agent est plus attiré par ses souvenirs d'abondance
+    // -- 1 trait d'adaptation thermique (0.0.4, saisons thermiques, schema v18, un écotype
+    //    pas encore une espèce) :
+    heat_tol:    f32,   // déplace l'optimum métabolique du corps : 0 = froid, 1 = chaud
 }
 ```
+
+Le trait `heat_tol` (schema v18) place l'optimum thermique propre à une entité entre
+`planet.temp_optimal_c - heat_tol_span_c/2` et `+ heat_tol_span_c/2`. Le surcoût métabolique
+en phase 5 est `1 + temp_metab_slope * |temp_effective - optimum_du_corps|`, où
+`temp_effective = planet.temperature_c + season.temp_amplitude_c * sim::season_temp_phase(cfg,
+t)`. La phase thermique est **décalée d'un quart de cycle** sur la phase nourricière : la
+population affronte le grand froid et la disette à des moments différents de l'année, deux
+stress au lieu d'un. `heat_tol` dérive vers l'adaptation à la saison la plus dure (la disette
+pèse plus que le grand froid, donc pas d'inversion franche) ; l'effet mesuré est un gain de
+diversité génétique d'environ 44 % (A/B graine 1, 130k ticks : 0,085 -> 0,122).
+`heat_tol_span_c = 0` : tout le monde partage l'optimum du monde, `heat_tol` dérive sans
+pression (A/B).
 
 Reproduction asexuée en 0.0.1, stade molécule : une entité accumule de l'énergie
 (`energy_threshold`), se scinde, chaque moitié copie le génome trait par trait avec
@@ -428,14 +443,14 @@ partir avec des nombres, pas avec "configurable".
 temperature_c    = 15.0               # °C ; s'écarter de temp_optimal_c renchérit base_burn
 temp_optimal_c   = 15.0
 temp_metab_slope = 0.012              # surcoût métabolique par °C d'écart (0 = inerte)
+heat_tol_span_c  = 16.0               # amplitude thermique du génome (trait heat_tol) ; 0 = inerte
 gravity          = 1.0                # x Terre ; multiplie move_cost
 
 [season]                              # les saisons (0.0.4, experiments/011)
-amplitude    = 0.45                   # oscillation de la régén, fraction de la base ; 0 = coupé
-period_years = 1.5                    # durée d'un cycle abondance + disette, en années-monde
-regen_floor  = 0.15                   # plancher de régén même au creux
-medium           = "eau"             # affiché, sans effet mécanisé pour l'instant
-pressure_atm     = 1.0               # idem
+amplitude        = 0.5                # oscillation de la capacité nourricière ; 0 = coupé
+temp_amplitude_c = 5.0               # oscillation thermique, °C, décalée d'un quart de cycle ; 0 = coupé
+period_years     = 1.6               # durée d'un cycle abondance + disette, en années-monde
+regen_floor      = 0.15              # plancher même au creux
 
 [time]
 tick_duration_seconds        = 3600   # 1 tick = 1 heure-monde en 0.0.1

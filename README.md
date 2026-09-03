@@ -34,20 +34,21 @@ garde son identite, la petite y disparait, le genome de l'ensemble est remanie. 
 declenche une fusion. C'est une condition geometrique et genetique que le monde franchit
 quand deux colonies parentes derivent l'une dans l'autre.
 
-Le monde a aussi un climat. Sa temperature, sa gravite, sa pression sont fixees a la
-creation et ne changent pas. La temperature agit sur le cout du metabolisme : un monde loin
-de son optimum thermique est plus dur a habiter, on y meurt plus de faim, la selection y est
-plus rude. La gravite renchit le deplacement. A graine egale, un monde plus froid voit sa
-diversite genetique s'effondrer d'un tiers ; un monde plus chaud tourne plus vite, plus de
-generations, une vitesse moyenne bien plus haute. Meme graine, autre planete, autre vie.
+Le monde a aussi un climat. Sa temperature moyenne, sa gravite, sa pression sont fixees a la
+creation. La temperature agit sur le cout du metabolisme : un monde loin de son optimum
+thermique est plus dur a habiter, on y meurt plus de faim, la selection y est plus rude. La
+gravite renchit le deplacement. A graine egale, un monde nettement plus froid porte deux fois
+moins de monde ; meme graine, autre planete, autre vie.
 
-Ce qui change, en revanche, ce sont les saisons. La capacite nourriciere du sol oscille
+Ce qui change au fil du temps, ce sont les saisons. La capacite nourriciere du sol oscille
 lentement au fil de l'annee-monde : une saison d'abondance, la population deborde ; une saison
-maigre, une famine synchrone la rabote de moitie. Le monde de reference n'est plus une ligne
-plate collee a son plafond, il respire, et chaque goulot de disette rebrasse le centre
-genetique de la population. A graine egale, mettre les saisons fait passer la population d'une
-oscillation de quelques dizaines a une oscillation de plusieurs milliers, et double les
-basculements de genome dominant.
+maigre, une famine synchrone la rabote de moitie. En decale d'un quart d'annee, la temperature
+oscille elle aussi. Le monde de reference n'est plus une ligne plate collee a son plafond, il
+respire entre cinq mille et neuf mille six cents, et chaque goulot de disette rebrasse le
+centre genetique de la population. Un dixieme trait, la tolerance a la chaleur, laisse la
+population s'adapter au climat. A graine egale, ajouter les saisons fait passer la population
+d'une oscillation de quelques dizaines a plusieurs milliers, et leve la diversite genetique
+des deux tiers.
 
 Le jalon 0.0.4, "Voix", a commence. Un agent qui frole la mort par famine emet une alarme a
 sa position ; les agents proches l'entendent et ont un sursaut de peur, sans qu'aucun souvenir
@@ -142,24 +143,22 @@ grille qui les rassemble.
 ![La bibliotheque des mondes](docs/images/gallery.png)
 
 Le monde **w2**, graine 1, est le monde de reference du projet et celui tenu en direct. A
-soixante mille ticks il a vecu pres de sept annees-monde et atteint vingt-quatre generations ;
+soixante mille ticks il a vecu pres de sept annees-monde et atteint trente-deux generations ;
 apres la croissance initiale, chaque annee et demie une disette rabote la population de moitie
-puis la saison grasse la ramene. Six especes emergent, le genome dominant bascule une fois. On
-n'y meurt presque plus de vieillesse : une disette vous prend avant.
+puis la saison grasse la ramene. Une espece emerge, le genome dominant bascule une fois, un
+effondrement de population est enregistre. On n'y meurt presque plus de vieillesse : une
+disette vous prend avant.
 
-Le monde **w1**, graine 7, suit le meme rythme mais reste pauvre : une perception tres poussee,
-une longevite qui ne decolle jamais, une seule espece se detache, une lignee fondatrice
-s'eteint.
+Le monde **w1**, graine 8, suit le meme rythme mais ses disettes sont les plus violentes (la
+population descend sous deux mille cent) : c'est le monde a la plus haute diversite genetique
+des quatre, une perception tres poussee.
 
-Le monde **w4**, graine 42, est le plus profond : trente generations, la plus haute diversite
-genetique des quatre, une longevite et une fertilite qui montent ensemble. Ses disettes sont
-les plus violentes (la population descend sous deux mille trois cents), une lignee fondatrice
-s'y eteint.
+Le monde **w4**, graine 13, est le plus foisonnant : trente generations, treize emergences
+d'espece, une efficacite metabolique qui reste basse. Une lignee fondatrice s'y eteint.
 
-Le monde **w3**, graine 12, ne prend pas. Les deux fondateurs se divisent une poignee de
-fois, puis les deux lignees s'eteignent l'une apres l'autre avant la premiere annee-monde.
-Toutes les graines ne donnent pas un monde viable, et c'est voulu. Sa page de garde le dit
-sans detour.
+Le monde **w3**, graine 4, ne prend pas. Les deux fondateurs se divisent une poignee de fois,
+puis les deux lignees s'eteignent avant la premiere annee-monde. Toutes les graines ne
+donnent pas un monde viable, et c'est voulu. Sa page de garde le dit sans detour.
 
 ## Installer et lancer
 

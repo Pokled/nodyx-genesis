@@ -98,6 +98,11 @@ pub struct PlanetCfg {
     /// Surcout metabolique par degre d'ecart a l'optimum, en fraction. `0` = la temperature
     /// est inerte (bouton d'A/B). A 0,012 et 12 degres d'ecart : +14 % de depense de base.
     pub temp_metab_slope: f32,
+    /// Amplitude thermique du genome (schema v18) : l'optimum metabolique d'une entite va de
+    /// `temp_optimal_c - span/2` (trait `heat_tol = 0`, adaptee au froid) a `+ span/2`
+    /// (`heat_tol = 1`, adaptee au chaud), en degres Celsius. `0` = `heat_tol` inerte, tout le
+    /// monde partage l'optimum du monde (bouton d'A/B).
+    pub heat_tol_span_c: f32,
     /// Milieu dans lequel baigne la vie : "eau", "acide", "air", ...
     pub medium: String,
     /// Gravite, en multiples de celle de la Terre. Multiplie le cout du deplacement : un
@@ -112,6 +117,7 @@ impl Default for PlanetCfg {
             temperature_c: 15.0,
             temp_optimal_c: 15.0,
             temp_metab_slope: 0.012,
+            heat_tol_span_c: 16.0,
             medium: "eau".to_string(),
             gravity: 1.0,
             pressure_atm: 1.0,
@@ -130,10 +136,16 @@ impl Default for PlanetCfg {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct SeasonCfg {
-    /// Amplitude de l'oscillation, en fraction de la base. A 0,5 : la capacite nourriciere des
-    /// cases va de 0,5x a 1,5x au fil de l'annee. `0` = pas de saisons.
+    /// Amplitude de l'oscillation nourriciere, en fraction de la base. A 0,5 : la capacite des
+    /// cases va de 0,5x a 1,5x au fil de l'annee. `0` = pas de saison nourriciere.
     pub amplitude: f32,
-    /// Duree d'un cycle complet (une abondance + une disette), en annees-monde.
+    /// Amplitude thermique de la saison, en degres Celsius : la temperature effective du monde
+    /// va de `temperature_c - temp_amplitude_c` (plein hiver) a `+ temp_amplitude_c` (plein
+    /// ete). Couplee au trait `heat_tol`, elle fait alterner la selection. `0` = pas de saison
+    /// thermique.
+    pub temp_amplitude_c: f32,
+    /// Duree d'un cycle complet (une abondance + une disette), en annees-monde. Vaut pour les
+    /// deux composantes, nourriciere et thermique.
     pub period_years: f32,
     /// Plancher : meme au creux, `season_factor` ne descend pas sous cette fraction de la
     /// base. Evite l'effondrement total deterministe d'un monde a forte amplitude.
@@ -141,7 +153,7 @@ pub struct SeasonCfg {
 }
 impl Default for SeasonCfg {
     fn default() -> Self {
-        SeasonCfg { amplitude: 0.5, period_years: 1.6, regen_floor: 0.15 }
+        SeasonCfg { amplitude: 0.5, temp_amplitude_c: 5.0, period_years: 1.6, regen_floor: 0.15 }
     }
 }
 

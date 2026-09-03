@@ -523,12 +523,13 @@ function drawScene(now) {
     ctx.globalAlpha = 1;
   }
 
-  // saisons : un voile tres leger sur toute la scene, chaud vers l'abondance, froid vers la
-  // disette. Atmosphere, pas decor : l'alpha plafonne bas.
-  const sph = (LIVE && LIVE.season_label) ? (LIVE.season_phase || 0) : 0;
-  if (Math.abs(sph) > 0.02) {
-    ctx.globalAlpha = Math.min(0.07, Math.abs(sph) * 0.07);
-    ctx.fillStyle = sph > 0 ? '#ffcf72' : '#5aa0e6';
+  // saison thermique : un voile tres leger sur toute la scene, chaud vers l'ete, froid vers
+  // l'hiver. Atmosphere, pas decor : l'alpha plafonne bas. L'abondance ou la disette se lit
+  // au fil de population et a l'etiquette du bandeau.
+  const tph = LIVE ? (LIVE.season_temp_phase || 0) : 0;
+  if (Math.abs(tph) > 0.02) {
+    ctx.globalAlpha = Math.min(0.08, Math.abs(tph) * 0.08);
+    ctx.fillStyle = tph > 0 ? '#ffb648' : '#5aa0e6';
     ctx.fillRect(0, 0, W, H);
     ctx.globalAlpha = 1;
   }
@@ -787,9 +788,9 @@ function drawSpark(id, arr, col) {
 }
 
 // --- le brin d'ADN : le genome dominant du monde, une double helice vivante ---
-const DNA_TRAITS = ['metabolisme', 'vitesse', 'perception', 'efficacite', 'fecondite', 'longevite', 'cohesion', 'prudence', 'curiosite'];
-const DNA_HUE = [14, 42, 190, 96, 330, 262, 150, 208, 52];
-let dnaGeno = [1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5]; // valeurs lissees affichees
+const DNA_TRAITS = ['metabolisme', 'vitesse', 'perception', 'efficacite', 'fecondite', 'longevite', 'cohesion', 'prudence', 'curiosite', 'tol. chaleur'];
+const DNA_HUE = [14, 42, 190, 96, 330, 262, 150, 208, 52, 24];
+let dnaGeno = [1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5]; // valeurs lissees affichees
 let dnaLast = 0, dnaFlash = -1e9; // dnaFlash : instant d'un basculement du genome
 let seenShifts = new Set();
 function drawDna(now) {

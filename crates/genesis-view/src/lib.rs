@@ -17,7 +17,7 @@ use genesis_core::genome::N_TRAITS;
 use genesis_core::names;
 use genesis_core::{EntityId, SimConfig, WorldState};
 
-pub const VIEW_VERSION: u16 = 9;
+pub const VIEW_VERSION: u16 = 10;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct ViewFrame {

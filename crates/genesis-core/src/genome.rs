@@ -1,6 +1,6 @@
 //! Genome et traits.
 //!
-//! Sept traits numeriques normalises dans [0, 1]. Le LLM n'est jamais requis pour calculer
+//! Dix traits numeriques normalises dans [0, 1]. Le LLM n'est jamais requis pour calculer
 //! la genetique.
 //!
 //! 0.0.1 est le stade molecule : reproduction asexuee par scission (`divide`). Une
@@ -16,11 +16,12 @@ use crate::entity::EntityId;
 use crate::rng::Rng;
 
 /// Nombre de traits du genome. Un seul point a changer si on en ajoute.
-pub const N_TRAITS: usize = 9;
+pub const N_TRAITS: usize = 10;
 
 /// Les traits de corps : les `SPECIES_TRAITS` premiers. La signature d'espece
-/// (`genome_key`) ne porte que sur eux ; la personnalite (`caution`, `curiosity`) est un
-/// calque comportemental, elle ne fait pas d'une population une espece distincte.
+/// (`genome_key`) ne porte que sur eux ; la personnalite (`caution`, `curiosity`) et la
+/// tolerance a la chaleur (`heat_tol`, un ecotype pas encore une espece) sont des calques,
+/// elles ne font pas d'une population une espece distincte.
 pub const SPECIES_TRAITS: usize = 7;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
@@ -42,6 +43,13 @@ pub struct Traits {
     /// de lieux d'abondance et explore davantage.
     #[serde(default = "half")]
     pub curiosity: f32,
+    /// Tolerance a la chaleur (0.0.4, saisons thermiques, schema v18), heritee, indice 9.
+    /// Deplace la temperature a laquelle le metabolisme de l'entite est le moins cher :
+    /// `0` = adapte au froid (`temp_optimal_c - span/2`), `1` = adapte au chaud (`+ span/2`).
+    /// Premier axe genetique qui repond au climat : sous une saison thermique il derive vers
+    /// l'adaptation a la saison la plus dure et garde de l'etalement (voir `experiments/011`).
+    #[serde(default = "half")]
+    pub heat_tol: f32,
 }
 
 fn half() -> f32 {
@@ -60,6 +68,7 @@ impl Traits {
             self.cohesion,
             self.caution,
             self.curiosity,
+            self.heat_tol,
         ]
     }
 
@@ -74,6 +83,7 @@ impl Traits {
             cohesion: a[6],
             caution: a[7],
             curiosity: a[8],
+            heat_tol: a[9],
         }
     }
 

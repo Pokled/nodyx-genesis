@@ -52,15 +52,17 @@ pub struct LiveState {
     pub grid: [u32; 2],
     /// Matiere structurelle libre (briques disponibles pour de nouveaux corps).
     pub free_matter: f32,
-    /// Le climat de la planete : temperature (degres Celsius), milieu, gravite (x Terre),
-    /// pression (atmospheres). Constants sur la vie du monde.
+    /// Le climat de la planete : milieu, gravite (x Terre), pression (atmospheres), constants ;
+    /// `temperature_c` est la temperature EFFECTIVE, qui varie avec la saison thermique.
     pub temperature_c: f32,
     pub medium: String,
     pub gravity: f32,
     pub pressure_atm: f32,
-    /// Les saisons : phase courante dans [-1, 1] (`+1` abondance, `-1` disette, `0`
-    /// intersaison). `0` fixe quand les saisons sont coupees. `season_label` la nomme.
+    /// Les saisons : phase nourriciere dans [-1, 1] (`+1` abondance, `-1` disette). `0` fixe
+    /// quand les saisons sont coupees. `season_label` la nomme. `season_temp_phase` est la
+    /// phase thermique, decalee d'un quart de cycle (`+1` plein ete, `-1` plein hiver).
     pub season_phase: f32,
+    pub season_temp_phase: f32,
     pub season_label: &'static str,
 
     // -- Vie du monde
@@ -519,6 +521,7 @@ pub fn write_live(
     };
 
     let sphase = genesis_core::sim::season_phase(cfg, world.tick);
+    let stphase = genesis_core::sim::season_temp_phase(cfg, world.tick);
     let live = LiveState {
         world: world_name.to_string(),
         seed,
@@ -528,11 +531,12 @@ pub fn write_live(
         status,
         grid: [world.space.width, world.space.height],
         free_matter: st.free_matter,
-        temperature_c: cfg.planet.temperature_c,
+        temperature_c: cfg.planet.temperature_c + cfg.season.temp_amplitude_c * stphase,
         medium: cfg.planet.medium.clone(),
         gravity: cfg.planet.gravity,
         pressure_atm: cfg.planet.pressure_atm,
         season_phase: sphase,
+        season_temp_phase: stphase,
         season_label: season_label(sphase, cfg.season.amplitude),
         population: st.population,
         births: st.births_total,

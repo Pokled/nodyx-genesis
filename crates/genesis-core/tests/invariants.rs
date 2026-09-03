@@ -20,6 +20,19 @@ fn ref_cfg() -> SimConfig {
     c.world.grid_height = 128;
     c.bricks.matter_per_cell = 0.14;
     c.season.amplitude = 0.0;
+    c.season.temp_amplitude_c = 0.0;
+    c.planet.heat_tol_span_c = 0.0;
+    c
+}
+
+/// Comme `ref_cfg` mais un cran plus robuste (160x160, plateau ~5100) : pour les tests qui
+/// stressent la temperature et qui, a 128x128 / matiere 0,14, effondreraient le monde au lieu
+/// de le tester. Pas de saisons.
+fn temp_cfg() -> SimConfig {
+    let mut c = ref_cfg();
+    c.world.grid_width = 160;
+    c.world.grid_height = 160;
+    c.bricks.matter_per_cell = 0.20;
     c
 }
 
@@ -580,13 +593,14 @@ fn dominant_genome_shift_is_watched() {
     // cle etablie et le compteur restent coherents. `genome_shift_persist_checks = 0` coupe.
     use genesis_core::event::EventKind;
 
-    let mut stressed = ref_cfg();
-    stressed.planet.temperature_c = 1.0; // 14 degres sous l'optimum : selection dure
-
-    let mut w = WorldState::new(1, &stressed);
+    // Le monde de reference complet (grille 192, saisons nourriciere et thermique) : les
+    // goulots de disette y deplacent le genome dominant. Graine 1 produit un basculement
+    // avant 100000 ticks.
+    let cfg = SimConfig::default();
+    let mut w = WorldState::new(1, &cfg);
     let mut shifts = 0u32;
-    for _ in 0..50_000 {
-        let ev = tick(&mut w, &stressed);
+    for _ in 0..100_000 {
+        let ev = tick(&mut w, &cfg);
         for e in &ev {
             if let EventKind::GenomeShift { from, to, .. } = e.kind {
                 shifts += 1;
@@ -602,13 +616,13 @@ fn dominant_genome_shift_is_watched() {
             break;
         }
     }
-    assert!(shifts >= 1, "aucun basculement de genome en 50000 ticks (monde froid, graine 1)");
+    assert!(shifts >= 1, "aucun basculement de genome en 100000 ticks (monde de reference, graine 1)");
 
     // Coupe : plus aucun basculement.
-    let mut off = stressed.clone();
+    let mut off = cfg.clone();
     off.watch.genome_shift_persist_checks = 0;
     let mut w2 = WorldState::new(1, &off);
-    for _ in 0..50_000 {
+    for _ in 0..100_000 {
         let ev = tick(&mut w2, &off);
         assert!(
             !ev.iter().any(|e| matches!(e.kind, EventKind::GenomeShift { .. })),
@@ -625,34 +639,34 @@ fn climate_shapes_the_world() {
     // Le climat (schema : config seulement, pas d'etat) agit vraiment sur le monde : un
     // monde loin de sa temperature optimale voit plus de morts de faim. Effet inerte au
     // defaut (`temperature_c == temp_optimal_c`), donc pas de regression. Deterministe.
-    let mut warm = ref_cfg();
-    warm.planet.temperature_c = 15.0;
-    warm.planet.temp_optimal_c = 15.0;
-    let mut cold = warm.clone();
-    cold.planet.temperature_c = 0.0; // 15 degres sous l'optimum
+    let optimal = temp_cfg(); // temperature_c == temp_optimal_c == 15 : taxe thermique nulle
+    let mut harsh = optimal.clone();
+    harsh.planet.temperature_c = -12.0; // 27 degres sous l'optimum : taxe thermique ecrasante
 
-    let run = |cfg: &SimConfig| {
-        let mut w = WorldState::new(1, cfg);
-        for _ in 0..30_000 {
+    let run = |cfg: &SimConfig, seed: u64| {
+        let mut w = WorldState::new(seed, cfg);
+        for _ in 0..40_000 {
             let _ = tick(&mut w, cfg);
             if w.entities.is_empty() {
                 break;
             }
         }
-        (w.deaths_starvation, w.population())
+        w.population()
     };
-    let (warm_starv, warm_pop) = run(&warm);
-    let (cold_starv, cold_pop) = run(&cold);
+    // Un ecart thermique severe ecrase le monde : l'effectif d'equilibre s'effondre (ou le
+    // monde s'eteint) la ou l'optimum tient un plateau. Vrai sur toute graine viable.
+    for &s in &[1u64, 3, 11, 13] {
+        let opt_pop = run(&optimal, s);
+        let harsh_pop = run(&harsh, s);
+        assert!(opt_pop > 1000, "le monde a l'optimum de la graine {s} s'est effondre");
+        assert!(
+            harsh_pop * 2 < opt_pop,
+            "le grand froid ne coute presque rien : graine {s}, {harsh_pop} contre {opt_pop} a l'optimum"
+        );
+    }
 
-    assert!(warm_pop > 100 && cold_pop > 100, "un des deux mondes s'est effondre");
-    assert!(
-        cold_starv > warm_starv,
-        "le froid ne coute rien : {cold_starv} morts de faim contre {warm_starv} au chaud"
-    );
-
-    // Deterministe : meme config, meme monde.
-    let (a, _) = run(&cold);
-    assert_eq!(a, cold_starv, "climat non deterministe");
+    // Inerte au defaut (`temperature_c == temp_optimal_c`) et deterministe.
+    assert_eq!(run(&optimal, 1), run(&optimal, 1), "climat non deterministe");
 }
 
 #[test]
@@ -823,4 +837,55 @@ fn seasons_swing_the_world() {
     // Deterministe : meme config, meme monde.
     let (a, _, _) = run(&seasoned);
     assert_eq!(a, seas_starv, "saisons non deterministes");
+}
+
+#[test]
+fn heat_tolerance_is_selected() {
+    // Le trait `heat_tol` (schema v18) : la temperature du monde selectionne l'adaptation
+    // thermique. Un monde chaud pousse `heat_tol` vers le haut, un monde froid vers le bas.
+    // `heat_tol_span_c = 0` coupe l'effet : le trait derive sans pression. Deterministe.
+    const HEAT_TOL: usize = 9; // index dans le tableau de traits
+
+    // Un monde froid pousse `heat_tol` vers le bas (adaptation au froid), un monde chaud vers
+    // le haut. On force un gradient thermique net (`temp_metab_slope` releve) pour que l'effet
+    // se lise sans ambiguite dans une fenetre courte ; le mecanisme est le meme au defaut.
+    let run = |temp: f32, span: f32| -> (f32, u32) {
+        let mut c = temp_cfg();
+        c.planet.temperature_c = temp;
+        c.planet.heat_tol_span_c = span;
+        c.planet.temp_metab_slope = 0.03;
+        c.resources.regen_rate = 0.03; // de quoi encaisser un gradient thermique fort
+        let mut w = WorldState::new(1, &c);
+        for _ in 0..60_000 {
+            let _ = tick(&mut w, &c);
+            if w.entities.is_empty() {
+                break;
+            }
+        }
+        (w.trait_stats().0[HEAT_TOL], w.population())
+    };
+
+    let (cold, cold_pop) = run(6.0, 24.0);
+    let (warm, warm_pop) = run(24.0, 24.0);
+    let (cold_inert, _) = run(6.0, 0.0);
+    let (warm_inert, _) = run(24.0, 0.0);
+    assert!(cold_pop > 100 && warm_pop > 100, "un monde thermique adapte s'est effondre");
+
+    // L'adaptation thermique est reelle mais douce (la selection sur `heat_tol` passe par une
+    // survie un peu meilleure, pas par plus de descendance) : un monde chaud tient `heat_tol`
+    // plus haut qu'un monde froid, et l'ecart s'efface quand `span = 0`.
+    let sep_active = warm - cold;
+    let sep_inert = warm_inert - cold_inert;
+    assert!(
+        sep_active > 0.02,
+        "la temperature ne separe pas l'adaptation thermique : chaud {warm:.3} vs froid {cold:.3} \
+         (inerte : {warm_inert:.3} / {cold_inert:.3})"
+    );
+    assert!(
+        sep_active > sep_inert.abs() + 0.015,
+        "span 0 devrait annuler la separation thermique : active {sep_active:.3} vs inerte {sep_inert:.3}"
+    );
+
+    // Deterministe.
+    assert_eq!(run(6.0, 24.0).0, cold, "selection thermique non deterministe");
 }
