@@ -101,6 +101,13 @@ pub struct Cell {
     /// l'id du tissu est le plus petit id de cellule du groupe.
     #[serde(default)]
     pub tissue: Option<u32>,
+    /// Nombre de cellules voisines du meme tissu qui adherent a celle-ci (0.0.2, vers les
+    /// roles). Recalcule chaque tick par `tissue_pass`. `0` si isolee. Une cellule tres
+    /// entouree est a l'interieur de la nappe (a l'abri) ; peu entouree, elle est au bord.
+    /// C'est le seul indicateur de "place dans le tissu" : les roles germinal/somatique en
+    /// decoulent sans qu'une regle les nomme.
+    #[serde(default)]
+    pub tissue_bonds: u8,
 }
 
 fn one_f32() -> f32 {

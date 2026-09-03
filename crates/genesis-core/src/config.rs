@@ -525,6 +525,22 @@ pub struct CellsCfg {
     /// detecte mais ses cellules ne se pavent pas (l'ordre reste bas). C'est cette traction
     /// qui fait emerger le pavage hexagonal (et la phase hexatique quand l'agitation monte).
     pub tissue_pull: f32,
+
+    /// Abri du tissu (0.0.2, vers la marche organisme : les roles). Une cellule entouree
+    /// (`tissue_bonds >= shelter_bonds` voisines du meme tissu) est a l'interieur de la nappe :
+    /// un predateur ne peut pas l'atteindre, et une part `shelter_feed` du surplus des cellules
+    /// de bord du meme tissu coule vers elle (flux le long du gradient d'entassement, conserve,
+    /// sans RNG). Aucune regle ne nomme "cellule germinale" ni "cellule somatique" : c'est la
+    /// geometrie (etre au centre ou au bord) qui fait que le coeur, protege et nourri, se divise
+    /// pendant que le bord encaisse. `false` desactive (bouton d'A/B).
+    pub tissue_shelter: bool,
+    /// Nombre de voisines du meme tissu a partir duquel une cellule compte comme "interieure"
+    /// (a l'abri, nourrie). En dessous, elle est au bord : exposee, nourriciere du coeur.
+    pub shelter_bonds: u32,
+    /// Fraction du surplus (energie au-dessus d'une marge de famine) des membres des cellules
+    /// de bord reversee chaque tick aux membres des cellules interieures du meme tissu. `0` :
+    /// l'abri protege de la predation mais ne nourrit pas le coeur (A/B secondaire).
+    pub shelter_feed: f32,
 }
 impl Default for CellsCfg {
     fn default() -> Self {
@@ -557,6 +573,9 @@ impl Default for CellsCfg {
             tissue_kin: 0.5,
             tissue_min: 3,
             tissue_pull: 0.04,
+            tissue_shelter: false,
+            shelter_bonds: 4,
+            shelter_feed: 0.12,
         }
     }
 }

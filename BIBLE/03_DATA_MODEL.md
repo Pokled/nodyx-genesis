@@ -79,6 +79,8 @@ struct Cell {                        // un amas cohérent de parents, reconnu co
     mean_traits:   [f32; N_TRAITS],
     elongation:    f32,               // (v19) étalement axe long / axe court ; > 1.7 -> division
     parent_cell:   Option<u32>,       // (v19) la cellule dont celle-ci s'est détachée par division
+    tissue:        Option<u32>,       // (0.0.2) id du tissu (plus petit id du groupe), None si isolée ; dérivé chaque tick
+    tissue_bonds:  u8,                // (0.0.2) nb de cellules voisines du même tissu ; beaucoup = intérieure (abri), peu = bord
 }
 ```
 

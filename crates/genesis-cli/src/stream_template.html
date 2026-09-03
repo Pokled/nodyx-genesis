@@ -501,7 +501,7 @@ function drawScene(now) {
       pts.push([x + lx * ca - ly * sa, y + lx * sa + ly * ca]);
     }
     // robustesse : une grosse cellule (grand rayon) impose sa forme a la petite.
-    CELLS.push({ x, y, r, h, big, young, ph, N, pts, tissue: c.tissue || 0 });
+    CELLS.push({ x, y, r, h, big, young, ph, N, pts, tissue: c.tissue || 0, bonds: c.tissue_bonds || 0 });
   }
 
   // -- tissus : un pavage vivant (0.0.2, `[cells] tissue`). Les cellules d'un meme tissu ne
@@ -597,6 +597,10 @@ function drawScene(now) {
     const tdir = [Math.cos(tid * 0.9), Math.sin(tid * 0.9)];
     const tens = s => 0.5 + 0.5 * Math.sin((s.x * tdir[0] + s.y * tdir[1]) * 0.022 - tsec * 1.1);
     const nucHue = ((hueT + 168) % 360);        // teinte complementaire chaude pour les noyaux
+    // place dans le tissu : une cellule tres entouree est au coeur (a l'abri, elle se divise) ;
+    // peu entouree, elle est au bord (exposee, elle tient la frontiere). Seuil = shelter_bonds
+    // par defaut. La division du travail se lit a l'ecran sans qu'une regle nomme les roles.
+    const isCore = s => (s.bonds || 0) >= 4;
 
     // 0. halo d'assise : le tissu est une structure en relief, pas une tache. Un souffle sourd
     //    dans sa teinte, sous tout le reste.
@@ -615,13 +619,15 @@ function drawScene(now) {
     for (const s of sites) {
       if (!s._v) continue;
       const sc = ((s.h - 30) % 360 + 360) % 360;
-      const t = tens(s), lift = 0.30 + 0.16 * t;
+      const core = isCore(s);
+      const t = tens(s), lift = 0.30 + 0.16 * t + (core ? 0.06 : 0);
+      const sat = core ? 68 : 54;   // le coeur plus vif, le bord plus mat (barriere dense)
       ctx.save();
       ctx.beginPath(); tracePoly(s._v); ctx.clip();
       const g = ctx.createRadialGradient(s.x - s.r * 0.2, s.y - s.r * 0.22, 1, s.x, s.y, s.r * 2.1);
-      g.addColorStop(0, 'hsla(' + sc + ',66%,62%,' + (lift + 0.14).toFixed(3) + ')');
-      g.addColorStop(0.55, 'hsla(' + sc + ',60%,46%,' + (lift - 0.06).toFixed(3) + ')');
-      g.addColorStop(1, 'hsla(' + sc + ',58%,26%,0.10)');
+      g.addColorStop(0, 'hsla(' + sc + ',' + (sat + 2) + '%,62%,' + (lift + 0.14).toFixed(3) + ')');
+      g.addColorStop(0.55, 'hsla(' + sc + ',' + sat + '%,46%,' + (lift - 0.06).toFixed(3) + ')');
+      g.addColorStop(1, 'hsla(' + sc + ',' + (sat - 4) + '%,26%,0.10)');
       ctx.fillStyle = g;
       ctx.fillRect(s.x - s.r * 3, s.y - s.r * 3, s.r * 6, s.r * 6);
       // reflet specular : petite calotte vive decalee en haut a gauche (surface humide bombee)
@@ -646,7 +652,8 @@ function drawScene(now) {
     for (const s of sites) {
       if (!s._v) continue;
       ctx.strokeStyle = 'hsla(' + hueT + ',35%,7%,0.6)';
-      ctx.lineWidth = 2.6 + 1.4 * tOrder;
+      // le bord de la nappe porte une paroi plus epaisse : c'est la barriere qui encaisse.
+      ctx.lineWidth = (2.6 + 1.4 * tOrder) * (isCore(s) ? 1 : 1.5);
       ctx.beginPath(); tracePoly(s._v); ctx.stroke();
     }
     ctx.globalCompositeOperation = 'lighter';
@@ -705,9 +712,19 @@ function drawScene(now) {
       const beat = 1 + 0.16 * Math.sin(tsec * 2.0 - d * 0.028);
       const off = s.r * 0.10;
       const nx = s.x + Math.cos(s.ph) * off, ny = s.y + Math.sin(s.ph) * off;
-      const nr = (3.6 + s.big * 2.8) * beat;
+      const core = isCore(s);
+      // le coeur du tissu se divise : noyau plus gros, et une aureole qui pulse (mitose)
+      const nr = (3.6 + s.big * 2.8) * beat * (core ? 1.24 : 1);
       ctx.save();
       ctx.beginPath(); tracePoly(s._v); ctx.clip();
+      if (core) {
+        const mit = 0.5 + 0.5 * Math.sin(tsec * 1.6 - d * 0.03);
+        const mg = ctx.createRadialGradient(nx, ny, nr * 0.6, nx, ny, nr * 3.0);
+        mg.addColorStop(0, 'hsla(' + nucHue + ',70%,78%,' + (0.06 + 0.10 * mit).toFixed(3) + ')');
+        mg.addColorStop(1, 'hsla(' + nucHue + ',70%,78%,0)');
+        ctx.fillStyle = mg;
+        ctx.beginPath(); ctx.arc(nx, ny, nr * 3.0, 0, 6.2832); ctx.fill();
+      }
       const ng = ctx.createRadialGradient(nx - nr * 0.32, ny - nr * 0.32, 0.5, nx, ny, nr * 1.5);
       ng.addColorStop(0, 'hsla(' + nucHue + ',64%,80%,0.95)');
       ng.addColorStop(0.45, 'hsla(' + (nucHue - 6) + ',60%,50%,0.74)');

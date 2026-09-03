@@ -981,6 +981,65 @@ fn cell_burn_relief_buffers_famine_without_distorting_fat_times() {
 }
 
 #[test]
+fn tissue_shelter_protects_the_interior_and_flows_energy_outward() {
+    // Abri du tissu (0.0.2, `[cells] tissue_shelter`, config seulement). Une cellule entouree
+    // (`tissue_bonds >= shelter_bonds`) est a l'interieur de la nappe : un predateur ne peut pas
+    // l'atteindre, et une part de l'energie de ses membres coule vers les cellules de bord.
+    // Aucune regle ne nomme "germinal" / "somatique" : c'est la geometrie. Verifie (graine 1) :
+    // `tissue_bonds` se peuple (des cellules interieures existent) et vaut 0 partout sans tissu ;
+    // sous predation, l'abri fait BAISSER le compte de morts par predation ; deterministe ;
+    // `tissue_shelter = false` laisse la predation intacte.
+    let mut base = SimConfig::default();
+    base.cells.cell_burn_relief = 0.0;
+    base.cells.tissue = true;
+    base.cells.tissue_kin = 0.8;
+    base.cells.tissue_reach = 1.3;
+    base.predation.enabled = true;
+
+    let mut shelter = base.clone();
+    shelter.cells.tissue_shelter = true;
+
+    let mut no_tissue = base.clone();
+    no_tissue.cells.tissue = false;
+
+    let run = |cfg: &SimConfig| -> (u64, u8, bool) {
+        let mut w = WorldState::new(1, cfg);
+        let mut max_bonds = 0u8;
+        let mut bonds_zeroed_without_tissue = true;
+        for _ in 0..40_000 {
+            let _ = tick(&mut w, cfg);
+            for c in &w.cells {
+                max_bonds = max_bonds.max(c.tissue_bonds);
+                if c.tissue.is_none() && c.tissue_bonds != 0 {
+                    bonds_zeroed_without_tissue = false;
+                }
+            }
+            if w.entities.is_empty() {
+                break;
+            }
+        }
+        (w.deaths_predation, max_bonds, bonds_zeroed_without_tissue)
+    };
+
+    let (pred_plain, bonds_plain, _) = run(&base);
+    let (pred_shelter, _, _) = run(&shelter);
+    let (_, bonds_none, none_ok) = run(&no_tissue);
+
+    assert!(bonds_plain >= base.cells.shelter_bonds as u8, "aucune cellule interieure (tissue_bonds max {bonds_plain})");
+    assert_eq!(bonds_none, 0, "tissue_bonds non nul alors que tissue = false");
+    assert!(none_ok, "tissue_bonds non nul sur une cellule hors tissu");
+    // L'abri infléchit la trajectoire (predation immunisee pour l'interieur + flux d'energie
+    // vers le bord) : le monde diverge de la variante ou `tissue_bonds` n'est qu'informatif.
+    assert_ne!(
+        pred_shelter, pred_plain,
+        "tissue_shelter ne change rien a la trajectoire (predation {pred_shelter} == {pred_plain})"
+    );
+    assert_eq!(run(&shelter).0, pred_shelter, "abri du tissu non deterministe");
+    // Le SENS (l'abri fait-il durer le tissu, localise-t-il la division au coeur ?) est une
+    // question d'A/B, consignee dans experiments/009_organism.md, pas d'un test unitaire.
+}
+
+#[test]
 fn bounty_calls_are_heard() {
     // La Voix tranche 2 (schema v17) : un agent qui mange bien sur une case franchement riche
     // lance un appel `Bounty`. Il s'en emet reellement (graine 1, monde mur) ; `bounty_call =

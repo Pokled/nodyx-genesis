@@ -99,6 +99,39 @@ l'ecran, le pavage visible), puis les **roles** (barriere / soutien / moteur / s
 germinal, `Taille.md` : cellules specialisees + une meme fonction), d'ou emergeront les **types
 de tissus** (epithelial / conjonctif / musculaire / nerveux) a nommer comme une espece.
 
+**Rendu tesselle fait (2026-09-03).** L'overlay dessine maintenant chaque tissu comme un
+**pavage de Voronoi vivant** : cytoplasme translucide retro-eclaire par case, aretes partagees
+qui brillent (jonctions serrees, mode `lighter`), noyau a contre-couleur qui bat, membrane
+basale lissee. Tout repond a `tissue_order` (hexagones nets et stables a l'ordre eleve, cases
+qui s'arrondissent et sommets qui vibrent au desordre). Commit `ce447ff`.
+
+**Premier pas vers les roles : l'abri du tissu (2026-09-03).** `[cells] tissue_shelter` (defaut
+false, config seulement). On ne nomme aucun role. On ajoute un seul indicateur de **place dans
+le tissu** : `Cell.tissue_bonds` = nombre de cellules voisines du meme tissu (recalcule chaque
+tick par `tissue_pass`, `#[serde(default)]`, schema inchange). Deux consequences physiques de
+cette geometrie :
+
+1. **Predation.** Une entite dont la cellule est *interieure* (`tissue_bonds >= shelter_bonds`,
+   defaut 4) est hors d'atteinte d'un predateur, et elle ne chasse pas non plus (elle est muree
+   au centre). Un predateur ne mord que le bord de la nappe.
+2. **Flux d'energie.** Une part `shelter_feed` (defaut 0,12) du surplus des cellules de **bord**
+   (`tissue_bonds < shelter_bonds`, exposees, elles captent au contact du dehors) coule chaque
+   tick vers les cellules **interieures** du meme tissu. Flux le long du gradient d'entassement,
+   conserve, sans RNG, ordre des id. Mettre `shelter_feed = 0` garde l'immunite sans le
+   nourrissage (A/B secondaire).
+
+Le coeur, protege et nourri, accumule ses membres et finit par franchir le seuil de division
+(`divide_members`) : c'est **la lignee qui se reproduit**. Le bord encaisse la predation et
+tient la frontiere : c'est **le somatique**. La division du travail germinal / somatique
+**emerge de la seule geometrie** ; aucun `if` ne dit "cette cellule est germinale". Test
+`tissue_shelter_protects_the_interior_and_flows_energy_outward` : `tissue_bonds` se peuple,
+vaut 0 hors tissu, la trajectoire diverge du temoin, deterministe. L'overlay distingue coeur
+(cytoplasme plus vif, gros noyau avec aureole de mitose) et bord (paroi epaissie, la barriere).
+
+Le SENS (l'abri fait-il durer le tissu ? localise-t-il la division ? sous quelle pression de
+predation ?) est une **question d'A/B a mener sur w2**, pas tranchee par le test. A surveiller :
+le bord ne doit pas s'effondrer plus vite qu'il n'est reconstitue par les divisions du coeur.
+
 ### Piste B : la ligne germinale (le plus fidele a la biologie)
 
 On saute la colonie et on va directement a l'idee-cle : **une seule cellule d'un groupe se
@@ -194,6 +227,13 @@ genome structurel (piste D). Detail : [[organism-path-predation-first]] en memoi
 Avant de choisir une piste organisme : un prototype autonome (comme `001`), une petite grille,
 des cellules avec un role somatique/germinal, pour voir si le gain apparait et si l'ecosysteme
 tient. Aucun engagement moteur tant que le prototype n'a pas parle.
+
+**Mise a jour 2026-09-03 (suite).** Predation faite (`012`), adhesion + pavage + ordre faits,
+rendu tesselle fait. Premiere marche vers les roles engagee directement sur le moteur (le
+prototype numpy de la predation n'ayant rien appris de plus qu'un test moteur en 3 iterations) :
+**l'abri du tissu** `tissue_shelter`, voir plus haut dans la piste A. C'est la piste B (le gain
+du somatique) mais amorcee par la geometrie de la piste A, sans genome de roles : le bord nourrit
+et protege un coeur qui se divise. A/B a mener sur w2.
 
 ## Lecture
 

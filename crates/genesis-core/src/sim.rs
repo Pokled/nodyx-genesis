@@ -520,11 +520,31 @@ pub fn tick(world: &mut WorldState, cfg: &SimConfig) -> Vec<Event> {
         let snap: Vec<(Position, f32)> =
             world.entities.iter().map(|e| (e.position, e.energy)).collect();
         let n = snap.len();
+        // Abri du tissu (`tissue_shelter`) : une entite dont la cellule est a l'interieur d'une
+        // nappe (`tissue_bonds >= shelter_bonds`) est hors d'atteinte d'un predateur, et elle
+        // ne chasse pas non plus (elle est muree au centre). Etat du tick precedent (tissue_pass
+        // tourne en phase 5b). Sans cette marche, `sheltered` est tout faux.
+        let sheltered: Vec<bool> = if cfg.cells.tissue && cfg.cells.tissue_shelter {
+            let sb = cfg.cells.shelter_bonds.max(1) as u8;
+            let safe: std::collections::HashSet<u32> = world
+                .cells
+                .iter()
+                .filter(|c| c.tissue.is_some() && c.tissue_bonds >= sb)
+                .map(|c| c.id)
+                .collect();
+            world
+                .entities
+                .iter()
+                .map(|e| e.cell_id.map_or(false, |id| safe.contains(&id)))
+                .collect()
+        } else {
+            vec![false; n]
+        };
         let mut taken = vec![false; n];
         let mut gain = vec![0.0f32; n];
         let reach2 = reach * reach;
         for i in 0..n {
-            if taken[i] {
+            if taken[i] || sheltered[i] {
                 continue;
             }
             let ei = snap[i].1 + gain[i];
@@ -536,7 +556,7 @@ pub fn tick(world: &mut WorldState, cfg: &SimConfig) -> Vec<Event> {
             let mut best: Option<(usize, f32)> = None;
             phash.for_each_neighbor(pos_i, reach, |ju| {
                 let j = ju as usize;
-                if j == i || taken[j] {
+                if j == i || taken[j] || sheltered[j] {
                     return;
                 }
                 let (pj, ej) = snap[j];
@@ -1374,6 +1394,7 @@ fn cell_phase(
                 elongation: 1.0,
                 parent_cell: Some(parent_id),
                 tissue: None,
+                tissue_bonds: 0,
             });
             let at = if let Some(pc) = world.cell_mut(parent_id) {
                 pc.member_count = pc.member_count.saturating_sub(leaving.len() as u32);
@@ -1404,7 +1425,14 @@ fn cell_phase(
     //    connexe de telles cellules, d'au moins `tissue_min` membres. Derive chaque tick,
     //    union-find sur les positions, ordre stable (cellules triees par id) ; l'id du tissu
     //    est le plus petit id de cellule du groupe. Pas d'etat serialise, pas d'hysteresis.
-    tissue_pass(world, &cc, space, t);
+    tissue_pass(
+        world,
+        &cc,
+        space,
+        t,
+        cfg.lifecycle.starve_at,
+        cfg.reproduction.energy_threshold * 2.0,
+    );
 
     // -- 4. Detection de nouvelles cellules, tous les `check_every` ticks.
     if cc.check_every == 0 || t % cc.check_every != 0 {
@@ -1413,7 +1441,14 @@ fn cell_phase(
     cell_detect(world, &cc, space, t, events);
 }
 
-fn tissue_pass(world: &mut WorldState, cc: &crate::config::CellsCfg, space: &Space, _t: u64) {
+fn tissue_pass(
+    world: &mut WorldState,
+    cc: &crate::config::CellsCfg,
+    space: &Space,
+    _t: u64,
+    starve_at: f32,
+    energy_ceiling: f32,
+) {
     if !cc.tissue || world.cells.len() < 2 {
         for c in world.cells.iter_mut() {
             c.tissue = None;
@@ -1478,6 +1513,99 @@ fn tissue_pass(world: &mut WorldState, cc: &crate::config::CellsCfg, space: &Spa
         }
         ids.len() as u32
     };
+
+    // Place dans le tissu : combien de voisines du meme tissu adherent a cette cellule. C'est
+    // le seul indicateur de position (centre / bord) ; les roles en decoulent sans regle qui
+    // les nomme. Une cellule isolee ou hors tissu retombe a 0.
+    for k in 0..n {
+        world.cells[k].tissue_bonds = if world.cells[k].tissue.is_some() {
+            let ti = world.cells[k].tissue;
+            neigh[k].iter().filter(|&&j| world.cells[j].tissue == ti).count().min(255) as u8
+        } else {
+            0
+        };
+    }
+
+    // Abri du tissu (`tissue_shelter`) : les cellules de bord (exposees, elles captent au
+    // contact du dehors) reversent une part `shelter_feed` de leur surplus vers les cellules
+    // interieures du meme tissu. Flux le long du gradient d'entassement, conserve tick a tick,
+    // sans RNG, ordre des id. Le coeur, a l'abri de la predation et nourri par le bord, accumule
+    // ses membres et finit par se diviser (la lignee qui se reproduit) ; le bord encaisse et
+    // tient la frontiere. La division du travail germinal / somatique emerge de la seule
+    // geometrie : aucune regle ne nomme un role.
+    if cc.tissue_shelter && cc.shelter_feed > 0.0 && world.tissues_alive > 0 {
+        let feed = cc.shelter_feed.clamp(0.0, 0.9);
+        let sb = cc.shelter_bonds.max(1) as u8;
+        // ne jamais ponctionner un membre en dessous d'une marge au-dessus de la famine
+        let starve_floor = starve_at * 2.0;
+        let cslot: std::collections::HashMap<u32, usize> =
+            world.cells.iter().enumerate().map(|(k, c)| (c.id, k)).collect();
+        let mut cmem: Vec<Vec<usize>> = vec![Vec::new(); n];
+        for (i, e) in world.entities.iter().enumerate() {
+            if let Some(id) = e.cell_id {
+                if let Some(&k) = cslot.get(&id) {
+                    cmem[k].push(i);
+                }
+            }
+        }
+        // par tissu : cellules de bord (donneuses) et cellules interieures (receveuses)
+        let mut tissues: std::collections::HashMap<u32, (Vec<usize>, Vec<usize>)> =
+            std::collections::HashMap::new();
+        for k in 0..n {
+            if let Some(tid) = world.cells[k].tissue {
+                let e = tissues.entry(tid).or_default();
+                if world.cells[k].tissue_bonds >= sb {
+                    e.1.push(k); // interieure : receveuse
+                } else {
+                    e.0.push(k); // bord : donneuse
+                }
+            }
+        }
+        let mut tids: Vec<u32> = tissues.keys().copied().collect();
+        tids.sort_unstable();
+        let mut delta = vec![0.0f32; world.entities.len()];
+        for tid in tids {
+            let (rim, core) = &tissues[&tid];
+            if core.is_empty() || rim.is_empty() {
+                continue;
+            }
+            let mut pot = 0.0f32;
+            for &k in rim {
+                for &i in &cmem[k] {
+                    let surplus = (world.entities[i].energy - starve_floor).max(0.0);
+                    pot += surplus * feed;
+                }
+            }
+            if pot <= 0.0 {
+                continue;
+            }
+            let mut receivers = 0usize;
+            for &k in core {
+                receivers += cmem[k].len();
+            }
+            if receivers == 0 {
+                continue;
+            }
+            let per = pot / receivers as f32;
+            for &k in rim {
+                for &i in &cmem[k] {
+                    let surplus = (world.entities[i].energy - starve_floor).max(0.0);
+                    delta[i] -= surplus * feed;
+                }
+            }
+            for &k in core {
+                for &i in &cmem[k] {
+                    delta[i] += per;
+                }
+            }
+        }
+        for (i, d) in delta.into_iter().enumerate() {
+            if d != 0.0 {
+                world.entities[i].energy =
+                    (world.entities[i].energy + d).clamp(0.0, energy_ceiling);
+            }
+        }
+    }
 
     // Ordre du tissu : ordre orientationnel a 6 plis (psi6) des centroides de cellules, moyenne
     // sur toutes les cellules en tissu qui ont au moins 3 voisines. `1` = pavage hexagonal
@@ -1712,6 +1840,7 @@ fn cell_detect(
                 elongation: 1.0,
                 parent_cell: None,
                 tissue: None,
+                tissue_bonds: 0,
             });
             world.cells_formed_total += 1;
             emit(

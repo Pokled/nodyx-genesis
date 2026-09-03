@@ -72,6 +72,11 @@ pub struct CellView {
     /// une nappe autour des cellules d'un meme tissu.
     #[serde(default)]
     pub tissue: u32,
+    /// nombre de cellules voisines du meme tissu (0.0.2). `0` si isolee. Beaucoup = cellule
+    /// interieure (a l'abri, se divise) ; peu = cellule de bord (exposee, tient la frontiere).
+    /// L'overlay s'en sert pour distinguer coeur et bord du tissu.
+    #[serde(default)]
+    pub tissue_bonds: u8,
 }
 
 /// Un amas : plusieurs entites d'une meme region resumees en un point. Ce qui rend un
@@ -461,6 +466,7 @@ pub fn project(
                 elong: (c.elongation * 100.0).round().clamp(100.0, 65535.0) as u16,
                 age: world.tick.saturating_sub(c.formed_tick).min(u32::MAX as u64) as u32,
                 tissue: c.tissue.unwrap_or(0),
+                tissue_bonds: c.tissue_bonds,
             }
         })
         .collect();
