@@ -382,32 +382,59 @@ function ingestScene(sc) {
   SCENE = sc;
   sceneT0 = performance.now();
 }
-// Deux cadences separees : la scene vite (mouvement fluide, petit cout), le panneau lentement
-// (gros JSON + reconstruction DOM : le faire vite hachait l'animation). `live.json` et
-// `scene.json` pesent chacun ~120 ko sur w2 -> ne pas les parser dans la meme boucle serree.
-let sceneMiss = 0, sceneTimer = 0;
-async function pollScene() {
-  let ok = false;
+// Le fetch ET le parse des gros JSON (scene.json / live.json, ~150 ko chacun sur w2) se font
+// dans un Web Worker : le fil principal ne recoit que des objets deja prets, il ne bloque
+// jamais pour parser. C'est ce qui reste de saccade "reguliere" une fois le trace optimise.
+// Repli : si le worker ne demarre pas (CSP, file://), on parse sur le fil principal.
+let poll;
+(function () {
+  const src = `
+    let base = '';
+    async function get(name) {
+      try {
+        const r = await fetch(base + name, { cache: 'no-store' });
+        if (!r.ok) return null;
+        return await r.json();
+      } catch (e) { return null; }
+    }
+    let sMiss = 0, lMiss = 0;
+    async function loopScene() {
+      const sc = await get('scene.json');
+      if (sc) { sMiss = 0; self.postMessage({ t: 'scene', d: sc }); } else sMiss = Math.min(sMiss + 1, 6);
+      setTimeout(loopScene, 1200 + sMiss * 1500);
+    }
+    async function loopLive() {
+      const l = await get('live.json');
+      if (l) { lMiss = 0; self.postMessage({ t: 'live', d: l }); } else lMiss = Math.min(lMiss + 1, 6);
+      setTimeout(loopLive, 3000 + lMiss * 1500);
+    }
+    self.onmessage = e => { if (e.data && e.data.cmd === 'go') { base = e.data.base; loopScene(); loopLive(); } };
+  `;
   try {
-    const sc = await fetch('scene.json').then(r => r.ok ? r.json() : null).catch(() => null);
-    if (sc) { ingestScene(sc); ok = true; }
-  } catch (e) { /* file:// ou serveur absent : on garde le dernier etat */ }
-  sceneMiss = ok ? 0 : Math.min(sceneMiss + 1, 6);
-  clearTimeout(sceneTimer);
-  sceneTimer = setTimeout(pollScene, 1200 + sceneMiss * 1500);
-}
-let liveMiss = 0, liveTimer = 0;
-async function pollLive() {
-  let ok = false;
-  try {
-    const l = await fetch('live.json').then(r => r.ok ? r.json() : null).catch(() => null);
-    if (l) { applyLive(l); ok = true; }
-  } catch (e) { /* file:// ou serveur absent : on garde le dernier etat */ }
-  liveMiss = ok ? 0 : Math.min(liveMiss + 1, 6);
-  clearTimeout(liveTimer);
-  liveTimer = setTimeout(pollLive, 3000 + liveMiss * 1500);
-}
-function poll() { pollScene(); pollLive(); }
+    const w = new Worker(URL.createObjectURL(new Blob([src], { type: 'text/javascript' })));
+    w.onmessage = e => {
+      if (e.data.t === 'scene') ingestScene(e.data.d);
+      else if (e.data.t === 'live') applyLive(e.data.d);
+    };
+    poll = () => w.postMessage({ cmd: 'go', base: location.href.replace(/[^/]*$/, '') });
+  } catch (err) {
+    // repli fil principal
+    let sMiss = 0, lMiss = 0, sTimer = 0, lTimer = 0;
+    const pollScene = async () => {
+      let ok = false;
+      try { const sc = await fetch('scene.json').then(r => r.ok ? r.json() : null).catch(() => null); if (sc) { ingestScene(sc); ok = true; } } catch (e) {}
+      sMiss = ok ? 0 : Math.min(sMiss + 1, 6);
+      clearTimeout(sTimer); sTimer = setTimeout(pollScene, 1200 + sMiss * 1500);
+    };
+    const pollLive = async () => {
+      let ok = false;
+      try { const l = await fetch('live.json').then(r => r.ok ? r.json() : null).catch(() => null); if (l) { applyLive(l); ok = true; } } catch (e) {}
+      lMiss = ok ? 0 : Math.min(lMiss + 1, 6);
+      clearTimeout(lTimer); lTimer = setTimeout(pollLive, 3000 + lMiss * 1500);
+    };
+    poll = () => { pollScene(); pollLive(); };
+  }
+})();
 
 // --- lissage de la scene entre deux images ---
 // `genesis serve` livre une image toutes les ~1 s (~45 ticks). Plutot qu'une interpolation
