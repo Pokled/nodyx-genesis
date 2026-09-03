@@ -470,7 +470,7 @@ function tickClock() {
 
 // --- rendu de la scene ---
 const PS = 4;
-let camX = null, camY = null;
+let camX = null, camY = null, comX = null, comY = null, camMoving = false;
 let fx = [];                 // effets ponctuels sur la scene : {gx, gy, r0, t0}
 let seenFusions = new Set();  // fusions deja jouees (pas de rejeu au chargement)
 function bio(h, l, a) {
@@ -521,11 +521,21 @@ function drawScene(now) {
   const hx = W / (2 * s), hy = H / (2 * s);
   cx = 2 * hx >= gw ? gw / 2 : Math.max(hx, Math.min(gw - hx, cx));
   cy = 2 * hy >= gh ? gh / 2 : Math.max(hy, Math.min(gh - hy, cy));
-  if (camX === null) { camX = cx; camY = cy; }
-  // suivi camera amorti, independant du pas de temps (sinon il tremble quand les images
-  // reelles ne sont pas regulieres).
-  const camK = 1 - Math.pow(0.2, Math.min(0.2, dt / 1000));
-  camX += (cx - camX) * camK; camY += (cy - camY) * camK;
+  // Camera : le centre de masse brut saute a chaque image (les amas sont re-binnes). On le
+  // passe d'abord dans un lissage lent (`com`), puis une zone morte avec hysteresis : tant que
+  // l'ancre reste proche de la camera, la camera ne bouge pas du tout. Elle ne se remet en
+  // marche que si la population migre franchement, et s'arrete des qu'elle est recalee. Sans ca
+  // l'ecran derive en permanence.
+  if (comX === null) { comX = cx; comY = cy; camX = cx; camY = cy; }
+  const halfK = h => 1 - Math.pow(0.5, Math.min(0.25, dt / 1000) / h);
+  const comK = halfK(0.9);                            // lissage du centre de masse, demi-vie 0,9 s
+  comX += (cx - comX) * comK; comY += (cy - comY) * comK;
+  if (!camMoving && Math.hypot(comX - camX, comY - camY) > 6) camMoving = true;  // vraie migration
+  if (camMoving) {
+    const camK = halfK(1.6);                          // suivi lent (~2 s pour rejoindre)
+    camX += (comX - camX) * camK; camY += (comY - camY) * camK;
+    if (Math.hypot(comX - camX, comY - camY) < 1.2) camMoving = false;           // recalee : stop
+  }
   const ox = W / 2 - camX * s, oy = H / 2 - camY * s;
   const tsec = performance.now() / 1000;
 
