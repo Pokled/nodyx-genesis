@@ -120,6 +120,20 @@ cette geometrie :
    conserve, sans RNG, ordre des id. Mettre `shelter_feed = 0` garde l'immunite sans le
    nourrissage (A/B secondaire).
 
+**Types de tissus, lecture (2026-09-03).** `genesis-view` classe chaque tissu par un `kind`
+LU de sa forme et de sa composition, jamais decrete : meme principe que la cle d'espece.
+`ViewFrame.tissues: Vec<TissueView> { id, kind, pos, cells, order, elong, bonds }`, aucun
+changement moteur, aucun schema. Regles (priorite) : **nerveux** si la part d'agents parmi ses
+membres depasse franchement le fond du monde (x1,6, plancher 0,45) ; **muscle** si l'allongement
+moyen des cellules >= 1,9 (au-dela du seuil de division : un faisceau contractile) ;
+**epithelium** si >= 5 cellules et pavage franchement ordonne (psi6 local >= 0,50, signal
+hexatique) ; **conjonctif** si >= 4 cellules mais desordonnees et laches (psi6 < 0,32,
+`bonds` <= 2,6) ; sinon **indifferencie** (en cours d'organisation, ou entre-deux). Overlay :
+ligne « tissus » = effectif + repartition par type, et une etiquette sous chaque tissu dans la
+scene. Le psi6 par tissu est recalcule cote vue (O(cellules^2), ~50 cellules). Ce qui manque
+encore : que le type **compte** (une nappe fait barriere, un muscle se contracte) -- pour l'instant
+c'est un regard, pas une regle.
+
 Le coeur, protege et nourri, accumule ses membres et finit par franchir le seuil de division
 (`divide_members`) : c'est **la lignee qui se reproduit**. Le bord encaisse la predation et
 tient la frontiere : c'est **le somatique**. La division du travail germinal / somatique

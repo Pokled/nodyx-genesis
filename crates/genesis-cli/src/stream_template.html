@@ -840,6 +840,22 @@ function drawScene(now) {
     }
   }
 
+  // etiquette de type sous chaque tissu (LU de sa forme, cote scene.json). Nomme comme une
+  // espece : epithelium / conjonctif / muscle / nerveux. Discret, sous le pavage.
+  for (const t of (S.tissues || [])) {
+    if (!t.kind || t.kind === 'indifferencie') continue;
+    const gx = ox + (t.pos[0] / PS) * s, gy = oy + (t.pos[1] / PS) * s;
+    ctx.save();
+    ctx.font = '600 12px ui-monospace, "SF Mono", Menlo, Consolas, monospace';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    const tw = ctx.measureText(t.kind).width;
+    ctx.fillStyle = 'rgba(6,12,18,0.55)';
+    ctx.fillRect(gx - tw / 2 - 6, gy - 9, tw + 12, 18);
+    ctx.fillStyle = 'rgba(210,230,238,0.92)';
+    ctx.fillText(t.kind, gx, gy + 1);
+    ctx.restore();
+  }
+
   CELLS.sort((p, q) => q.r - p.r);
 
   // trace le contour lisse d'une cellule dans le chemin courant (sous-chemin ferme).
@@ -1011,6 +1027,21 @@ function drawScene(now) {
 function statRow(label, val, cls) {
   return '<div class="r ' + (cls || '') + '"><span>' + label + '</span><b>' + val + '</b></div>';
 }
+// Ligne « tissus » : effectif + repartition par type (LU de la forme, cote scene.json), avec
+// l'ordre global du pavage en repli quand les types ne sont pas encore connus.
+const TLABEL = { epithelium: 'epithelium', conjonctif: 'conjonctif', muscle: 'muscle', nerveux: 'nerveux', indifferencie: 'indiff.' };
+function tissueRow(L) {
+  const ts = (typeof SCENE !== 'undefined' && SCENE && SCENE.tissues) || [];
+  const n = ts.length || (L && L.tissues_alive) || 0;
+  if (n <= 0) return '';
+  if (ts.length) {
+    const by = {};
+    for (const t of ts) by[t.kind] = (by[t.kind] || 0) + 1;
+    const parts = Object.keys(by).sort((a, b) => by[b] - by[a]).map(k => (TLABEL[k] || k) + ' ' + by[k]);
+    return statRow('tissus', fr(n) + '  ·  ' + parts.join('  ·  '));
+  }
+  return statRow('tissus', fr(n) + '  ·  ordre ' + (((L && L.tissue_order) || 0) * 100).toFixed(0) + ' %');
+}
 const PULSE_DEFS = [
   ['fill', 'remplissage', 'var(--cyan)'],
   ['resources', 'ressources', 'var(--green)'],
@@ -1139,9 +1170,7 @@ function applyLive(L) {
       statRow('formees / dissoutes', fr(L.cells_formed || 0) + ' / ' + fr(L.cells_dissolved || 0)) +
       statRow('fusions', fr(L.cells_merged || 0), 'fus' + (fusionHit ? ' hit' : '')) +
       statRow('divisions', fr(L.cells_divided || 0), 'divs' + (divisionHit ? ' hit' : '')) +
-      ((L.tissues_alive || 0) > 0
-        ? statRow('tissus', fr(L.tissues_alive) + '  ·  ordre ' + ((L.tissue_order || 0) * 100).toFixed(0) + ' %')
-        : '') +
+      tissueRow(L) +
     '</div>' +
     '<div class="h2">Cognition et voix</div><div class="rows">' +
       statRow('agents vivants', fr(L.agents_alive)) +

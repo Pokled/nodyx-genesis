@@ -43,8 +43,32 @@ pub struct ViewFrame {
     /// 1 = appel de nourriture.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub signals: Vec<[u16; 4]>,
+    /// Tissus (0.0.2, vers les organes) : un par groupe adherent, avec un type LU de sa forme
+    /// et de sa composition (pas decrete). L'overlay les nomme comme une espece.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub tissues: Vec<TissueView>,
     pub events: Vec<EventView>,
     pub stats: WorldStats,
+}
+
+/// Un tissu vu de l'exterieur. Le `kind` est une lecture de la geometrie (ordre du pavage,
+/// allongement des cellules, part de cellules a l'abri, presence d'agents) : aucune regle du
+/// moteur ne nomme un type, c'est le meme principe que la cle d'espece.
+#[derive(Debug, Clone, Serialize)]
+pub struct TissueView {
+    pub id: u32,
+    /// "epithelium" (nappe serree), "conjonctif" (trame lache), "muscle" (cellules etirees),
+    /// "nerveux" (peuple d'agents), "indifferencie" (rien ne domine encore).
+    pub kind: &'static str,
+    /// centroide * POS_SCALE, pour poser l'etiquette dans la scene.
+    pub pos: [u16; 2],
+    pub cells: u16,
+    /// ordre orientationnel a 6 plis (psi6) du tissu, 0..1.
+    pub order: f32,
+    /// allongement moyen des cellules du tissu, *100.
+    pub elong: u16,
+    /// nombre moyen de voisines du meme tissu (proxy d'entassement / de pavage).
+    pub bonds: f32,
 }
 
 /// Une cellule : un amas coherent de parents reconnu comme unite. Le lecteur en dessine
@@ -476,6 +500,8 @@ pub fn project(
         })
         .collect();
 
+    let tissues = build_tissues(world);
+
     // Une frame ne porte pas tous les evenements de l'intervalle : sur une grosse
     // population c'est des milliers de naissances et de morts. On garde tous les saillants
     // (chapitres) et une queue des plus recents evenements de routine, assez pour nourrir
@@ -531,6 +557,7 @@ pub fn project(
                 ]
             })
             .collect(),
+        tissues,
         events,
         stats: WorldStats {
             population: world.population(),
@@ -570,6 +597,133 @@ pub fn project(
             mean_memories,
         },
     }
+}
+
+/// Un type de tissu, LU de sa forme et de sa composition. Aucune regle du moteur ne le
+/// nomme : on regarde le pavage (entassement, ordre), l'allongement des cellules et la
+/// presence d'agents, comme on quantifie un genome en cle d'espece. Priorite : nerveux (des
+/// qu'il pense) > muscle (cellules etirees) > epithelium (nappe serree et ordonnee) >
+/// conjonctif (trame lache) > indifferencie (rien ne domine, ou le tissu est jeune).
+fn tissue_kind(
+    bonds: f32,
+    elong: f32,
+    order: f32,
+    agent_frac: f32,
+    ambient_agent: f32,
+    cells: usize,
+) -> &'static str {
+    if cells < 3 {
+        return "indifferencie";
+    }
+    // "nerveux" seulement si le tissu est franchement enrichi en agents par rapport au fond
+    // (sinon, sur un monde tres eveille, tout serait nerveux).
+    if agent_frac >= (ambient_agent * 1.6).max(0.45) {
+        "nerveux"
+    } else if elong >= 1.9 {
+        // cellules nettement etirees (au-dela du seuil de division) : un faisceau contractile
+        "muscle"
+    } else if cells >= 5 && order >= 0.50 {
+        // assez de cellules et un pavage franchement ordonne (signal hexatique / KTHNY) : une nappe
+        "epithelium"
+    } else if cells >= 4 && order < 0.32 && bonds <= 2.6 {
+        // assez de cellules, desordonnees et laches : une trame
+        "conjonctif"
+    } else {
+        // en cours d'organisation, ou entre-deux
+        "indifferencie"
+    }
+}
+
+/// Un `TissueView` par groupe adherent : centroide, effectif, ordre du pavage (psi6 local),
+/// allongement moyen, entassement moyen, et le type qui en decoule. O(cellules^2), la
+/// population de cellules est petite (~50). Deterministe, ordre des ids de tissu.
+fn build_tissues(world: &WorldState) -> Vec<TissueView> {
+    use std::collections::BTreeMap;
+    // cellules groupees par id de tissu (0 = isolee, ignore)
+    let mut groups: BTreeMap<u32, Vec<usize>> = BTreeMap::new();
+    for (k, c) in world.cells.iter().enumerate() {
+        if let Some(tid) = c.tissue {
+            groups.entry(tid).or_default().push(k);
+        }
+    }
+    if groups.is_empty() {
+        return Vec::new();
+    }
+    let (agents_alive, _) = world.agent_stats();
+    let ambient_agent = agents_alive as f32 / world.entities.len().max(1) as f32;
+    // part d'agents par cellule : compte des membres qui portent un Mind, sur le total
+    let mut agents_in_cell: BTreeMap<u32, (u32, u32)> = BTreeMap::new(); // cell_id -> (agents, total)
+    for e in world.entities.iter() {
+        if let Some(cid) = e.cell_id {
+            let ent = agents_in_cell.entry(cid).or_insert((0, 0));
+            ent.1 += 1;
+            if e.mind.is_some() {
+                ent.0 += 1;
+            }
+        }
+    }
+    let mut out = Vec::with_capacity(groups.len());
+    for (tid, idxs) in groups {
+        let m = idxs.len();
+        let (mut cx, mut cy) = (0.0f32, 0.0f32);
+        let (mut elong_sum, mut bonds_sum) = (0.0f32, 0.0f32);
+        let (mut ag, mut tot) = (0u32, 0u32);
+        for &k in &idxs {
+            let c = &world.cells[k];
+            cx += c.position.x;
+            cy += c.position.y;
+            elong_sum += c.elongation;
+            bonds_sum += c.tissue_bonds as f32;
+            if let Some((a, t)) = agents_in_cell.get(&c.id) {
+                ag += a;
+                tot += t;
+            }
+        }
+        cx /= m as f32;
+        cy /= m as f32;
+        let elong = elong_sum / m as f32;
+        let bonds = bonds_sum / m as f32;
+        let agent_frac = if tot > 0 { ag as f32 / tot as f32 } else { 0.0 };
+        // psi6 local : ordre orientationnel a 6 plis des centroides, sur les cellules du tissu
+        // qui ont au moins 3 voisines proches (meme idee que `world.tissue_order`, par tissu).
+        let (mut psi_sum, mut psi_n) = (0.0f64, 0usize);
+        for &k in &idxs {
+            let pk = world.cells[k].position;
+            let mut nb: Vec<f64> = Vec::new();
+            for &j in &idxs {
+                if j == k {
+                    continue;
+                }
+                let pj = world.cells[j].position;
+                let d = ((pj.x - pk.x).powi(2) + (pj.y - pk.y).powi(2)).sqrt();
+                let reach = (world.cells[k].radius + world.cells[j].radius) * 1.6;
+                if d <= reach {
+                    nb.push(((pj.y - pk.y) as f64).atan2((pj.x - pk.x) as f64));
+                }
+            }
+            if nb.len() >= 3 {
+                let (mut re, mut im) = (0.0f64, 0.0f64);
+                for &ang in &nb {
+                    re += (6.0 * ang).cos();
+                    im += (6.0 * ang).sin();
+                }
+                psi_sum += (re * re + im * im).sqrt() / nb.len() as f64;
+                psi_n += 1;
+            }
+        }
+        let order = if psi_n > 0 { (psi_sum / psi_n as f64) as f32 } else { 0.0 };
+        let q = |x: f32| (x * POS_SCALE).round().clamp(0.0, 65535.0) as u16;
+        out.push(TissueView {
+            id: tid,
+            kind: tissue_kind(bonds, elong, order, agent_frac, ambient_agent, m),
+            pos: [q(cx), q(cy)],
+            cells: m.min(u16::MAX as usize) as u16,
+            order,
+            elong: (elong * 100.0).round().clamp(100.0, 65535.0) as u16,
+            bonds,
+        });
+    }
+    out
 }
 
 /// Agrege les entites en amas sur une grille `grid x grid`. Deterministe : on parcourt
