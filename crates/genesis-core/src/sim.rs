@@ -393,7 +393,12 @@ pub fn tick(world: &mut WorldState, cfg: &SimConfig) -> Vec<Event> {
     // -- Phase 5, metabolisme : depense d'energie, repas sur la case.
     // Retenue sur les communs : une entite `cohesion` haute, entouree de parents
     // (`colony_support`), mange un peu moins et fatigue beaucoup moins la case partagee.
+    // Membrane (0.0.2, tranche 2b) : un membre de cellule EN DANGER de famine brule moins
+    // d'energie de base (`cell_burn_relief` * gravite, metabolisme mutualise). Le repli ne
+    // touche que la zone de peril : l'equilibre des temps gras (ou vit la diversite genetique)
+    // ne bouge pas, seul le tampon anti-disette compte. L'avantage de survie du pluricellulaire.
     let energy_ceiling = cfg.reproduction.energy_threshold * 2.0;
+    let cell_burn_relief = cfg.cells.cell_burn_relief.clamp(0.0, 0.9);
     let support_cap = coh.support_cap.max(0.001);
     // Le climat : un corps loin de sa temperature optimale coute plus cher a habiter. La
     // temperature effective du monde oscille avec la saison thermique ; l'optimum propre a
@@ -431,9 +436,17 @@ pub fn tick(world: &mut WorldState, cfg: &SimConfig) -> Vec<Event> {
             // partage l'optimum du monde, `heat_tol` est inerte.
             let organism_optimal = temp_optimal + (e.genome.traits.heat_tol - 0.5) * heat_span;
             let temp_factor = 1.0 + temp_slope * (eff_temp - organism_optimal).abs();
+            let mut burn = base_burn * temp_factor * (0.5 + e.genome.traits.metabolism);
+            if e.cell_id.is_some() && cell_burn_relief > 0.0 && e.energy < peril_energy {
+                // Proportionnel a l'enfoncement dans la zone de peril : nul au seuil, plein a
+                // zero. Un membre bien nourri paie plein tarif, un membre qui frole la mort
+                // profite du metabolisme mutualise de la membrane (tampon anti-disette).
+                let severity = ((peril_energy - e.energy) / peril_energy).clamp(0.0, 1.0);
+                burn *= 1.0 - cell_burn_relief * severity;
+            }
             (
                 e.position,
-                base_burn * temp_factor * (0.5 + e.genome.traits.metabolism),
+                burn,
                 eat_rate * (0.5 + e.genome.traits.efficiency),
                 restraint,
             )

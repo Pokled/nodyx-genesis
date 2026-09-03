@@ -24,6 +24,7 @@ fn ref_cfg() -> SimConfig {
     c.planet.heat_tol_span_c = 0.0;
     c.cells.divide = false;
     c.cells.repel = false;
+    c.cells.cell_burn_relief = 0.0;
     c
 }
 
@@ -788,7 +789,11 @@ fn cells_repel_when_they_overlap_without_fusing() {
     // parentes se repoussent. La repulsion ne bouge que des positions (l'invariant d'effectif
     // tient), et son effet mesurable est une distance au voisin plus grande et une diversite
     // genetique plus haute (les cellules non parentes restent distinctes). Deterministe.
-    let on = SimConfig::default();
+    // On isole la repulsion : `cell_burn_relief` (0.0.2 tranche 2b) rend les cellules plus
+    // nombreuses et noie l'effet de la repulsion sur la diversite, ce test-ci ne varie que
+    // `repel`.
+    let mut on = SimConfig::default();
+    on.cells.cell_burn_relief = 0.0;
     let mut off = on.clone();
     off.cells.repel = false;
 
@@ -834,6 +839,50 @@ fn cells_repel_when_they_overlap_without_fusing() {
          diversite {on_div:.3} vs {off_div:.3}"
     );
     assert_eq!(run(&on).1, on_div, "repulsion non deterministe");
+}
+
+#[test]
+fn cell_burn_relief_buffers_famine_without_distorting_fat_times() {
+    // Membrane (0.0.2, tranche 2b, config seulement) : un membre de cellule EN DANGER de
+    // famine brule moins d'energie de base (`cell_burn_relief` * gravite). Le repli ne touche
+    // que la zone de peril, donc il fait tenir plus de membres de cellule sur le plateau (creux
+    // de disette amortis) SANS gonfler la population en cellule aux temps gras. Le mecanisme ne
+    // touche que l'energie, pas l'appartenance : l'invariant d'effectif tient. Deterministe.
+    let on = SimConfig::default();
+    let mut off = on.clone();
+    off.cells.cell_burn_relief = 0.0;
+
+    let run = |cfg: &SimConfig| -> (f64, f64) {
+        let mut w = WorldState::new(1, cfg);
+        let mut member_ticks = 0.0f64;
+        let mut trough = f64::MAX;
+        let mut n = 0usize;
+        for step in 0..45_000 {
+            let _ = tick(&mut w, cfg);
+            let tagged = w.entities.iter().filter(|e| e.cell_id.is_some()).count() as u32;
+            let members: u32 = w.cells.iter().map(|c| c.member_count).sum();
+            assert_eq!(members, tagged, "effectifs incoherents au tick {}", w.tick);
+            if step >= 22_000 {
+                member_ticks += tagged as f64;
+                trough = trough.min(w.cells.len() as f64);
+                n += 1;
+            }
+            if w.entities.is_empty() {
+                break;
+            }
+        }
+        assert!(n > 20_000, "fenetre trop courte ({n})");
+        (member_ticks / n as f64, trough)
+    };
+
+    let (on_mt, on_trough) = run(&on);
+    let (off_mt, off_trough) = run(&off);
+    assert!(
+        on_mt >= off_mt && on_trough >= off_trough,
+        "le repli anti-famine ne soutient pas les cellules : membres/tick {on_mt:.0} vs \
+         {off_mt:.0}, plancher de cellules {on_trough} vs {off_trough}"
+    );
+    assert_eq!(run(&on).0, on_mt, "cell_burn_relief non deterministe");
 }
 
 #[test]

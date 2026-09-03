@@ -459,6 +459,14 @@ pub struct CellsCfg {
     pub energy_share: f32,
     /// Part d'echec de division en moins pour un membre de cellule (reproduction protegee).
     pub cell_birth_relief: f32,
+    /// Fraction de la depense energetique de base en moins pour un membre de cellule EN DANGER
+    /// de famine (0.0.2, tranche 2b) : membrane partagee, metabolisme mutualise. Le repli est
+    /// proportionnel a l'enfoncement dans la zone de peril (`energy < peril_frac * seuil`) :
+    /// nul pour un membre bien nourri, plein pour un membre qui frole la mort. Il amortit donc
+    /// la disette sans distordre l'equilibre des temps gras ou vit la diversite genetique.
+    /// C'est l'avantage de survie du pluricellulaire (fait tenir les lignees de cellules quand
+    /// un monde sature). Bornee. `0` desactive (bouton d'A/B).
+    pub cell_burn_relief: f32,
 
     /// Fusion : deux cellules stables dont les membranes se chevauchent et dont les genomes
     /// moyens se ressemblent n'en font plus qu'une. La plus grosse garde son identite et son
@@ -511,6 +519,7 @@ impl Default for CellsCfg {
             leave_factor: 1.9,
             energy_share: 0.15,
             cell_birth_relief: 0.4,
+            cell_burn_relief: 0.5,
             fuse: true,
             fuse_overlap: 0.5,
             fuse_kin: 0.9,

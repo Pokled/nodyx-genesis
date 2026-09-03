@@ -114,7 +114,10 @@ moins `min_members`, sinon pas de division. `WorldState.cells_divided_total` cum
 sans RNG, cellules triées par id, une division par cellule et par tick. **La cellule devient
 une unité qui se reproduit** : elle naît (agrégat), grandit, fusionne, se divise ou se
 dissout ; la sélection agit à son niveau (les génomes qui bâtissent des membranes stables et
-grandes se répandent). L'invariant d'effectif tient aussi les ticks de division.
+grandes se répandent). L'invariant d'effectif tient aussi les ticks de division. A/B graine 1,
+120k ticks, contre `divide = false` : 156 divisions, cellules vivantes 28 -> 54, part de la
+population en cellule 13 % -> 22 %, diversité génétique de plateau quasi inchangée (division
+rare : des seuils plus bas l'écrasent, les cellules à succès copiant leur génome).
 
 **Répulsion (v19, config seulement).** En phase 5b (3a), deux cellules dont les membranes se
 frôlent (`distance < 1.6 * (radius1 + radius2)`, une distance de garde et pas seulement le
@@ -130,10 +133,26 @@ fusionnent moins) ; la cohésion ramène vite les membres, l'écart de position 
 ne bouge que de 2 %, mais l'effet sur la diversité est net et se répète. Déterministe (1 vs 8
 threads byte-identique).
 
-A/B graine 1,
-120k ticks, contre `divide = false` : 156 divisions, cellules vivantes 28 -> 54, part de la
-population en cellule 13 % -> 22 %, diversité génétique de plateau quasi inchangée (division
-rare : des seuils plus bas l'écrasent, les cellules à succès copiant leur génome).
+**Membrane, avantage de survie (`cell_burn_relief`, 0.0.2, config seulement).** En phase 5
+(métabolisme), un membre de cellule **en danger de famine** (`energy < peril_frac * seuil de
+repro`) brûle moins d'énergie de base : `burn *= 1 - cell_burn_relief * gravité`, où `gravité`
+est l'enfoncement linéaire dans la zone de péril (0 au seuil, 1 à zéro). Métabolisme mutualisé
+de la membrane. Le repli **ne touche que la zone de péril** : un membre bien nourri paie plein
+tarif, donc l'équilibre des temps gras (où vit la diversité génétique) ne bouge pas ; seul le
+tampon anti-disette compte. C'est l'avantage de survie du pluricellulaire, celui qui manquait :
+sans lui, dans un monde saturé, la sélection récompense le débit de reproduction, érode la
+cohésion et les lignées de cellules s'éteignent (observé dans le monde de référence w2, an 11
+pic à 76 cellules -> ~0 à l'an 28).
+
+Un premier essai à repli **plat** (0,15 quel que soit l'état) l'a montré à l'envers : +150 %
+de cellules mais **-34 %** de diversité génétique de plateau (0,103 -> 0,068), les lignées de
+cellules écrasant le reste. La version ciblée sur la famine réduit ce coût de moitié. A/B
+graine 1, monde complet (grille 192, saisons), 120k ticks, `cell_burn_relief = 0,5` contre
+`0` : cellules vivantes 25,8 -> 50,9 (**+97 %**), part de population en cellule 1098 -> 2201
+(+100 %), morts par famine -18 %, plancher de `cells_alive` 0 -> 3 (les cellules encaissent le
+creux de disette), fusions +74 %, divisions +72 %. Contre-partie : diversité génétique de
+plateau 0,103 -> 0,089 (**-14 %**), du même ordre que le coût de la fusion (-12 %, `007`) : un
+mécanisme qui rend les cellules plus tenaces consolide le pool. Déterministe.
 
 L'étape 2 (vraie dé-simulation) dé-simulera les membres (ils quittent `entities`, la cellule
 devient un bilan) : `population()` et les invariants de conservation gagneront alors un terme

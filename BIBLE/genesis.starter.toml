@@ -163,6 +163,12 @@ persist_checks    = 4      # contrôles consécutifs où le candidat doit tenir 
 leave_factor      = 1.9    # un membre à plus de rayon * ce facteur du centre quitte la cellule
 energy_share      = 0.15   # fraction de l'écart à la moyenne d'énergie de la cellule corrigée par tick
 cell_birth_relief = 0.4    # part d'échec de division en moins pour un membre de cellule
+# Membrane (0.0.2, tranche 2b) : un membre de cellule EN DANGER de famine brûle moins d'énergie
+# de base (métabolisme mutualisé). Le repli est proportionnel à l'enfoncement dans la zone de
+# péril : nul pour un membre bien nourri (l'équilibre des temps gras, où vit la diversité, ne
+# bouge pas), plein pour un membre qui frôle la mort. C'est l'avantage de survie du
+# pluricellulaire, le tampon anti-disette. cell_burn_relief = 0 coupe (A/B).
+cell_burn_relief  = 0.5    # fraction de la dépense de base en moins pour un membre en péril (× gravité)
 # Fusion (schéma v15) : deux cellules stables dont les membranes se chevauchent et dont les
 # génomes moyens se ressemblent n'en font plus qu'une. La plus grosse garde son identité et
 # son histoire, la petite y disparaît. Émergent : aucune règle ne la déclenche, c'est une
