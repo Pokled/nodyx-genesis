@@ -504,6 +504,22 @@ pub struct CellsCfg {
     /// Force de la repulsion : fraction du chevauchement corrigee par tick, par membre.
     /// Bornee, tres douce pour ne pas casser la chimiotaxie ni la cohesion.
     pub repel_strength: f32,
+
+    /// Tissus (0.0.2, config seulement, vers la marche organisme). Des cellules de genome
+    /// proche (`trait_l1 <= tissue_kin`) dont les membranes se touchent
+    /// (`distance < (r1 + r2) * tissue_reach`) sans fusionner adherent : elles forment un
+    /// tissu. Un tissu = composante connexe de telles cellules, d'au moins `tissue_min`
+    /// cellules. Derive chaque tick (union-find sur les ids), pas d'etat serialise en plus
+    /// (`Cell.tissue` porte l'id, `None` si isolee). `false` desactive (bouton d'A/B).
+    pub tissue: bool,
+    /// Facteur de portee de l'adhesion : plus bas = il faut vraiment que les membranes se
+    /// touchent. Entre `fuse_overlap` (interpenetration) et le facteur de repulsion.
+    pub tissue_reach: f32,
+    /// Distance L1 maximale des genomes moyens pour que deux cellules adherent. Plus stricte
+    /// que `fuse_kin` : un tissu est fait de cellules qui se ressemblent vraiment.
+    pub tissue_kin: f32,
+    /// Nombre minimal de cellules pour qu'un groupe compte comme un tissu.
+    pub tissue_min: u32,
 }
 impl Default for CellsCfg {
     fn default() -> Self {
@@ -531,6 +547,10 @@ impl Default for CellsCfg {
             divide_age_ticks: 4000,
             repel: true,
             repel_strength: 0.06,
+            tissue: false,
+            tissue_reach: 1.15,
+            tissue_kin: 0.5,
+            tissue_min: 3,
         }
     }
 }

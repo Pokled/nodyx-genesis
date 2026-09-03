@@ -95,6 +95,12 @@ pub struct Cell {
     /// pour une cellule nee d'un amas d'entites libres. Schema v19.
     #[serde(default)]
     pub parent_cell: Option<u32>,
+    /// Tissu (0.0.2, `[cells] tissue`, config seulement) : l'id du tissu auquel cette cellule
+    /// appartient, `None` si elle est isolee. Un tissu = composante connexe de cellules de
+    /// genome proche dont les membranes adherent. Derive chaque tick (pas d'etat persistant),
+    /// l'id du tissu est le plus petit id de cellule du groupe.
+    #[serde(default)]
+    pub tissue: Option<u32>,
 }
 
 fn one_f32() -> f32 {
@@ -197,6 +203,9 @@ pub struct WorldState {
     pub cells_merged_total: u64,
     #[serde(default)]
     pub cells_divided_total: u64,
+    /// Tissus vivants a cet instant (0.0.2, `[cells] tissue`). Derive chaque tick, pas cumule.
+    #[serde(default)]
+    pub tissues_alive: u32,
 
     /// La Voix (0.0.4) : les signaux vivants du monde. Vides la plupart du temps ; en famine,
     /// une nuee d'alarmes. Bornes en nombre et en duree (voir `[voice]`).
@@ -279,6 +288,7 @@ impl WorldState {
             cells_dissolved_total: 0,
             cells_merged_total: 0,
             cells_divided_total: 0,
+            tissues_alive: 0,
             signals: Vec::new(),
             watch: Watch {
                 pop_history: Vec::new(),

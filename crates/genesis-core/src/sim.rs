@@ -1373,6 +1373,7 @@ fn cell_phase(
                 mean_traits: mean,
                 elongation: 1.0,
                 parent_cell: Some(parent_id),
+                tissue: None,
             });
             let at = if let Some(pc) = world.cell_mut(parent_id) {
                 pc.member_count = pc.member_count.saturating_sub(leaving.len() as u32);
@@ -1397,11 +1398,81 @@ fn cell_phase(
         }
     }
 
+    // -- 3d. Tissus (0.0.2, `[cells] tissue`, config seulement). Des cellules de genome proche
+    //    (`trait_l1 <= tissue_kin`) dont les membranes se touchent (`distance <
+    //    (r1 + r2) * tissue_reach`) adherent : elles forment un tissu. Un tissu = composante
+    //    connexe de telles cellules, d'au moins `tissue_min` membres. Derive chaque tick,
+    //    union-find sur les positions, ordre stable (cellules triees par id) ; l'id du tissu
+    //    est le plus petit id de cellule du groupe. Pas d'etat serialise, pas d'hysteresis.
+    tissue_pass(world, &cc, t);
+
     // -- 4. Detection de nouvelles cellules, tous les `check_every` ticks.
     if cc.check_every == 0 || t % cc.check_every != 0 {
         return;
     }
     cell_detect(world, &cc, space, t, events);
+}
+
+fn tissue_pass(world: &mut WorldState, cc: &crate::config::CellsCfg, _t: u64) {
+    if !cc.tissue || world.cells.len() < 2 {
+        for c in world.cells.iter_mut() {
+            c.tissue = None;
+        }
+        return;
+    }
+    let n = world.cells.len();
+    let mut order: Vec<usize> = (0..n).collect();
+    order.sort_by_key(|&k| world.cells[k].id);
+
+    let mut uf: Vec<usize> = (0..n).collect();
+    fn find(uf: &mut [usize], mut x: usize) -> usize {
+        while uf[x] != x {
+            uf[x] = uf[uf[x]];
+            x = uf[x];
+        }
+        x
+    }
+    for ii in 0..n {
+        for jj in (ii + 1)..n {
+            let (a, b) = (order[ii], order[jj]);
+            let (ca, cb) = (&world.cells[a], &world.cells[b]);
+            let reach = (ca.radius + cb.radius) * cc.tissue_reach.max(0.1);
+            if ca.position.dist2(&cb.position) > reach * reach {
+                continue;
+            }
+            if trait_l1(&ca.mean_traits, &cb.mean_traits) > cc.tissue_kin {
+                continue;
+            }
+            let (ra, rb) = (find(&mut uf, a), find(&mut uf, b));
+            if ra != rb {
+                // rattacher a la racine dont la cellule a le plus petit id : id de tissu stable
+                let (lo, hi) = if world.cells[ra].id <= world.cells[rb].id { (ra, rb) } else { (rb, ra) };
+                uf[hi] = lo;
+            }
+        }
+    }
+    let mut sizes: std::collections::HashMap<usize, u32> = std::collections::HashMap::new();
+    for k in 0..n {
+        let r = find(&mut uf, k);
+        *sizes.entry(r).or_insert(0) += 1;
+    }
+    for k in 0..n {
+        let r = find(&mut uf, k);
+        world.cells[k].tissue = if sizes[&r] >= cc.tissue_min.max(2) {
+            Some(world.cells[r].id)
+        } else {
+            None
+        };
+    }
+    world.tissues_alive = {
+        let mut ids: std::collections::HashSet<u32> = std::collections::HashSet::new();
+        for c in &world.cells {
+            if let Some(id) = c.tissue {
+                ids.insert(id);
+            }
+        }
+        ids.len() as u32
+    };
 }
 
 /// Detection d'amas coherents de parents, avec persistance. Emet `CellFormed`.
@@ -1553,6 +1624,7 @@ fn cell_detect(
                 mean_traits: mean,
                 elongation: 1.0,
                 parent_cell: None,
+                tissue: None,
             });
             world.cells_formed_total += 1;
             emit(

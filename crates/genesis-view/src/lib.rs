@@ -68,6 +68,10 @@ pub struct CellView {
     /// se dessine avec un contour plus vif.
     #[serde(default)]
     pub age: u32,
+    /// id du tissu (0.0.2, `[cells] tissue`), `0` si la cellule est isolee. L'overlay dessine
+    /// une nappe autour des cellules d'un meme tissu.
+    #[serde(default)]
+    pub tissue: u32,
 }
 
 /// Un amas : plusieurs entites d'une meme region resumees en un point. Ce qui rend un
@@ -240,6 +244,8 @@ pub struct WorldStats {
 
     /// Cellules (0.0.2, tranche 2) : vivantes, entites en cellule, taille moyenne.
     pub cells_alive: u32,
+    #[serde(default)]
+    pub tissues_alive: u32,
     pub entities_in_cells: u32,
     pub mean_cell_size: f32,
     pub cells_formed_total: u64,
@@ -274,6 +280,8 @@ pub struct SeriesRow {
     /// Indice de la lignee fondatrice la plus repandue (le lecteur en tire un nom).
     pub dominant_lineage: u16,
     pub cells_alive: u32,
+    #[serde(default)]
+    pub tissues_alive: u32,
     pub entities_in_cells: u32,
     /// Agents vivants (0.0.3, tranche 1).
     pub agents_alive: u32,
@@ -311,6 +319,7 @@ pub fn series_row(world: &WorldState, cfg: &SimConfig) -> SeriesRow {
         genetic_diversity: world.genetic_diversity(),
         dominant_lineage: world.dominant_lineage(),
         cells_alive,
+        tissues_alive: world.tissues_alive,
         entities_in_cells,
         agents_alive,
         carrying_capacity,
@@ -446,6 +455,7 @@ pub fn project(
                 genome,
                 elong: (c.elongation * 100.0).round().clamp(100.0, 65535.0) as u16,
                 age: world.tick.saturating_sub(c.formed_tick).min(u32::MAX as u64) as u32,
+                tissue: c.tissue.unwrap_or(0),
             }
         })
         .collect();
@@ -534,6 +544,7 @@ pub fn project(
             matter_locked_fraction,
             repro_blocked_materials: world.repro_blocked_materials,
             cells_alive,
+            tissues_alive: world.tissues_alive,
             entities_in_cells,
             mean_cell_size,
             cells_formed_total: world.cells_formed_total,

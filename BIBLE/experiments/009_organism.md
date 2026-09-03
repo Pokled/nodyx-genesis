@@ -71,6 +71,22 @@ detectees des entites : proximite + parente + persistance, un cran au-dessus.
 Cout : moyen. Reutilise l'infra cellule. Pas de rupture d'invariant (etape 1). Le risque :
 que le pool de ressources trop genereux ecrase la selection locale.
 
+**Premier pas fait (2026-09-03) : l'adhesion / le tissu.** `[cells] tissue` (defaut false,
+config seulement). Des cellules de genome proche (`trait_l1 <= tissue_kin`, plus strict que
+`fuse_kin`) dont les membranes se touchent (`distance < (r1 + r2) * tissue_reach`) sans
+fusionner adherent : un **tissu** = composante connexe de telles cellules, d'au moins
+`tissue_min` cellules. Derive chaque tick (union-find sur les positions, ordre d'id, l'id du
+tissu = le plus petit id de cellule du groupe), pas d'etat serialise en plus (`Cell.tissue`
+porte l'id, `#[serde(default)]`, schema v19 inchange). `world.tissues_alive`, `CellView.tissue`
+pour l'overlay. Phase 5b (3d), apres fusion/division, sequentiel sans RNG.
+
+C'est la **liaison** de la piste A, sans l'`organism_id` persistant ni le pool de ressources
+ni les roles : juste « ces cellules sont une meme etoffe ». Pas d'hysteresis pour l'instant, le
+compte de tissus flotte un peu. Ce qui manque pour que ce soit un vrai tissu (`Taille.md` :
+cellules specialisees + une meme fonction) : les **roles** (germinal / somatique / structurel /
+nourricier), suivants. Overlay : une nappe radiale douce + des liens d'adhesion sous les
+membranes ; il faudra une vraie enveloppe de la forme du tissu quand il comptera vraiment.
+
 ### Piste B : la ligne germinale (le plus fidele a la biologie)
 
 On saute la colonie et on va directement a l'idee-cle : **une seule cellule d'un groupe se

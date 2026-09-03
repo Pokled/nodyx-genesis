@@ -198,6 +198,14 @@ divide_age_ticks  = 4000  # âge minimal avant la première division
 # traverser. repel = false coupe (A/B).
 repel             = true
 repel_strength    = 0.06  # fraction du chevauchement corrigée par tick, par membre (bornée)
+# Tissus (0.0.2, vers la marche organisme). Des cellules de génome proche (trait_l1 <=
+# tissue_kin) dont les membranes se touchent (distance < (r1+r2) * tissue_reach) sans fusionner
+# adhèrent : elles forment un tissu (composante connexe, >= tissue_min cellules). Dérivé chaque
+# tick, pas d'état sérialisé (Cell.tissue porte l'id). tissue = false coupe (A/B).
+tissue            = false
+tissue_reach      = 1.15  # facteur de portée de l'adhésion (membranes qui se touchent)
+tissue_kin        = 0.5   # distance L1 max des génomes moyens (plus stricte que fuse_kin)
+tissue_min        = 3     # nombre minimal de cellules pour un tissu
 
 [predation]
 # Prédation (0.0.2, experiments/012_predation.md). Une entité qui a faim (energy < hunt_below)

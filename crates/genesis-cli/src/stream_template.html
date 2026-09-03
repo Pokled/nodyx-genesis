@@ -489,8 +489,37 @@ function drawScene(now) {
       pts.push([x + lx * ca - ly * sa, y + lx * sa + ly * ca]);
     }
     // robustesse : une grosse cellule (grand rayon) impose sa forme a la petite.
-    CELLS.push({ x, y, r, h, big, young, ph, N, pts });
+    CELLS.push({ x, y, r, h, big, young, ph, N, pts, tissue: c.tissue || 0 });
   }
+
+  // tissus : une nappe douce sous les cellules qui adherent (0.0.2, `[cells] tissue`). Un
+  // lavis radial par tissu, teinte du genome moyen du groupe, dessine avant les membranes.
+  const tg = {};
+  for (const A of CELLS) if (A.tissue) (tg[A.tissue] = tg[A.tissue] || []).push(A);
+  for (const id in tg) {
+    const g = tg[id]; if (g.length < 2) continue;
+    let cx = 0, cy = 0; for (const A of g) { cx += A.x; cy += A.y; }
+    cx /= g.length; cy /= g.length;
+    let rad = 0; for (const A of g) rad = Math.max(rad, Math.hypot(A.x - cx, A.y - cy) + A.r);
+    rad *= 1.12;
+    const hue = g[0].h;
+    const grd = ctx.createRadialGradient(cx, cy, rad * 0.25, cx, cy, rad);
+    grd.addColorStop(0, 'hsla(' + hue + ',62%,60%,0.16)');
+    grd.addColorStop(0.7, 'hsla(' + hue + ',58%,52%,0.07)');
+    grd.addColorStop(1, 'hsla(' + hue + ',56%,48%,0)');
+    ctx.fillStyle = grd;
+    ctx.beginPath(); ctx.arc(cx, cy, rad, 0, 6.2832); ctx.fill();
+    // liens d'adhesion : un trait epais et pale entre cellules voisines du meme tissu.
+    ctx.strokeStyle = 'hsla(' + hue + ',72%,70%,0.24)';
+    ctx.lineWidth = 6; ctx.lineCap = 'round';
+    for (let i = 0; i < g.length; i++) for (let j = i + 1; j < g.length; j++) {
+      const dd = Math.hypot(g[i].x - g[j].x, g[i].y - g[j].y);
+      if (dd < (g[i].r + g[j].r) * 1.35) {
+        ctx.beginPath(); ctx.moveTo(g[i].x, g[i].y); ctx.lineTo(g[j].x, g[j].y); ctx.stroke();
+      }
+    }
+  }
+
   CELLS.sort((p, q) => q.r - p.r);
 
   // trace le contour lisse d'une cellule dans le chemin courant (sous-chemin ferme).
@@ -788,6 +817,7 @@ function applyLive(L) {
       statRow('formees / dissoutes', fr(L.cells_formed || 0) + ' / ' + fr(L.cells_dissolved || 0)) +
       statRow('fusions', fr(L.cells_merged || 0), 'fus' + (fusionHit ? ' hit' : '')) +
       statRow('divisions', fr(L.cells_divided || 0), 'divs' + (divisionHit ? ' hit' : '')) +
+      ((L.tissues_alive || 0) > 0 ? statRow('tissus', fr(L.tissues_alive)) : '') +
     '</div>' +
     '<div class="h2">Cognition et voix</div><div class="rows">' +
       statRow('agents vivants', fr(L.agents_alive)) +

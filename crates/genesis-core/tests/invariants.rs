@@ -842,6 +842,56 @@ fn cells_repel_when_they_overlap_without_fusing() {
 }
 
 #[test]
+fn tissues_form_from_adhering_kin_cells() {
+    // Tissus (0.0.2, `[cells] tissue`, config seulement). Des cellules de genome proche dont
+    // les membranes se touchent adherent en tissu (composante connexe, >= tissue_min). Derive
+    // chaque tick, `Cell.tissue` porte l'id, l'id du tissu est le plus petit id de cellule du
+    // groupe. Verifie : il s'en forme (graine 1), un tissu a >= tissue_min cellules, toutes ses
+    // cellules partagent le meme id, `tissue = false` -> toutes None. Deterministe.
+    let mut on = SimConfig::default();
+    on.cells.tissue = true;
+    // seuils un peu plus laches pour que ca tombe dans une fenetre courte a l'echelle 128x128
+    on.cells.tissue_kin = 0.8;
+    on.cells.tissue_reach = 1.3;
+    let mut off = on.clone();
+    off.cells.tissue = false;
+
+    let run = |cfg: &SimConfig| -> (u32, bool) {
+        let mut w = WorldState::new(1, cfg);
+        let mut max_tissue = 0u32;
+        let mut consistent = true;
+        for _ in 0..45_000 {
+            let _ = tick(&mut w, cfg);
+            // groupe les cellules par id de tissu, verifie taille et coherence
+            let mut by: std::collections::HashMap<u32, Vec<u32>> = std::collections::HashMap::new();
+            for c in &w.cells {
+                if let Some(tid) = c.tissue {
+                    by.entry(tid).or_default().push(c.id);
+                    // l'id du tissu doit etre l'id d'une cellule vivante du groupe
+                    if !w.cells.iter().any(|d| d.id == tid && d.tissue == Some(tid)) {
+                        consistent = false;
+                    }
+                }
+            }
+            for (_tid, ids) in &by {
+                max_tissue = max_tissue.max(ids.len() as u32);
+            }
+            if w.entities.is_empty() {
+                break;
+            }
+        }
+        (max_tissue, consistent)
+    };
+
+    let (on_max, on_consistent) = run(&on);
+    let (off_max, _) = run(&off);
+    assert!(on_max >= on.cells.tissue_min, "aucun tissu de taille >= {} (graine 1)", on.cells.tissue_min);
+    assert!(on_consistent, "id de tissu incoherent (pointe une cellule hors du groupe)");
+    assert_eq!(off_max, 0, "tissu forme alors que tissue = false");
+    assert_eq!(run(&on).0, on_max, "detection de tissu non deterministe");
+}
+
+#[test]
 fn predation_kills_the_weak_and_conserves_the_death_count() {
     // Predation (0.0.2, experiments/012, config seulement, `[predation] enabled`). Une entite
     // affamee mange une entite nettement plus faible a portee : la proie meurt par predation,
