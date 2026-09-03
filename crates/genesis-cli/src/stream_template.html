@@ -318,6 +318,13 @@ function resize() {
 window.addEventListener('resize', resize); resize();
 
 const fr = n => Number(n || 0).toLocaleString('fr-FR');
+// compact : 1 234 -> 1,2k ; 45 561 -> 46k ; garde les petits nombres tels quels.
+const frk = n => {
+  n = Number(n || 0);
+  if (n < 1000) return String(n);
+  if (n < 10000) return (n / 1000).toFixed(1).replace('.', ',') + 'k';
+  return Math.round(n / 1000) + 'k';
+};
 const pad = n => String(n).padStart(2, '0');
 
 // Duree en temps-monde, courte : « 3 ans », « 40 j », « 6 h ».
@@ -755,8 +762,9 @@ function applyLive(L) {
       statRow('capacite', fr(L.carrying_capacity)) +
       statRow('naissances', fr(L.births)) +
       statRow('morts de faim', fr(L.deaths_starv)) +
-      statRow('morts d\'age', fr(L.deaths_age)) +
-      ((L.deaths_predation || 0) > 0 ? statRow('morts mangees', fr(L.deaths_predation)) : '') +
+      ((L.deaths_predation || 0) > 0
+        ? statRow('morts age / proie', frk(L.deaths_age) + ' · ' + frk(L.deaths_predation))
+        : statRow('morts d\'age', fr(L.deaths_age))) +
       statRow('energie moy.', (L.mean_energy_pct * 100).toFixed(0) + ' %') +
     '</div>' +
     '<div class="h2">Evolution</div><div class="rows">' +
