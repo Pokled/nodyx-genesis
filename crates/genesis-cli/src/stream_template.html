@@ -446,6 +446,11 @@ function drawScene(now) {
   // qui ondule (l'ondulation gonfle avec l'allongement : une cellule proche de la division
   // se deforme), un noyau qui bat. Une cellule jeune (division ou fusion recente) a le
   // contour plus vif. ~50 cellules par image, sans shadowBlur : ca tient a 24 fps.
+  //
+  // Deux passes : 1) on calcule centre, rayon et contour de chaque cellule ; 2) on trace de la
+  // moins robuste a la plus robuste, chaque cellule decoupee (clip) hors des cellules plus
+  // robustes qu'elle chevauche -> les membranes se touchent et s'epousent sans se croiser.
+  const CELLS = [];
   for (const c of (S.cells || [])) {
     const x = ox + (c.pos[0] / PS) * s, y = oy + (c.pos[1] / PS) * s;
     const r = Math.max(7, (c.radius / PS) * s);
@@ -460,7 +465,7 @@ function drawScene(now) {
     // squash d'ellipse (allongement), sans orientation connue : le long d'un axe fixe par
     // cellule, doux. sx*sy = 1 -> aire conservee.
     const ang = (c.pos[0] * 0.7 + c.pos[1] * 0.9) % 6.2832;
-    const es = Math.min(0.32, (elong - 1) * 0.5);
+    const es = Math.min(0.22, (elong - 1) * 0.42);
     const ca = Math.cos(ang), sa = Math.sin(ang);
 
     // contour organique : 20 points, courbes quadratiques. Rayon = base * (1 + petite
@@ -475,14 +480,36 @@ function drawScene(now) {
       lx *= (1 + es); ly *= (1 - es * 0.6);
       pts.push([x + lx * ca - ly * sa, y + lx * sa + ly * ca]);
     }
-    ctx.beginPath();
-    ctx.moveTo((pts[0][0] + pts[N - 1][0]) / 2, (pts[0][1] + pts[N - 1][1]) / 2);
-    for (let i = 0; i < N; i++) {
-      const p = pts[i], q = pts[(i + 1) % N];
+    // robustesse : une grosse cellule (grand rayon) impose sa forme a la petite.
+    CELLS.push({ x, y, r, h, big, young, ph, N, pts });
+  }
+  CELLS.sort((p, q) => q.r - p.r);
+
+  // trace le contour lisse d'une cellule dans le chemin courant (sous-chemin ferme).
+  const cellPath = (pts) => {
+    const n = pts.length;
+    ctx.moveTo((pts[0][0] + pts[n - 1][0]) / 2, (pts[0][1] + pts[n - 1][1]) / 2);
+    for (let i = 0; i < n; i++) {
+      const p = pts[i], q = pts[(i + 1) % n];
       ctx.quadraticCurveTo(p[0], p[1], (p[0] + q[0]) / 2, (p[1] + q[1]) / 2);
     }
     ctx.closePath();
+  };
 
+  // passe 2 : trace (contour ferme = la plus robuste, dessinee en dernier, au-dessus). Un
+  // clip par voisine plus robuste -> pas de fuite quand trois membranes se recouvrent.
+  for (let ai = CELLS.length - 1; ai >= 0; ai--) {
+    const A = CELLS[ai];
+    const x = A.x, y = A.y, r = A.r, h = A.h, big = A.big, young = A.young, ph = A.ph, pts = A.pts;
+    ctx.save();
+    for (let bi = 0; bi < ai; bi++) {
+      const B = CELLS[bi];
+      const dx = A.x - B.x, dy = A.y - B.y, reach = (A.r + B.r) * 1.3;
+      if (dx * dx + dy * dy > reach * reach) continue;
+      ctx.beginPath(); ctx.rect(0, 0, W, H); cellPath(B.pts); ctx.clip('evenodd');
+    }
+
+    ctx.beginPath(); cellPath(pts);
     // masse : gradient radial doux, centre plus lumineux
     const g = ctx.createRadialGradient(x, y, r * 0.12, x, y, r * 1.1);
     g.addColorStop(0, 'hsla(' + h + ',72%,63%,' + (0.11 + big * 0.13).toFixed(3) + ')');
@@ -499,6 +526,7 @@ function drawScene(now) {
     const beat = 1 + 0.2 * Math.sin(ph * 2.1);
     ctx.fillStyle = 'hsla(' + h + ',88%,85%,' + (0.28 + big * 0.44).toFixed(2) + ')';
     ctx.beginPath(); ctx.arc(x, y, (1.6 + big * 2.6) * beat, 0, 6.2832); ctx.fill();
+    ctx.restore();
   }
   const fnow = now;
   fx = fx.filter(f => fnow - f.t0 < 2400);

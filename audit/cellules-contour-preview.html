@@ -1,0 +1,89 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Contour cellule - contact</title>
+<style>body{margin:0;background:#081016}canvas{display:block}</style></head><body>
+<canvas id="c" width="1280" height="860"></canvas>
+<script>
+window.onerror = (m) => { document.title = "ERREUR: " + m; };
+const cv = document.getElementById('c'); const ctx = cv.getContext('2d');
+const W = cv.width, H = cv.height;
+ctx.fillStyle = '#0b1a22'; ctx.fillRect(0, 0, W, H);
+
+// --- bloc copie de stream_template.html (rendu des cellules, 2 passes) ---
+function buildCell(cx, cy, r, hue, elongPct, count, age, tsec, seed) {
+  const c = { hue, elong: elongPct, count, age, pos: seed };
+  const x = cx, y = cy;
+  let d = ((c.hue - 188) % 360 + 540) % 360 - 180; const h = (188 + d * 0.55).toFixed(0);
+  const big = Math.min(1, (c.count || 12) / 140);
+  const elong = Math.max(1, Math.min(2.4, (c.elong || 100) / 100));
+  const wob = Math.min(0.16, 0.05 + (elong - 1) * 0.12);
+  const young = 1 - Math.min(1, (c.age || 99999) / 2400);
+  const ph = tsec * 1.1 + (c.pos[0] + c.pos[1]) * 0.05;
+  const ang = (c.pos[0] * 0.7 + c.pos[1] * 0.9) % 6.2832;
+  const es = Math.min(0.22, (elong - 1) * 0.42);
+  const ca = Math.cos(ang), sa = Math.sin(ang);
+  const N = 20, pts = [];
+  for (let i = 0; i < N; i++) {
+    const a = i / N * 6.2832;
+    const rr = r * (1 + wob * Math.sin(a * 3 + ph) + wob * 0.4 * Math.sin(a * 2 - ph * 0.8));
+    let ex = Math.cos(a) * rr, ey = Math.sin(a) * rr;
+    let lx = ex * ca + ey * sa, ly = -ex * sa + ey * ca;
+    lx *= (1 + es); ly *= (1 - es * 0.6);
+    pts.push([x + lx * ca - ly * sa, y + lx * sa + ly * ca]);
+  }
+  return { x, y, r, h, big, young, ph, N, pts };
+}
+const cellPath = (pts) => {
+  const n = pts.length;
+  ctx.moveTo((pts[0][0] + pts[n - 1][0]) / 2, (pts[0][1] + pts[n - 1][1]) / 2);
+  for (let i = 0; i < n; i++) {
+    const p = pts[i], q = pts[(i + 1) % n];
+    ctx.quadraticCurveTo(p[0], p[1], (p[0] + q[0]) / 2, (p[1] + q[1]) / 2);
+  }
+  ctx.closePath();
+};
+function drawGroup(CELLS) {
+  CELLS.sort((p, q) => q.r - p.r);
+  for (let ai = CELLS.length - 1; ai >= 0; ai--) {
+    const A = CELLS[ai];
+    const x = A.x, y = A.y, r = A.r, h = A.h, big = A.big, young = A.young, ph = A.ph, pts = A.pts;
+    ctx.save();
+    for (let bi = 0; bi < ai; bi++) {
+      const B = CELLS[bi];
+      const dx = A.x - B.x, dy = A.y - B.y, reach = (A.r + B.r) * 1.3;
+      if (dx * dx + dy * dy > reach * reach) continue;
+      ctx.beginPath(); ctx.rect(0, 0, W, H); cellPath(B.pts); ctx.clip('evenodd');
+    }
+    ctx.beginPath(); cellPath(pts);
+    const g = ctx.createRadialGradient(x, y, r * 0.12, x, y, r * 1.1);
+    g.addColorStop(0, 'hsla(' + h + ',72%,63%,' + (0.11 + big * 0.13).toFixed(3) + ')');
+    g.addColorStop(0.7, 'hsla(' + h + ',66%,55%,' + (0.05 + big * 0.06).toFixed(3) + ')');
+    g.addColorStop(1, 'hsla(' + h + ',64%,50%,0)');
+    ctx.fillStyle = g; ctx.fill();
+    ctx.strokeStyle = 'hsla(' + h + ',80%,' + (72 + big * 10 + young * 12).toFixed(0) + '%,' + (0.5 + big * 0.35 + young * 0.3).toFixed(2) + ')';
+    ctx.lineWidth = 1.2 + big * 1.9 + young * 1.6;
+    ctx.stroke();
+    const beat = 1 + 0.2 * Math.sin(ph * 2.1);
+    ctx.fillStyle = 'hsla(' + h + ',88%,85%,' + (0.28 + big * 0.44).toFixed(2) + ')';
+    ctx.beginPath(); ctx.arc(x, y, (1.6 + big * 2.6) * beat, 0, 6.2832); ctx.fill();
+    ctx.restore();
+  }
+}
+// --- fin bloc copie ---
+
+const scenes = [
+  { t: 'paire egale', cells: [[0,0,44,150,110],[62,10,44,265,110]] },
+  { t: 'grosse + petite', cells: [[0,0,58,180,105],[70,6,32,60,150],[-8,66,30,300,120]] },
+  { t: 'allongees', cells: [[0,0,46,150,210],[58,20,42,30,190],[10,-52,40,255,160]] },
+  { t: 'grappe serree', cells: [[0,0,40,150,120],[46,8,38,40,130],[20,44,36,280,110],[-30,30,34,200,140],[-24,-30,32,90,120]] },
+  { t: 'division imminente', cells: [[0,0,60,150,240],[64,4,58,210,235]] },
+  { t: 'enfilade', cells: [[-70,0,40,150,150],[-8,6,44,300,150],[54,-4,40,60,150]] },
+];
+ctx.font = '13px system-ui';
+scenes.forEach((sc, k) => {
+  const gx = 170 + (k % 3) * 400, gy = 200 + Math.floor(k / 3) * 400;
+  ctx.fillStyle = '#9cc'; ctx.fillText(sc.t, gx - 130, gy - 140);
+  const CELLS = sc.cells.map((d, i) =>
+    buildCell(gx + d[0], gy + d[1], d[2], d[3], d[4], 40, i < 2 ? 4000 : 200, k * 0.5 + i, [k * 3 + i * 2.1, k * 1.7 - i * 1.3]));
+  drawGroup(CELLS);
+});
+document.title = document.title.startsWith('ERREUR') ? document.title : 'OK';
+</script></body></html>
