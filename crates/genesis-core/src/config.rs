@@ -543,6 +543,23 @@ pub struct CellsCfg {
     /// de bord reversee chaque tick aux membres des cellules interieures du meme tissu. `0` :
     /// l'abri protege de la predation mais ne nourrit pas le coeur (A/B secondaire).
     pub shelter_feed: f32,
+
+    /// Contraction musculaire (0.0.2, vers la locomotion ; config seulement). Une cellule d'un
+    /// tissu dont les membres forment un nuage nettement etire (`elongation >= muscle_elong`)
+    /// exerce une force axiale OSCILLANTE sur ses membres : elle se resserre et se relache au
+    /// rythme d'une onde qui traverse le tissu. Aucune regle ne nomme un muscle : c'est une
+    /// condition sur l'allongement (mesure) et l'appartenance a un tissu (emergent). Ce que ca
+    /// produit (le tissu qui bat, un courant qui pousse ce qui l'entoure, un debut de reptation)
+    /// est laisse a l'emergence. `false` desactive (bouton d'A/B).
+    pub muscle_contract: bool,
+    /// Allongement moyen du nuage de membres au-dela duquel une cellule en tissu devient
+    /// contractile. Au-dela du seuil de division (`divide_elongation`), une cellule vraiment
+    /// fusiforme.
+    pub muscle_elong: f32,
+    /// Amplitude du deplacement axial par membre et par tick, au pic de la contraction. Bornee.
+    pub muscle_strength: f32,
+    /// Periode du cycle contraction / relachement, en ticks.
+    pub muscle_period_ticks: u32,
 }
 impl Default for CellsCfg {
     fn default() -> Self {
@@ -578,6 +595,10 @@ impl Default for CellsCfg {
             tissue_shelter: false,
             shelter_bonds: 4,
             shelter_feed: 0.12,
+            muscle_contract: false,
+            muscle_elong: 1.8,
+            muscle_strength: 0.18,
+            muscle_period_ticks: 500,
         }
     }
 }

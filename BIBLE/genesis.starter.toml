@@ -215,6 +215,15 @@ tissue_pull       = 0.04  # traction d'adhésion : rapproche les cellules d'un t
 tissue_shelter    = false
 shelter_bonds     = 4     # nb de voisines du même tissu à partir duquel une cellule est "intérieure"
 shelter_feed      = 0.12  # fraction du surplus des cellules de bord reversée au cœur (0 = abri sans nourrissage)
+# Contraction musculaire (0.0.2, vers la locomotion). Une cellule d'un tissu dont les membres
+# forment un nuage nettement étiré (elongation >= muscle_elong) exerce une force axiale
+# OSCILLANTE : elle se resserre et se relâche, déphasée le long d'une onde qui traverse le tissu,
+# et pousse un peu les entités libres proches. Aucune règle ne nomme un muscle : c'est une
+# condition sur l'allongement et l'appartenance à un tissu. muscle_contract = false coupe (A/B).
+muscle_contract   = false
+muscle_elong      = 1.8   # allongement moyen du nuage de membres au-delà duquel une cellule devient contractile
+muscle_strength   = 0.18  # amplitude du déplacement axial par membre au pic de contraction (bornée)
+muscle_period_ticks = 500 # période du cycle contraction / relâchement
 
 [predation]
 # Prédation (0.0.2, experiments/012_predation.md). Une entité qui a faim (energy < hunt_below)

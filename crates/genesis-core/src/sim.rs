@@ -1440,6 +1440,13 @@ fn cell_phase(
     //    gardee avec un id stable. Aux controles seulement.
     organism_pass(world, &cfg.organism, t, events);
 
+    // -- 3f. Contraction musculaire (0.0.2, `[cells] muscle_contract`). Une cellule d'un tissu
+    //    dont le nuage de membres est nettement etire exerce une force axiale oscillante : elle
+    //    se resserre et se relache, dephasee le long d'une onde qui traverse le tissu.
+    if cc.muscle_contract && !world.cells.is_empty() {
+        muscle_pass(world, &cc, space, t);
+    }
+
     // -- 4. Detection de nouvelles cellules, tous les `check_every` ticks.
     if cc.check_every == 0 || t % cc.check_every != 0 {
         return;
@@ -1615,6 +1622,108 @@ fn organism_pass(
     survivors.sort_by_key(|o| o.id);
     world.organisms = survivors;
     world.watch.org_pending = new_pending;
+}
+
+/// Contraction musculaire (0.0.2, `[cells] muscle_contract`). Pour chaque cellule d'un tissu
+/// dont les membres forment un nuage assez fusiforme (`elongation >= muscle_elong`) : une force
+/// axiale oscillante (resserrement le long du grand axe, gonflement le long du petit),
+/// dephasee par une onde qui traverse le tissu. Un peu de courant sur les entites libres
+/// proches, pendant la phase active. Sequentiel, sans RNG, ordre des id ; poussee accumulee
+/// par entite puis appliquee, bornee, gardee dans la grille.
+fn muscle_pass(world: &mut WorldState, cc: &crate::config::CellsCfg, space: &Space, t: u64) {
+    let elong_min = cc.muscle_elong.max(1.0);
+    let strength = cc.muscle_strength.max(0.0);
+    let period = cc.muscle_period_ticks.max(1) as f32;
+    if strength <= 0.0 {
+        return;
+    }
+    let n = world.cells.len();
+    // Rien a faire s'il n'y a aucune cellule assez fusiforme en tissu : on evite meme de
+    // construire les tables (le cas le plus frequent).
+    if !world
+        .cells
+        .iter()
+        .any(|c| c.tissue.is_some() && c.elongation >= elong_min)
+    {
+        return;
+    }
+    let slot: std::collections::HashMap<u32, usize> =
+        world.cells.iter().enumerate().map(|(k, c)| (c.id, k)).collect();
+    let mut mem: Vec<Vec<usize>> = vec![Vec::new(); n];
+    for (i, e) in world.entities.iter().enumerate() {
+        if let Some(id) = e.cell_id {
+            if let Some(&k) = slot.get(&id) {
+                mem[k].push(i);
+            }
+        }
+    }
+    // Cellules contractiles, dans l'ordre des id (deterministe).
+    let mut order: Vec<usize> = (0..n).collect();
+    order.sort_by_key(|&k| world.cells[k].id);
+
+    let mut push = vec![(0.0f32, 0.0f32); world.entities.len()];
+    let two_pi = std::f32::consts::TAU;
+    // hash spatial des entites libres, pour le courant (portee courte).
+    let free_hash = SpatialHash::build(&world.entities, space, 3.0);
+
+    for &k in &order {
+        let c = &world.cells[k];
+        if c.tissue.is_none() || c.elongation < elong_min || mem[k].len() < 4 {
+            continue;
+        }
+        let (cx, cy) = (c.position.x, c.position.y);
+        let tid = c.tissue.unwrap_or(0) as f32;
+        // axe principal du nuage de membres
+        let offs: Vec<(f32, f32)> =
+            mem[k].iter().map(|&i| (world.entities[i].position.x - cx, world.entities[i].position.y - cy)).collect();
+        let (_, (ax, ay)) = cloud_shape(&offs);
+        // onde peristaltique : phase qui glisse le long d'une direction propre au tissu
+        let (wx, wy) = ((tid * 0.7).cos(), (tid * 0.7).sin());
+        let phase = two_pi * (t as f32) / period - 0.08 * (cx * wx + cy * wy);
+        let s = phase.sin();
+        // plus de resserrement que de gonflement (un muscle tire, il ne pousse pas) :
+        let contract = if s >= 0.0 { s } else { s * 0.4 };
+        let mag = strength * contract;
+        for (&i, &(dx, dy)) in mem[k].iter().zip(offs.iter()) {
+            let along = dx * ax + dy * ay;
+            let perp = -dx * ay + dy * ax;
+            // resserre le long du grand axe, gonfle (moitie) le long du petit
+            let d_along = -mag * along * 0.5;
+            let d_perp = mag * perp * 0.25;
+            push[i].0 += d_along * ax - d_perp * ay;
+            push[i].1 += d_along * ay + d_perp * ax;
+        }
+        // courant : pendant la phase active, la cellule pousse doucement les entites libres
+        // proches, radialement. C'est le germe d'un courant / d'une reptation.
+        if contract > 0.05 {
+            let reach = (c.radius * 1.6).max(2.0);
+            let cur = strength * contract * 0.35;
+            free_hash.for_each_neighbor(c.position, reach, |ju| {
+                let j = ju as usize;
+                if world.entities[j].cell_id.is_some() {
+                    return;
+                }
+                let rx = world.entities[j].position.x - cx;
+                let ry = world.entities[j].position.y - cy;
+                let d = (rx * rx + ry * ry).sqrt().max(1e-3);
+                if d > reach {
+                    return;
+                }
+                let f = cur * (1.0 - d / reach);
+                push[j].0 += rx / d * f;
+                push[j].1 += ry / d * f;
+            });
+        }
+    }
+    let (gw, gh) = (space.width as f32, space.height as f32);
+    for (i, (px, py)) in push.into_iter().enumerate() {
+        if px == 0.0 && py == 0.0 {
+            continue;
+        }
+        let e = &mut world.entities[i];
+        e.position.x = (e.position.x + px.clamp(-0.35, 0.35)).clamp(0.0, gw - 1e-3);
+        e.position.y = (e.position.y + py.clamp(-0.35, 0.35)).clamp(0.0, gh - 1e-3);
+    }
 }
 
 fn tissue_pass(

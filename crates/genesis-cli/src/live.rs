@@ -243,6 +243,8 @@ fn ev_label(kind: &str, subjects: &[genesis_core::EntityId]) -> Option<(&'static
         "mort" => Some(("mort", format!("l'entite{who} est morte"))),
         "mange" => Some(("mange", format!("l'entite{who} est mangee"))),
         "agent_eveille" => Some(("eveil", format!("l'individu{who} s'eveille"))),
+        "organisme_ne" => Some(("organisme", "un organisme se reconnait".to_string())),
+        "organisme_defait" => Some(("organisme_fin", "un organisme se defait".to_string())),
         _ => None,
     }
 }

@@ -167,10 +167,26 @@ ligne « organismes » dans le panneau. Test `organisms_form_and_keep_a_stable_i
 forme, id non clignotant sur >= 5 controles, coherence `Cell.organism`, off -> zero,
 deterministe). Config seulement, `enabled = false` par defaut.
 
-**Ce qui reste pour l'organe** : (1) que le type de tissu COMPTE (muscle qui se contracte,
-epithelium qui fait barriere, adipeux qui tamponne) ; (2) un **pool de ressources d'organisme**
-(les cellules cotisent et tirent, l'organisme a faim ou non en entier) ; (3) la **selection a
-l'echelle de l'organisme** + genome structurel (piste D / Sims).
+**Premier type qui compte : la contraction musculaire (2026-09-03, `[cells] muscle_contract`).**
+Aucune regle ne nomme un muscle. La regle est sur la GEOMETRIE : une cellule d'un tissu dont le
+nuage de membres est nettement fusiforme (`elongation >= muscle_elong`, defaut 1,8, au-dela du
+seuil de division) exerce une **force axiale oscillante** sur ses membres -- resserrement le
+long du grand axe (`cloud_shape`), gonflement moitie le long du petit -- dephasee par une onde
+peristaltique qui glisse le long d'une direction propre au tissu (`sin(2pi t/period - k*(x.wx +
+y.wy))`). Un muscle tire plus qu'il ne pousse (demi-amplitude sur la phase d'extension). Un peu
+de **courant** sur les entites libres proches pendant la phase active : le germe d'un courant
+nourricier / d'une reptation. `muscle_pass` phase 3f, sequentiel, sans RNG, poussee bornee
+(0,35 case/tick) gardee dans la grille. Test
+`muscle_contract_perturbs_only_when_an_elongated_tissue_cell_exists` : il existe des cellules
+contractiles, la trajectoire diverge du temoin des lors, l'ecosysteme tient, off -> rien change,
+deterministe. Ce que ca PRODUIT (le tissu qui bat visiblement, un vrai courant, une locomotion)
+est laisse a l'emergence et a l'A/B.
+
+**Ce qui reste pour l'organe** : (1) les autres types qui comptent (epithelium qui fait
+barriere, adipeux qui tamponne, squelettique qui tient la forme, nerveux qui relaie) ; (2) un
+**pool de ressources d'organisme** (les cellules cotisent et tirent, l'organisme a faim ou non
+en entier) ; (3) la **selection a l'echelle de l'organisme** + genome structurel (piste D /
+Sims).
 
 ### Piste B : la ligne germinale (le plus fidele a la biologie)
 

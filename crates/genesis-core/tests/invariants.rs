@@ -1040,6 +1040,58 @@ fn tissue_shelter_protects_the_interior_and_flows_energy_outward() {
 }
 
 #[test]
+fn muscle_contract_perturbs_only_when_an_elongated_tissue_cell_exists() {
+    // Contraction musculaire (0.0.2, `[cells] muscle_contract`, config seulement). Une cellule
+    // d'un tissu dont le nuage de membres est assez fusiforme exerce une force axiale oscillante
+    // sur ses membres (+ un peu de courant sur les libres proches). Aucune regle ne nomme un
+    // muscle : c'est une condition sur l'allongement et l'appartenance a un tissu. Verifie
+    // (graine 1) : il existe bien des cellules contractiles ; la trajectoire diverge du temoin
+    // des lors ; l'ecosysteme tient ; `muscle_contract = false` ne change rien ; deterministe.
+    let mut on = SimConfig::default();
+    on.cells.tissue = true;
+    on.cells.tissue_kin = 0.8;
+    on.cells.tissue_reach = 1.3;
+    on.cells.muscle_contract = true;
+    on.cells.muscle_elong = 1.5; // attrape plus de cellules a l'echelle courte du test
+    let mut off = on.clone();
+    off.cells.muscle_contract = false;
+
+    let run = |cfg: &SimConfig| -> (u64, bool, i64) {
+        let mut w = WorldState::new(1, cfg);
+        let mut had_contractile = false;
+        for _ in 0..45_000 {
+            let _ = tick(&mut w, cfg);
+            if cfg.cells.muscle_contract {
+                for c in &w.cells {
+                    if c.tissue.is_some() && c.elongation >= cfg.cells.muscle_elong {
+                        had_contractile = true;
+                    }
+                }
+            }
+            if w.entities.is_empty() {
+                break;
+            }
+        }
+        // empreinte de position, entiere pour une comparaison exacte
+        let mut fp: i64 = 0;
+        for e in &w.entities {
+            fp = fp.wrapping_add((e.position.x * 97.0) as i64);
+            fp = fp.wrapping_mul(1_000_003).wrapping_add((e.position.y * 89.0) as i64);
+        }
+        (w.entities.len() as u64, had_contractile, fp)
+    };
+
+    let (on_pop, on_had, on_fp) = run(&on);
+    let (off_pop, _off_had, off_fp) = run(&off);
+
+    assert!(on_had, "aucune cellule contractile en 45000 ticks (graine 1) : le test ne prouve rien");
+    assert!(on_pop > 100, "l'ecosysteme s'eteint sous contraction musculaire (pop {on_pop})");
+    assert_ne!(on_fp, off_fp, "la contraction musculaire ne change rien a la trajectoire");
+    assert_eq!(run(&on).2, on_fp, "contraction musculaire non deterministe");
+    let _ = off_pop;
+}
+
+#[test]
 fn organisms_form_and_keep_a_stable_id() {
     // Organisme (0.0.2, `[organism] enabled`, config seulement). Une composante connexe de
     // cellules qui adherent (aucune parente exigee) reconnue apres quelques controles tenus,
