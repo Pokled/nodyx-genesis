@@ -145,4 +145,179 @@ impl WorldDir {
         }
         Ok(())
     }
+
+    /// Journal en pyramide (`serve`) : `events.jsonl` ne garde en detail que les evenements
+    /// au tick `>= keep_from`. Les evenements de chapitre (`EventKind::is_chapter`) plus vieux
+    /// sont deverses dans `events.chronicle.jsonl` (append-only, grossit tres lentement), le
+    /// reste est laisse tomber. Le moteur ne relit jamais le journal : le monde reste
+    /// identique.
+    ///
+    /// La compaction ne se declenche que si la plus vieille ligne est anterieure a
+    /// `trigger_below` (hysteresis : on ne reecrit pas 100 Mo a chaque tour de boucle pour
+    /// grignoter quelques centaines de ticks). Bon marche sinon (on ne lit que la premiere
+    /// ligne). Renvoie le nombre de lignes retirees de `events.jsonl`.
+    pub fn compact_journal(&self, keep_from: u64, trigger_below: u64) -> std::io::Result<u64> {
+        use std::io::{BufRead, BufReader};
+
+        // Filtre bon marche : on ne parse l'evenement complet que si la saillance vaut la
+        // peine (les chapitres sont tous a 180+). Le gros du journal est a 2-3.
+        #[derive(Deserialize)]
+        struct Line {
+            tick: u64,
+            #[serde(default)]
+            salience: u8,
+        }
+        const CHAPTER_MIN_SALIENCE: u8 = 180;
+
+        let path = self.root.join("events.jsonl");
+        let Ok(file) = std::fs::File::open(&path) else {
+            return Ok(0);
+        };
+        let mut reader = BufReader::new(file);
+
+        // Coup d'oeil sur la premiere ligne : si elle est assez recente, rien a faire.
+        let mut first = String::new();
+        if reader.read_line(&mut first)? == 0 {
+            return Ok(0);
+        }
+        if let Ok(l) = serde_json::from_str::<Line>(first.trim()) {
+            if l.tick >= trigger_below {
+                return Ok(0);
+            }
+        }
+
+        let tmp = self.root.join("events.jsonl.tmp");
+        let mut keep_w = std::io::BufWriter::new(std::fs::File::create(&tmp)?);
+        let mut chron_w = std::io::BufWriter::new(
+            std::fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(self.root.join("events.chronicle.jsonl"))?,
+        );
+        let mut dropped = 0u64;
+
+        // La premiere ligne, deja lue.
+        let process = |raw: &str, keep_w: &mut std::io::BufWriter<std::fs::File>,
+                       chron_w: &mut std::io::BufWriter<std::fs::File>,
+                       dropped: &mut u64|
+         -> std::io::Result<()> {
+            let s = raw.trim_end();
+            if s.is_empty() {
+                return Ok(());
+            }
+            let Ok(l) = serde_json::from_str::<Line>(s) else {
+                *dropped += 1;
+                return Ok(());
+            };
+            if l.tick >= keep_from {
+                writeln!(keep_w, "{s}")?;
+                return Ok(());
+            }
+            *dropped += 1;
+            if l.salience >= CHAPTER_MIN_SALIENCE {
+                if let Ok(ev) = serde_json::from_str::<Event>(s) {
+                    if ev.kind.is_chapter() {
+                        writeln!(chron_w, "{s}")?;
+                    }
+                }
+            }
+            Ok(())
+        };
+
+        process(&first, &mut keep_w, &mut chron_w, &mut dropped)?;
+        let mut buf = String::new();
+        loop {
+            buf.clear();
+            if reader.read_line(&mut buf)? == 0 {
+                break;
+            }
+            process(&buf, &mut keep_w, &mut chron_w, &mut dropped)?;
+        }
+
+        keep_w.flush()?;
+        chron_w.flush()?;
+        drop(keep_w);
+        drop(chron_w);
+        std::fs::rename(&tmp, &path)?;
+        Ok(dropped)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::event::EventKind;
+
+    fn tmp_dir(tag: &str) -> PathBuf {
+        let d = std::env::temp_dir().join(format!(
+            "genesis-persist-{}-{}-{}",
+            tag,
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(d.join("snapshots")).unwrap();
+        d
+    }
+
+    fn ev(seq: u64, tick: u64, kind: EventKind) -> Event {
+        let mut e = Event::now(tick, kind);
+        e.seq = seq;
+        e
+    }
+
+    #[test]
+    fn compact_journal_keeps_window_and_chronicles_the_rest() {
+        let root = tmp_dir("compact");
+        let wd = WorldDir { root: root.clone() };
+
+        // 0..2000 : un evenement de bruit par tick, plus un evenement de chapitre
+        // (`PopulationMilestone`) et un evenement saillant mais pas de chapitre (`AgentAwoke`)
+        // tous les 500 ticks.
+        let mut batch = Vec::new();
+        for t in 0..2000u64 {
+            batch.push(ev(t * 3, t, EventKind::EntitySpawned { entity: t }));
+            if t % 500 == 0 {
+                batch.push(ev(t * 3 + 1, t, EventKind::PopulationMilestone { level: 100 }));
+                batch.push(ev(t * 3 + 2, t, EventKind::AgentAwoke { entity: t }));
+            }
+        }
+        wd.append_events(&batch).unwrap();
+        let before_lines = std::fs::read_to_string(root.join("events.jsonl")).unwrap().lines().count();
+
+        // Fenetre : garder a partir du tick 1500, ne declencher que sous 1200.
+        let dropped = wd.compact_journal(1500, 1200).unwrap();
+        assert!(dropped > 0, "rien n'a ete compacte");
+
+        let after = std::fs::read_to_string(root.join("events.jsonl")).unwrap();
+        let chron = std::fs::read_to_string(root.join("events.chronicle.jsonl")).unwrap();
+
+        // events.jsonl ne contient plus que des ticks >= 1500.
+        for line in after.lines() {
+            let t: serde_json::Value = serde_json::from_str(line).unwrap();
+            assert!(t["tick"].as_u64().unwrap() >= 1500, "ligne trop vieille gardee : {line}");
+        }
+        // La chronique ne contient que des chapitres anterieurs a la fenetre : les
+        // `PopulationMilestone` des ticks 0/500/1000, pas les `AgentAwoke`, pas le bruit.
+        assert_eq!(chron.lines().count(), 3, "chronique : {}", chron);
+        for line in chron.lines() {
+            let v: serde_json::Value = serde_json::from_str(line).unwrap();
+            assert!(v["tick"].as_u64().unwrap() < 1500);
+            assert!(v["kind"].get("population_milestone").is_some(), "pas un chapitre : {line}");
+        }
+        assert_eq!(
+            after.lines().count() as u64 + dropped,
+            before_lines as u64,
+            "des lignes ont disparu sans etre comptees"
+        );
+
+        // Deuxieme appel : la premiere ligne est deja >= 1200, no-op.
+        assert_eq!(wd.compact_journal(1500, 1200).unwrap(), 0);
+
+        // `journal_keep_ticks = 0` cote appelant : la compaction n'est jamais appelee, rien
+        // ici a tester de plus. On nettoie.
+        let _ = std::fs::remove_dir_all(&root);
+    }
 }

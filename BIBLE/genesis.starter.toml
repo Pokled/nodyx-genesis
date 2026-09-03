@@ -259,6 +259,8 @@ genome_shift_persist_checks = 5 # contrôles consécutifs où une autre clé de 
 snapshot_interval_ticks   = 5000
 event_log_partition_ticks = 100000
 series_every              = 500    # une ligne de série temporelle de stats (series.jsonl) tous les N ticks
+journal_keep_ticks        = 120000 # serve : events.jsonl garde ce détail complet ; au-delà, seuls
+                                   # les chapitres roulent dans events.chronicle.jsonl. 0 = jamais compacté
                                    # (le matériau du graphe d'évolution génétique, series.html)
 
 [events]

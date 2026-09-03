@@ -117,7 +117,7 @@ et le garde au centre pendant qu'il vit ; la molette zoome ou l'on veut.
 
 ![Suivre un individu dans la scene](docs/images/view-inspect.png)
 
-**L'evolution**, `series.html`, trace la derive des neuf traits du genome sur toute la duree
+**L'evolution**, `series.html`, trace la derive des dix traits du genome sur toute la duree
 du monde. Pas seulement la moyenne : la distribution complete, du dixieme au quatre-vingt-
 dixieme centile, parce que c'est une bande qui se scinde qui signale une speciation. La
 selection naturelle est le seul moteur ici, personne ne la declare.

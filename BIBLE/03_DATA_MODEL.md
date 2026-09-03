@@ -508,8 +508,17 @@ maturity_frac        = 0.05       # fraction de l'espérance de vie avant la 1re
 [persistence]
 snapshot_interval_ticks      = 5000
 event_log_partition_ticks    = 100000
-series_every                 = 500    # une ligne de série temporelle de stats tous les N ticks
+series_every                 = 500     # une ligne de série temporelle de stats tous les N ticks
+journal_keep_ticks           = 120000  # serve : fenêtre de détail complet d'events.jsonl (pyramide)
 ```
+
+**Journal en pyramide (serve).** `events.jsonl` est purement un artefact d'audit : rien ne le
+relit à l'exécution, `replay` rejoue depuis la graine. Sur un direct de plusieurs mois il
+grossirait sans fin. `WorldDir::compact_journal` (appelé dans la boucle `serve`) ne garde que
+les `journal_keep_ticks` derniers ticks en détail complet ; au-delà, seuls les événements de
+chapitre (`EventKind::is_chapter`) sont déversés dans `events.chronicle.jsonl` (append-only,
+grossit très lentement). Hysteresis pour ne pas réécrire le fichier à chaque tour ; jamais
+compacté au-delà du plus vieil instantané gardé (la reprise en dépend).
 
 ## Tests d'invariants à écrire avant le code (tranchée 13)
 

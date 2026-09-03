@@ -716,6 +716,14 @@ pub struct PersistenceCfg {
     /// Une ligne de serie temporelle de stats (`series.jsonl`) tous les N ticks. Le
     /// materiau du graphe d'evolution genetique (`series.html`).
     pub series_every: u64,
+    /// Journal en pyramide (`serve` seulement) : `events.jsonl` ne garde en detail complet
+    /// que les `journal_keep_ticks` derniers ticks. Au-dela, seuls les evenements de chapitre
+    /// (`EventKind::is_chapter` : genese, espece, extinction de lignee, effondrement, palier,
+    /// fusion, basculement) roulent dans `events.chronicle.jsonl` (append-only, grossit tres
+    /// lentement), le reste est laisse tomber. Le moteur ne relit jamais le journal, le monde
+    /// reste identique ; c'est ce qui permet a un direct de tourner des mois.
+    /// `journal_keep_ticks = 0` desactive la compaction (journal append-only sans fin).
+    pub journal_keep_ticks: u64,
 }
 impl Default for PersistenceCfg {
     fn default() -> Self {
@@ -723,6 +731,7 @@ impl Default for PersistenceCfg {
             snapshot_interval_ticks: 5000,
             event_log_partition_ticks: 100000,
             series_every: 500,
+            journal_keep_ticks: 120_000,
         }
     }
 }

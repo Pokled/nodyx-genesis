@@ -953,6 +953,25 @@ fn cmd_serve(
                 r.sim.notable.drain(0..d);
             }
             r.write_pages(false)?;
+
+            // Journal en pyramide : `events.jsonl` ne garde que la fenetre recente, les
+            // evenements de chapitre plus vieux roulent dans `events.chronicle.jsonl`. Sinon
+            // le journal grossit sans fin sur un direct de plusieurs mois. Hysteresis : on ne
+            // reecrit que lorsque la plus vieille ligne a une demi-fenetre de retard. On ne
+            // compacte jamais au-dela du plus vieil instantane garde : a la reprise, le
+            // journal doit couvrir depuis cet instantane.
+            let jk = r.cfg.persistence.journal_keep_ticks;
+            let snap_span = SNAPSHOTS_KEPT as u64 * r.cfg.persistence.snapshot_interval_ticks + 5000;
+            let keep = jk.max(snap_span);
+            if jk > 0 && r.world.tick > keep + keep / 2 {
+                if let Err(e) = r
+                    .wdir
+                    .compact_journal(r.world.tick - keep, r.world.tick - keep - keep / 2)
+                {
+                    eprintln!("compaction du journal : {e}");
+                }
+            }
+
             last_pages = std::time::Instant::now();
         }
 

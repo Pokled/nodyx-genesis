@@ -112,6 +112,23 @@ impl EventKind {
             EventKind::SnapshotTaken { .. } => 0,
         }
     }
+
+    /// Un evenement de chapitre : les grands tournants d'un monde, ceux qu'on garde pour
+    /// toujours dans la chronique meme apres que le journal detaille a ete compacte. C'est un
+    /// sous-ensemble volontairement etroit des evenements saillants : pas les eveils d'agent
+    /// ni les formations de cellule (frequents), seulement ce qui fait l'histoire du monde.
+    pub fn is_chapter(&self) -> bool {
+        matches!(
+            self,
+            EventKind::WorldCreated
+                | EventKind::SpeciesEmerged { .. }
+                | EventKind::LineageExtinct { .. }
+                | EventKind::PopulationCrash { .. }
+                | EventKind::PopulationMilestone { .. }
+                | EventKind::CellsMerged { .. }
+                | EventKind::GenomeShift { .. }
+        )
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
