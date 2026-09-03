@@ -429,7 +429,10 @@ function frameAt(now) {
   let dt = (now - dispLast) / 1000; dispLast = now;
   dt = Math.max(0.001, Math.min(0.1, dt));
   const halfLife = Math.max(0.5, Math.min(1.7, sceneSpan / 1000 * 0.9));
-  const a = 1 - Math.pow(0.5, dt / halfLife);
+  // plafonne le pas de rattrapage : apres un a-coup (dt grand), on ne veut PAS que l'affichage
+  // bondisse d'un coup vers la cible (effet elastique). Il reste un peu en retard et rattrape
+  // en douceur sur les images suivantes.
+  const a = Math.min(0.14, 1 - Math.pow(0.5, dt / halfLife));
   if (S.cells && S.cells.length) {
     for (const c of S.cells) {
       const tx = c.pos[0], ty = c.pos[1], tr = c.radius;
@@ -483,6 +486,23 @@ let seenFusions = new Set();  // fusions deja jouees (pas de rejeu au chargement
 function bio(h, l, a) {
   let d = ((h - 188) % 360 + 540) % 360 - 180;
   return 'hsla(' + (188 + d * 0.6).toFixed(0) + ',78%,' + l + '%,' + a + ')';
+}
+// pastilles pre-rendues pour le fond de population : 6 teintes, un disque radial doux chacune.
+// Recopiees en `drawImage` (rapide, zero allocation) au lieu d'un degrade radial par amas.
+const BLOBS = [];
+function buildBlobs() {
+  BLOBS.length = 0;
+  for (let k = 0; k < 6; k++) {
+    const hue = 90 + k * 38;   // couvre la plage de teintes de `bio`
+    const bc = document.createElement('canvas'); bc.width = 64; bc.height = 64;
+    const bx = bc.getContext('2d');
+    const g = bx.createRadialGradient(32, 32, 0, 32, 32, 32);
+    g.addColorStop(0, bio(hue, 66, 1));
+    g.addColorStop(0.55, bio(hue, 62, 0.5));
+    g.addColorStop(1, bio(hue, 60, 0));
+    bx.fillStyle = g; bx.fillRect(0, 0, 64, 64);
+    BLOBS.push(bc);
+  }
 }
 // enveloppe convexe (Andrew monotone chain), pts = [[x,y],...]. Pour le pourtour d'un tissu.
 function convexHull(pts) {
@@ -566,16 +586,20 @@ function drawScene(now) {
     ctx.imageSmoothingEnabled = true;
     ctx.drawImage(resCv, ox, oy, s * gw, s * gh);
   }
-  // amas
-  for (const c of (S.clusters || [])) {
+  // amas : le fond de population. Des centaines par image -> on ne cree PAS un degrade radial
+  // par amas (c'etait le vrai gouffre). Un jeu de pastilles douces pre-rendues (6 teintes), une
+  // seule `drawImage` par amas, l'energie pilote l'opacite.
+  if (!BLOBS.length) buildBlobs();
+  const clu = S.clusters || [];
+  for (let i = 0; i < clu.length; i++) {
+    const c = clu[i];
     const x = ox + (c.pos[0] / PS) * s, y = oy + (c.pos[1] / PS) * s;
     const r = Math.max(4, (c.radius / PS) * s);
-    const g = ctx.createRadialGradient(x, y, 0, x, y, r);
-    const e = c.energy / 100;
-    g.addColorStop(0, bio(c.hue, 66, (0.18 + e * 0.32)));
-    g.addColorStop(1, bio(c.hue, 60, 0));
-    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.fill();
+    const bi = Math.max(0, Math.min(BLOBS.length - 1, Math.round((c.hue - 90) / 38)));
+    ctx.globalAlpha = 0.16 + (c.energy / 100) * 0.30;
+    ctx.drawImage(BLOBS[bi], x - r, y - r, r * 2, r * 2);
   }
+  ctx.globalAlpha = 1;
   // cellules : des membranes vivantes. Une masse translucide teintee du genome, un contour
   // qui ondule (l'ondulation gonfle avec l'allongement : une cellule proche de la division
   // se deforme), un noyau qui bat. Une cellule jeune (division ou fusion recente) a le
