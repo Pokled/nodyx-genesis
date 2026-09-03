@@ -1029,7 +1029,7 @@ function statRow(label, val, cls) {
 }
 // Ligne « tissus » : effectif + repartition par type (LU de la forme, cote scene.json), avec
 // l'ordre global du pavage en repli quand les types ne sont pas encore connus.
-const TLABEL = { epithelium: 'epithelium', conjonctif: 'conjonctif', muscle: 'muscle', nerveux: 'nerveux', indifferencie: 'indiff.' };
+const TLABEL = { epithelium: 'epithelium', conjonctif: 'conjonctif', muscle: 'muscle', nerveux: 'nerveux', adipeux: 'adipeux', squelettique: 'squelett.', indifferencie: 'indiff.' };
 function tissueRow(L) {
   const ts = (typeof SCENE !== 'undefined' && SCENE && SCENE.tissues) || [];
   const n = ts.length || (L && L.tissues_alive) || 0;

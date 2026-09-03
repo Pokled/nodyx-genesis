@@ -123,12 +123,15 @@ cette geometrie :
 **Types de tissus, lecture (2026-09-03).** `genesis-view` classe chaque tissu par un `kind`
 LU de sa forme et de sa composition, jamais decrete : meme principe que la cle d'espece.
 `ViewFrame.tissues: Vec<TissueView> { id, kind, pos, cells, order, elong, bonds }`, aucun
-changement moteur, aucun schema. Regles (priorite) : **nerveux** si la part d'agents parmi ses
-membres depasse franchement le fond du monde (x1,6, plancher 0,45) ; **muscle** si l'allongement
-moyen des cellules >= 1,9 (au-dela du seuil de division : un faisceau contractile) ;
-**epithelium** si >= 5 cellules et pavage franchement ordonne (psi6 local >= 0,50, signal
-hexatique) ; **conjonctif** si >= 4 cellules mais desordonnees et laches (psi6 < 0,32,
-`bonds` <= 2,6) ; sinon **indifferencie** (en cours d'organisation, ou entre-deux). Overlay :
+changement moteur, aucun schema. Regles (priorite) : **nerveux** si la part d'agents parmi ses membres depasse franchement le
+fond du monde (x1,6, plancher 0,45) ; **muscle** si l'allongement moyen des cellules >= 1,9
+(au-dela du seuil de division : un faisceau contractile) ; **adipeux** si cellules rondes
+(`elong` < 1,6) gorgees d'energie, bien au-dessus du fond (`+0,15`, plancher 0,72) : une
+reserve ; **squelettique** si >= 5 cellules, ordonne (psi6 >= 0,40) ET vieux (age moyen des
+cellules >= 9000 ticks) : une charpente qui a pris ; **epithelium** si >= 5 cellules et pavage
+franchement ordonne (psi6 >= 0,50) ; **conjonctif** si >= 4 cellules mais desordonnees et
+laches (psi6 < 0,32, `bonds` <= 2,6) ; sinon **indifferencie**. `sang`, `os` vs `cartilage`
+ne sont pas distinguables de ce que Genesis suit aujourd'hui. Overlay :
 ligne « tissus » = effectif + repartition par type, et une etiquette sous chaque tissu dans la
 scene. Le psi6 par tissu est recalcule cote vue (O(cellules^2), ~50 cellules). Ce qui manque
 encore : que le type **compte** (une nappe fait barriere, un muscle se contracte) -- pour l'instant
