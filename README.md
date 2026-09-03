@@ -143,11 +143,14 @@ grille qui les rassemble.
 ![La bibliotheque des mondes](docs/images/gallery.png)
 
 Le monde **w2**, graine 1, est le monde de reference du projet et celui tenu en direct. A
-soixante mille ticks il a vecu pres de sept annees-monde et atteint trente-deux generations ;
-apres la croissance initiale, chaque annee et demie une disette rabote la population de moitie
-puis la saison grasse la ramene. Une espece emerge, le genome dominant bascule une fois, un
-effondrement de population est enregistre. On n'y meurt presque plus de vieillesse : une
-disette vous prend avant.
+soixante mille ticks il a vecu pres de sept annees-monde et atteint vingt-neuf generations ;
+une des deux lignees fondatrices s'eteint des la premiere annee, puis la population monte a
+la capacite en trois ans. Ensuite chaque annee et demie une disette la rabote (jusque sous
+six mille) et la saison grasse la ramene ; le genome dominant bascule une fois. On n'y meurt
+presque plus de vieillesse, une disette vous prend avant. Depuis `cell_burn_relief` (0.0.2),
+la vie multicellulaire **tient** : une centaine de cellules vivantes, pres de la moitie de la
+population dans une membrane, et les lignees de cellules encaissent les disettes au lieu de
+s'eteindre.
 
 Le monde **w1**, graine 8, suit le meme rythme mais ses disettes sont les plus violentes (la
 population descend sous deux mille cent) : c'est le monde a la plus haute diversite genetique
