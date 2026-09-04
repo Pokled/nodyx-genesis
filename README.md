@@ -237,6 +237,12 @@ eux, contrairement à un allumage en cours de vie qui casse la lignée pluricell
 `BIBLE/experiments/013`). Même grille, mêmes leviers que w2, plus ces deux-là. Tenu en
 direct à part, sur `--port 8081`, pour ne jamais toucher à w2.
 
+**w6**, graine 26, va plus loin : toute la pile (adhésion, rempart, muscle, et la
+locomotion dirigée, `muscle_seek_food`) allumée dès la genèse. Un tissu contractile y suit
+le gradient de nourriture au lieu de battre sur place (`BIBLE/experiments/015`). Huit types
+de tissus vus en même temps sur ses premières années, dont adipeux et conjonctif, des
+organismes nommés qui persistent. Tenu en direct sur `--port 8082`.
+
 **w1** (graine 8) a les disettes les plus violentes et la plus haute diversité génétique.
 **w4** (graine 13) est le plus foisonnant, une douzaine d'émergences d'espèce. **w3**
 (graine 4) ne prend pas : les deux lignées fondatrices s'éteignent avant la première
