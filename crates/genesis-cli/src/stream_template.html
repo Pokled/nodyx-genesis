@@ -313,7 +313,7 @@ const DPR = Math.min(window.devicePixelRatio || 1, 2);
 // La scene est tracee a resolution reduite puis etiree par le CSS : le rendu est organique et
 // flou, la douceur ne se voit pas, et c'est ~2x moins de pixels a remplir et a composer chaque
 // image. C'est le plus gros levier de fluidite du direct.
-const RENDER_SCALE = 0.72;
+const RENDER_SCALE = 0.62;
 // Champ de ressources : ~2300 petites cases qui ne changent qu'a l'arrivee d'une image. On le
 // peint une fois dans un petit canvas (en coordonnees du monde) et on le recopie ensuite en
 // une seule operation etiree, au lieu de milliers de fillRect par frame.
@@ -325,7 +325,7 @@ let resDirty = true;
 // resolution (en coordonnees du monde), puis un seul `drawImage` etire et lisse -> une nappe
 // douce, pas une grille, et une fraction du cout.
 const cluCv = document.createElement('canvas');
-cluCv.width = 116; cluCv.height = 116;
+cluCv.width = 84; cluCv.height = 84;
 const clux = cluCv.getContext('2d');
 let sceneBg = null, dnaGrad = null;
 function resize() {
@@ -662,18 +662,24 @@ function drawScene(now) {
     let maxN = 1;
     for (const c of clu) if (c.count > maxN) maxN = c.count;
     clux.clearRect(0, 0, CW, CH);
-    // rayon ~ 2x l'espacement des cases : le reseau se dissout completement.
-    const pr = Math.max(5, gw / 30 * kx * 2.0);
+    // des `fillRect` minuscules (pas d'arc : l'anti-aliasing des courbes en logiciel Skia etait
+    // le nouveau poste n°1). Le canvas 84x84 est ensuite etire ~16x avec lissage -> tout
+    // redevient rond et flou, aucune grille.
+    const q = Math.max(1.6, gw / 30 * kx * 1.15);
     for (let i = 0; i < clu.length; i++) {
       const c = clu[i];
       const dk = dispClu(c);
-      const px = (dk.x / PS) * kx, py = (dk.y / PS) * ky;
-      const dens = c.count / maxN;                 // 0..1 relatif
-      clux.fillStyle = bio(dk.h, 52, 0.012 + dens * 0.055);
-      clux.beginPath(); clux.arc(px, py, pr, 0, 6.2832); clux.fill();
+      // petit decalage deterministe par indice : casse le reseau regulier des cases (sinon,
+      // meme floute, une grille reste visible dans la brume).
+      const jx = (((i * 1103515245 + 12345) >>> 16) & 255) / 255 - 0.5;
+      const jy = (((i * 214013 + 2531011) >>> 16) & 255) / 255 - 0.5;
+      const px = (dk.x / PS) * kx + jx * q * 2.2, py = (dk.y / PS) * ky + jy * q * 2.2;
+      const dens = c.count / maxN;
+      clux.fillStyle = bio(dk.h, 52, 0.04 + dens * 0.11);
+      clux.fillRect(px - q, py - q, q * 2, q * 2);
     }
     ctx.imageSmoothingEnabled = true;
-    ctx.globalAlpha = 0.62;
+    ctx.globalAlpha = 0.6;
     ctx.drawImage(cluCv, 0, 0, CW, CH, ox, oy, s * gw, s * gh);
     ctx.globalAlpha = 1;
   }
