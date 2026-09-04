@@ -406,11 +406,18 @@ let poll;
         return await r.json();
       } catch (e) { return null; }
     }
-    let sMiss = 0, lMiss = 0;
+    let sMiss = 0, lMiss = 0, lastSceneTick = -1;
     async function loopScene() {
+      // On sonde plus vite que le serveur n'ecrit (~1 s) et on ne re-transmet que les images
+      // NOUVELLES : le fil principal recoit exactement une image par tranche serveur, jamais
+      // deux d'un coup -> le monde avance a pas reguliers, pas en dents de scie.
       const sc = await get('scene.json');
-      if (sc) { sMiss = 0; self.postMessage({ t: 'scene', d: sc }); } else sMiss = Math.min(sMiss + 1, 6);
-      setTimeout(loopScene, 1200 + sMiss * 1500);
+      if (sc) {
+        sMiss = 0;
+        const tk = sc.tick != null ? sc.tick : (sc.stats && sc.stats.tick);
+        if (tk == null || tk !== lastSceneTick) { lastSceneTick = tk; self.postMessage({ t: 'scene', d: sc }); }
+      } else sMiss = Math.min(sMiss + 1, 6);
+      setTimeout(loopScene, 600 + sMiss * 1500);
     }
     async function loopLive() {
       const l = await get('live.json');
@@ -463,8 +470,8 @@ function frameAt(now) {
   if (!S || !S.grid) return S;
   let dt = (now - dispLast) / 1000; dispLast = now;
   dt = Math.max(0.001, Math.min(0.05, dt));
-  const a = 1 - Math.pow(0.5, dt / 2.5);    // demi-vie 2,5 s : filtre fort, mouvement continu
-  const ak = 1 - Math.pow(0.5, dt / 1.4);   // le fond peut suivre un peu plus vite
+  const a = 1 - Math.pow(0.5, dt / 1.6);    // demi-vie 1,6 s : filtre les pas, garde peu de retard
+  const ak = 1 - Math.pow(0.5, dt / 1.0);   // le fond suit un peu plus vite
 
   if (S.cells && S.cells.length) {
     for (const c of S.cells) {
