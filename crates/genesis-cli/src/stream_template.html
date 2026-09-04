@@ -373,21 +373,23 @@ function worldAge(sec) {
 // `genesis serve` reecrit scene.json a chaque tranche (~1 s) : entre deux, on interpole
 // (`frameAt`) pour que les cellules glissent au lieu de sauter d'un tick a l'autre.
 let sceneT0 = performance.now();   // arrivee de la derniere image distincte
-let sceneSpan = 1200;              // ms observes entre deux images distinctes (adaptatif)
+let sceneSpan = 1300;              // ms observes entre deux images distinctes (adaptatif)
 let sceneFetched = false;
+let sceneStamp = 0;                // incremente a chaque image DISTINCTE (declenche l'estimation de vitesse)
+let scenePrev = null;             // l'image d'avant, pour estimer la vitesse des cellules
+function tickOf(s) { return s && (s.tick != null ? s.tick : (s.stats && s.stats.tick)); }
 function ingestScene(sc) {
   if (!sc || !sc.grid) return;
-  // premiere image reelle : on repart des positions fraiches (le repli embarque peut etre vieux)
-  if (!sceneFetched) { sceneFetched = true; SCENE = sc; sceneT0 = performance.now(); CDISP.clear(); EDISP.clear(); return; }
+  if (!sceneFetched) { sceneFetched = true; SCENE = sc; scenePrev = sc; sceneT0 = performance.now(); CDISP.clear(); EDISP.clear(); return; }
   resDirty = true;
-  const prevTick = SCENE && (SCENE.tick != null ? SCENE.tick : (SCENE.stats && SCENE.stats.tick));
-  const curTick = sc.tick != null ? sc.tick : (sc.stats && sc.stats.tick);
-  // meme image (le serveur n'a pas encore avance) : on remplace sans toucher a la cadence
-  if (SCENE && prevTick != null && curTick === prevTick) { SCENE = sc; return; }
+  const prevTick = tickOf(SCENE), curTick = tickOf(sc);
+  if (SCENE && prevTick != null && curTick === prevTick) { SCENE = sc; return; }  // meme image
   const gap = performance.now() - sceneT0;
-  if (SCENE && gap > 120 && gap < 12000) sceneSpan = sceneSpan * 0.5 + gap * 0.5;
+  if (SCENE && gap > 120 && gap < 12000) sceneSpan = sceneSpan * 0.6 + gap * 0.4;
+  scenePrev = SCENE;
   SCENE = sc;
   sceneT0 = performance.now();
+  sceneStamp++;
 }
 // Le fetch ET le parse des gros JSON (scene.json / live.json, ~150 ko chacun sur w2) se font
 // dans un Web Worker : le fil principal ne recoit que des objets deja prets, il ne bloque
@@ -444,39 +446,31 @@ let poll;
 })();
 
 // --- lissage de la scene entre deux images ---
-// `genesis serve` livre une image toutes les ~1 s (~45 ticks). Plutot qu'une interpolation
-// bornee (qui gele en fin de segment et casse la vitesse a chaque nouvelle image), on tient un
-// etat d'affichage persistant par id, ramene vers la cible a chaque frame par un lissage
-// exponentiel independant du pas de temps. Demi-vie calee sur ~0,55 x la cadence observee :
-// l'affichage est toujours en train de rattraper -> mouvement continu, avec un retard d'environ
-// une image (invisible a l'oeil, et sans importance pour un direct). Cellules et entites ont un
-// id stable ; les amas n'en ont pas et passent tels quels (nuage diffus, la camera les amortit).
-const CDISP = new Map();   // id cellule -> {x, y, r}
-const EDISP = new Map();   // id entite  -> {x, y}
-const KDISP = new Map();   // amas : cle spatiale grossiere -> {x, y, e, h, a}  (lissage du FOND)
+// Les donnees du monde arrivent en dents de scie (image toutes les 1,2 a 1,5 s, +45 ou +90
+// ticks), et le mouvement des centroides de cellules est lui-meme saccade a la source (un
+// centroide de ~30 entites qui se reforme). On ne cherche pas a suivre au plus pres : on tient
+// une position d'affichage ramenee vers la cible par un lissage exponentiel a constante de
+// temps LONGUE (~2,5 s). Les a-coups des donnees sont ainsi filtres en mouvement continu ; le
+// prix est un retard de ~2 s, invisible pour un direct. Independant du pas de temps.
+const CDISP = new Map();   // id cellule -> {x, y, r, seen}
+const EDISP = new Map();   // id entite  -> {x, y, seen}
+const KDISP = new Map();   // amas : cle spatiale grossiere -> {x, y, e, h, seen}
 let dispLast = performance.now();
-// cle spatiale d'un amas : sa case sur une grille grossiere. Deux images de suite, l'amas
-// d'une meme zone garde la meme cle -> on lisse sa position / energie / teinte au lieu de le
-// laisser sauter a chaque re-binning (c'est ce qui faisait "vibrer" le fond).
 function cluKey(px, py) { return ((px / 24) | 0) * 8192 + ((py / 24) | 0); }
-// `frameAt` ne fait que faire AVANCER l'etat de lissage (CDISP / EDISP) : aucune allocation,
-// pas de nouveaux objets par frame (le GC est une source de saccade). `drawScene` lit la
-// position lissee via `dispCell` / `dispEnt` au moment de tracer.
+
 function frameAt(now) {
   const S = SCENE;
   if (!S || !S.grid) return S;
   let dt = (now - dispLast) / 1000; dispLast = now;
-  dt = Math.max(0.001, Math.min(0.1, dt));
-  const halfLife = Math.max(0.5, Math.min(1.7, sceneSpan / 1000 * 0.9));
-  // plafonne le pas de rattrapage : apres un a-coup (dt grand), on ne veut PAS que l'affichage
-  // bondisse d'un coup vers la cible (effet elastique). Il reste un peu en retard et rattrape
-  // en douceur sur les images suivantes.
-  const a = Math.min(0.14, 1 - Math.pow(0.5, dt / halfLife));
+  dt = Math.max(0.001, Math.min(0.05, dt));
+  const a = 1 - Math.pow(0.5, dt / 2.5);    // demi-vie 2,5 s : filtre fort, mouvement continu
+  const ak = 1 - Math.pow(0.5, dt / 1.4);   // le fond peut suivre un peu plus vite
+
   if (S.cells && S.cells.length) {
     for (const c of S.cells) {
       const tx = c.pos[0], ty = c.pos[1], tr = c.radius;
       let d = CDISP.get(c.id);
-      if (!d) { d = { x: tx, y: ty, r: tr * 0.5, seen: 0 }; CDISP.set(c.id, d); }  // apparait : enfle
+      if (!d) { d = { x: tx, y: ty, r: tr * 0.5, seen: 0 }; CDISP.set(c.id, d); }
       d.x += (tx - d.x) * a; d.y += (ty - d.y) * a; d.r += (tr - d.r) * a; d.seen = now;
     }
     if (CDISP.size > S.cells.length + 32) for (const [k, d] of CDISP) if (now - d.seen > 4000) CDISP.delete(k);
@@ -490,15 +484,13 @@ function frameAt(now) {
     }
     if (EDISP.size > S.entities.length + 64) for (const [k, d] of EDISP) if (now - d.seen > 4000) EDISP.delete(k);
   }
-  // amas : lissage du fond de population par cle spatiale (pos, energie, teinte).
   if (S.clusters && S.clusters.length) {
-    const ac = Math.min(0.16, a * 1.6);   // un peu plus vif que les cellules, le fond doit suivre
     for (const c of S.clusters) {
       const k = cluKey(c.pos[0], c.pos[1]);
       let d = KDISP.get(k);
       if (!d) { d = { x: c.pos[0], y: c.pos[1], e: c.energy, h: c.hue, seen: 0 }; KDISP.set(k, d); }
-      d.x += (c.pos[0] - d.x) * ac; d.y += (c.pos[1] - d.y) * ac;
-      d.e += (c.energy - d.e) * ac; d.h += (c.hue - d.h) * ac; d.seen = now;
+      d.x += (c.pos[0] - d.x) * ak; d.y += (c.pos[1] - d.y) * ak;
+      d.e += (c.energy - d.e) * ak; d.h += (c.hue - d.h) * ak; d.seen = now;
     }
     if (KDISP.size > S.clusters.length + 40) for (const [k, d] of KDISP) if (now - d.seen > 3000) KDISP.delete(k);
   }
