@@ -1,6 +1,8 @@
 //! Tests d'invariants, ecrits avant de faire confiance au moteur (tranchee 13).
 
 use genesis_core::{tick, SimConfig, WorldState};
+#[allow(unused_imports)]
+use genesis_core::{ResourceField, Space};
 
 fn small_cfg() -> SimConfig {
     let mut c = SimConfig::default();
@@ -999,6 +1001,73 @@ fn epithelium_shield_makes_a_sealed_nappe_untouchable() {
         "le rempart ne protege pas : {shield_deaths} morts par predation (avec) vs {base_deaths} (sans)"
     );
     assert_eq!(run(&shield).0, shield_deaths, "rempart non deterministe");
+}
+
+#[test]
+fn muscle_seek_food_moves_tissue_toward_resources() {
+    // Locomotion dirigee (0.0.2, `[cells] muscle_seek_food`, config seulement). Une cellule
+    // contractile qui sent vraiment mieux a portee (meme chimiotaxie que `forage_target`, deja
+    // utilisee par chaque entite) tire tout son nuage d'un cran vers la cible pendant la phase
+    // active de contraction, au lieu de seulement reformer sa silhouette sur son propre centre
+    // (symetrique, ca ne deplace nulle part). Verifie (graine 1) : des cellules contractiles
+    // existent des deux cotes ; l'energie moyenne des membres de cellules contractiles est PLUS
+    // HAUTE avec la chimiotaxie qu'avec l'axe arbitraire, meme graine (le tissu qui se dirige
+    // vers la nourriture finit mieux nourri) ; `muscle_seek_food = false` laisse le comportement
+    // d'origine ; deterministe ; l'ecosysteme tient.
+    let mut on = SimConfig::default();
+    on.cells.tissue = true;
+    on.cells.tissue_kin = 0.8;
+    on.cells.tissue_reach = 1.3;
+    on.cells.tissue_bond = true;
+    on.cells.muscle_contract = true;
+    on.cells.muscle_elong = 1.5; // attrape plus de cellules a l'echelle courte du test
+    on.cells.muscle_seek_food = true;
+    let mut off = on.clone();
+    off.cells.muscle_seek_food = false;
+
+    let run = |cfg: &SimConfig| -> (f64, bool, u64, i64) {
+        let mut w = WorldState::new(1, cfg);
+        let mut nrg_sum = 0.0f64;
+        let mut nrg_n = 0u64;
+        let mut had_muscle = false;
+        for _ in 0..45_000 {
+            let _ = tick(&mut w, cfg);
+            let slot: std::collections::HashMap<u32, usize> =
+                w.cells.iter().enumerate().map(|(k, c)| (c.id, k)).collect();
+            for e in &w.entities {
+                let Some(id) = e.cell_id else { continue };
+                let Some(&k) = slot.get(&id) else { continue };
+                let c = &w.cells[k];
+                if c.tissue.is_some() && c.elongation >= cfg.cells.muscle_elong {
+                    had_muscle = true;
+                    nrg_sum += e.energy as f64;
+                    nrg_n += 1;
+                }
+            }
+            if w.entities.is_empty() {
+                break;
+            }
+        }
+        let mean_nrg = if nrg_n > 0 { nrg_sum / nrg_n as f64 } else { -1.0 };
+        let mut fp: i64 = 0;
+        for e in &w.entities {
+            fp = fp.wrapping_add((e.position.x * 97.0) as i64);
+            fp = fp.wrapping_mul(1_000_003).wrapping_add((e.position.y * 89.0) as i64);
+        }
+        (mean_nrg, had_muscle, w.entities.len() as u64, fp)
+    };
+
+    let (on_nrg, on_had, on_pop, on_fp) = run(&on);
+    let (off_nrg, off_had, _off_pop, off_fp) = run(&off);
+
+    assert!(on_had && off_had, "aucune cellule contractile en 45000 ticks (graine 1) : le test ne prouve rien");
+    assert!(on_pop > 100, "l'ecosysteme s'eteint avec la locomotion dirigee (pop {on_pop})");
+    assert!(
+        on_nrg > off_nrg,
+        "la locomotion dirigee ne nourrit pas mieux le tissu : energie moyenne {on_nrg:.3} (dirige) vs {off_nrg:.3} (axe arbitraire)"
+    );
+    assert_ne!(on_fp, off_fp, "muscle_seek_food ne change rien a la trajectoire");
+    assert_eq!(run(&on).0, on_nrg, "locomotion dirigee non deterministe");
 }
 
 #[test]

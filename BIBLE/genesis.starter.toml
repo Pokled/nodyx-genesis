@@ -246,6 +246,15 @@ muscle_contract   = false
 muscle_elong      = 1.8   # allongement moyen du nuage de membres au-delà duquel une cellule devient contractile
 muscle_strength   = 0.18  # amplitude du déplacement axial par membre au pic de contraction (bornée)
 muscle_period_ticks = 500 # période du cycle contraction / relâchement
+# Locomotion dirigée (0.0.2, vers l'organe). muscle_seek_food = true : l'axe de l'onde
+# péristaltique suit le gradient de ressources local (même chimiotaxie que forage_target, déjà
+# utilisée par chaque entité) au lieu d'un axe arbitraire ; sans rien de mieux à portée
+# (muscle_sense_radius), retombe sur l'axe d'origine. Pendant la phase active de contraction,
+# une cellule qui a vraiment senti une cible tire tout son nuage d'un cran vers elle (une
+# extension de pseudopode, bornée) : reformer sa silhouette sur son propre centre est
+# symétrique, ça ne déplace nulle part. muscle_seek_food = false coupe (A/B).
+muscle_seek_food  = false
+muscle_sense_radius = 3.0 # portée de la chimiotaxie de tissu (x le rayon de la cellule)
 
 [predation]
 # Prédation (0.0.2, experiments/012_predation.md). Une entité qui a faim (energy < hunt_below)

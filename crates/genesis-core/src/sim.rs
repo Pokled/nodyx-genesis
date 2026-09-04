@@ -1730,8 +1730,27 @@ fn muscle_pass(world: &mut WorldState, cc: &crate::config::CellsCfg, space: &Spa
         let offs: Vec<(f32, f32)> =
             mem[k].iter().map(|&i| (world.entities[i].position.x - cx, world.entities[i].position.y - cy)).collect();
         let (_, (ax, ay)) = cloud_shape(&offs);
-        // onde peristaltique : phase qui glisse le long d'une direction propre au tissu
-        let (wx, wy) = ((tid * 0.7).cos(), (tid * 0.7).sin());
+        // onde peristaltique : phase qui glisse le long d'une direction. Sans locomotion
+        // dirigee, cette direction est arbitraire (fonction de l'id du tissu). Avec
+        // `muscle_seek_food`, c'est la meme chimiotaxie que `forage_target` (deja utilisee par
+        // chaque entite pour chercher a manger) appliquee au tissu : s'il y a mieux a portee,
+        // l'onde s'oriente vers la nourriture ; sinon elle retombe sur l'axe arbitraire. `seek`
+        // ne porte que le cas ou une cible reelle a ete sentie : c'est ce qui, plus bas,
+        // autorise un pas net vers elle (une cellule qui ne fait que reformer sa silhouette
+        // sur elle-meme ne va nulle part, il faut un deplacement du nuage entier).
+        let arbitrary = ((tid * 0.7).cos(), (tid * 0.7).sin());
+        let seek: Option<(f32, f32)> = if cc.muscle_seek_food {
+            let sense = (c.radius * cc.muscle_sense_radius.max(0.5)).max(2.0);
+            forage_target(&world.resources, space, c.position, sense).and_then(|tgt| {
+                let dx = tgt.x - cx;
+                let dy = tgt.y - cy;
+                let d = (dx * dx + dy * dy).sqrt();
+                if d > 1e-3 { Some((dx / d, dy / d)) } else { None }
+            })
+        } else {
+            None
+        };
+        let (wx, wy) = seek.unwrap_or(arbitrary);
         let phase = two_pi * (t as f32) / period - 0.08 * (cx * wx + cy * wy);
         let s = phase.sin();
         // plus de resserrement que de gonflement (un muscle tire, il ne pousse pas) :
@@ -1745,6 +1764,20 @@ fn muscle_pass(world: &mut WorldState, cc: &crate::config::CellsCfg, space: &Spa
             let d_perp = mag * perp * 0.25;
             push[i].0 += d_along * ax - d_perp * ay;
             push[i].1 += d_along * ay + d_perp * ax;
+        }
+        // pas de reptation : reformer sa silhouette sur son propre centre ne deplace nulle part
+        // (une contraction pure est symetrique). S'il y a une cible reellement sentie
+        // (`seek`), la cellule tire TOUT son nuage d'un cran vers elle pendant la phase active
+        // de contraction -- une extension de pseudopode, pas une teleportation : bornee, au
+        // rythme du muscle, seulement quand il y a vraiment quelque chose a atteindre.
+        if let Some((sx, sy)) = seek {
+            if contract > 0.05 {
+                let drift = strength * contract * 0.4;
+                for &i in &mem[k] {
+                    push[i].0 += drift * sx;
+                    push[i].1 += drift * sy;
+                }
+            }
         }
         // courant : pendant la phase active, la cellule pousse doucement les entites libres
         // proches, radialement. C'est le germe d'un courant / d'une reptation.

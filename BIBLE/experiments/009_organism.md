@@ -193,9 +193,26 @@ precedent) et epargne la proie. Aucun `if kind == epithelium`. Test
 `epithelium_shield_makes_a_sealed_nappe_untouchable`. A/B graine 1 : **retenu, positif mais
 modeste** -- morts par predation -2,4 %, population finale +4,7 %, plus de tissus vivants ;
 sans fonte de l'ordre (contrairement a l'essai 1). Ne resout pas a lui seul le cout de
-`tissue_bond` (biomasse pluricellulaire stable, pas de rebond). Voir `014`. Prochaine marche :
-adipeux (tampon d'energie dans le temps, a verifier qu'il n'agite pas comme la digestion),
-nerveux (relais de signal).
+`tissue_bond` (biomasse pluricellulaire stable, pas de rebond). Voir `014`.
+
+**La locomotion dirigee : un tissu qui rampe vers la nourriture (2026-09-04, `[cells]
+muscle_seek_food`).** Jusque-la, l'onde peristaltique d'une cellule contractile suivait un axe
+arbitraire (fonction de l'id du tissu) : le muscle battait sur place. `muscle_seek_food`
+applique au tissu la meme chimiotaxie que `forage_target` (deja utilisee par chaque entite pour
+chercher a manger) : s'il y a mieux a portee, l'onde s'oriente vers la nourriture, et la
+cellule tire tout son nuage d'un cran vers la cible reellement sentie pendant la phase active de
+contraction (une extension de pseudopode). Deux essais avant que ca marche : changer seulement
+l'axe de l'onde (le "quand") ne deplacait rien, chaque cellule restant symetrique sur elle-meme
+(essai 1, nul) ; et la premiere mesure ("ressource sous les cellules") etait viciee -- une
+cellule qui mange fait baisser la ressource qu'elle vient de trouver, donc "etre sur une case
+pleine" mesurait l'inverse de "avoir bien mange". Mesure corrigee : l'energie des membres. Test
+`muscle_seek_food_moves_tissue_toward_resources`. A/B graine 24 (config w5), 60 000 ticks :
+**retenu, net.** Tissus vivants x2,1, biomasse pluricellulaire +26 %, diversite genetique +39 %,
+population globale stable. La premiere brique de la marche organe qui ameliore les mesures sans
+contrepartie identifiee. Voir `015`. Allume sur w5.
+
+Prochaine marche : adipeux (tampon d'energie dans le temps, a verifier qu'il n'agite pas comme
+la digestion), nerveux (relais de signal).
 
 **L'organisme, identite persistante (2026-09-03, `[organism] enabled`).** La marche choisie
 comme socle des suivantes. `organism_pass` (phase 5b, aux controles `organism.check_every`)

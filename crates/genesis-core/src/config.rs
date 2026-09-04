@@ -600,6 +600,17 @@ pub struct CellsCfg {
     pub muscle_strength: f32,
     /// Periode du cycle contraction / relachement, en ticks.
     pub muscle_period_ticks: u32,
+    /// Locomotion dirigee (0.0.2, vers l'organe). Quand `true`, l'axe de l'onde peristaltique
+    /// d'une cellule contractile n'est plus arbitraire (fonction de l'id du tissu) mais suit le
+    /// gradient de ressources local : la meme chimiotaxie que `forage_target` (deja utilisee par
+    /// chaque entite pour chercher a manger), appliquee cette fois au tissu entier. Sans rien de
+    /// mieux a portee (`muscle_sense_radius`), retombe sur l'axe arbitraire d'origine :
+    /// deterministe dans les deux cas, aucun hasard. Ce qui devrait en resulter (un tissu qui
+    /// rampe vers la nourriture au lieu de battre sur place) est laisse a l'emergence. `false`
+    /// desactive : comportement d'origine, inchange (bouton d'A/B).
+    pub muscle_seek_food: bool,
+    /// Portee de la chimiotaxie de tissu (en multiples du rayon de la cellule contractile).
+    pub muscle_sense_radius: f32,
 }
 impl Default for CellsCfg {
     fn default() -> Self {
@@ -647,6 +658,8 @@ impl Default for CellsCfg {
             muscle_elong: 1.8,
             muscle_strength: 0.18,
             muscle_period_ticks: 500,
+            muscle_seek_food: false,
+            muscle_sense_radius: 3.0,
         }
     }
 }
