@@ -642,8 +642,8 @@ function drawScene(now) {
       for (let i = 0; i < rv.cells.length; i++) {
         const v = rv.cells[i] / 255;
         const o = i * 4;
-        img.data[o] = 90; img.data[o + 1] = 230; img.data[o + 2] = 150;
-        img.data[o + 3] = v < 0.04 ? 0 : Math.round(Math.pow(v, 0.9) * 0.20 * 255);
+        img.data[o] = 74; img.data[o + 1] = 150; img.data[o + 2] = 96;   // vert sol, discret
+        img.data[o + 3] = v < 0.05 ? 0 : Math.round(Math.pow(v, 1.1) * 0.11 * 255);
       }
       resx.putImageData(img, 0, 0);
       resDirty = false;
@@ -651,28 +651,31 @@ function drawScene(now) {
     ctx.imageSmoothingEnabled = true;
     ctx.drawImage(resCv, ox, oy, s * gw, s * gh);
   }
-  // amas : le fond de population, peint dans `cluCv` (basse resolution, coordonnees du monde)
-  // puis recopie en un seul `drawImage` etire et lisse. Une nappe douce, jamais une grille.
+  // amas : le fond de population. Ce n'est pas le sujet du direct, juste un indice de OU la vie
+  // se concentre. Peint dans `cluCv` (basse resolution, coords du monde) puis recopie en un
+  // `drawImage` etire et lisse -> une brume douce, jamais une grille. Normalise sur l'amas le
+  // plus dense : au pic, on voit encore les coeurs se detacher du fond au lieu d'un aplat vert.
   const clu = S.clusters || [];
   if (clu.length) {
     const CW = cluCv.width, CH = cluCv.height;
     const kx = CW / gw, ky = CH / gh;
+    let maxN = 1;
+    for (const c of clu) if (c.count > maxN) maxN = c.count;
     clux.clearRect(0, 0, CW, CH);
-    clux.globalCompositeOperation = 'lighter';
-    // rayon assez large pour que les cases voisines se recouvrent : une nappe, pas une grille.
-    const base = Math.max(4.2, gw / 30 * kx * 1.15);
+    // rayon ~ 2x l'espacement des cases : le reseau se dissout completement.
+    const pr = Math.max(5, gw / 30 * kx * 2.0);
     for (let i = 0; i < clu.length; i++) {
       const c = clu[i];
       const dk = dispClu(c);
       const px = (dk.x / PS) * kx, py = (dk.y / PS) * ky;
-      const pr = base + (c.radius / PS) * kx * 0.8;
-      const e = dk.e / 100;
-      clux.fillStyle = bio(dk.h, 56, 0.045 + e * 0.075);
+      const dens = c.count / maxN;                 // 0..1 relatif
+      clux.fillStyle = bio(dk.h, 52, 0.012 + dens * 0.055);
       clux.beginPath(); clux.arc(px, py, pr, 0, 6.2832); clux.fill();
     }
-    clux.globalCompositeOperation = 'source-over';
     ctx.imageSmoothingEnabled = true;
+    ctx.globalAlpha = 0.62;
     ctx.drawImage(cluCv, 0, 0, CW, CH, ox, oy, s * gw, s * gh);
+    ctx.globalAlpha = 1;
   }
   // cellules : des membranes vivantes. Une masse translucide teintee du genome, un contour
   // qui ondule (l'ondulation gonfle avec l'allongement : une cellule proche de la division
