@@ -24,7 +24,7 @@
   .grid {
     width:1920px; height:1080px; display:grid;
     grid-template-columns:1180px 740px;
-    grid-template-rows:74px 1fr 300px 38px;
+    grid-template-rows:56px 1fr 300px 38px;
     grid-template-areas:
       "head head"
       "scene side"
@@ -96,6 +96,9 @@
   .clock .sub { color:var(--soft); font-size:1rem; margin-top:8px; letter-spacing:.04em; font-variant-numeric:tabular-nums; }
   .clock .sub b { color:var(--ink); font-weight:500; }
   .clock .tk { color:var(--muted); font-size:.86rem; margin-top:3px; letter-spacing:.06em; font-variant-numeric:tabular-nums; }
+  .clock .clim { display:flex; align-items:center; gap:9px; margin-top:12px; font-size:.88rem; color:var(--soft); letter-spacing:.03em; }
+  .clock .clim .dot { width:7px; height:7px; border-radius:50%; flex:none; background:var(--amber); box-shadow:0 0 7px currentColor; }
+  .clock .clim b { color:var(--ink); font-weight:500; }
   /* anneau de l'annee : tourne en continu (fraction de jour), une revolution = 365 jours-monde */
   .yearring { flex:none; transform:rotate(-90deg); }
   .yearring .yr-bg { fill:none; stroke:rgba(126,158,214,.16); stroke-width:3.4; }
@@ -132,7 +135,16 @@
   /* --- side : pouls + stats --- */
   .side { grid-area:side; border-left:1px solid var(--line); background:#0a0e17;
     padding:16px 24px; display:flex; flex-direction:column; gap:11px; overflow:hidden; }
-  .side-groups { display:flex; flex-direction:column; gap:9px; }
+  /* deux groupes cote a cote : le panneau est large (740px) et etait sous-utilise en largeur
+     alors que la colonne manquait de hauteur. Cellules (le plus de lignes, tissus/organismes
+     inclus) reste seul sur sa ligne, en pleine largeur. `flex:1` + `align-content:space-between`
+     etale les 3 lignes sur toute la hauteur disponible : sinon, une fois la place regagnee, tout
+     se tassait en haut et laissait un grand vide en bas du panneau (le vrai defaut signale).
+     `place-items:start` ancre chaque groupe en haut de sa propre ligne (pas d'etirement des
+     grilles internes si un groupe a moins de contenu que son voisin). */
+  .side-groups { display:grid; grid-template-columns:1fr 1fr; column-gap:24px; row-gap:10px;
+    flex:1; align-content:space-between; place-items:start stretch; }
+  .side-groups .grp.wide { grid-column:1 / -1; }
   .side-groups .h2 { margin-bottom:3px; }
   .h2 {
     font-family:var(--serif); font-weight:500; font-size:.95rem; color:var(--ink);
@@ -140,8 +152,8 @@
   }
   .h2::after { content:''; flex:1; height:1px; background:linear-gradient(90deg,var(--line),transparent); align-self:center; }
 
-  #pulsewave { display:block; width:100%; height:34px; margin:1px 0 9px; }
-  #pulse .pr { display:grid; grid-template-columns:118px 1fr 46px; align-items:center; gap:10px; padding:1px 0; font-size:.8rem; }
+  #pulsewave { display:block; width:100%; height:18px; margin:0 0 6px; }
+  #pulse .pr { display:grid; grid-template-columns:172px 1fr 46px; align-items:center; gap:10px; padding:1.5px 0; font-size:.8rem; }
   #pulse .pr span { color:var(--soft); }
   #pulse .pr .track { height:7px; border-radius:4px; background:rgba(126,158,214,.12); overflow:hidden; }
   #pulse .pr .fill { height:100%; border-radius:4px; transition:width .8s cubic-bezier(.4,0,.2,1); }
@@ -310,6 +322,7 @@
           <div class="tk">tick <span id="tick">--</span></div>
         </div>
       </div>
+      <div class="clim"><span class="dot" id="climdot"></span><span id="climtxt">--</span></div>
     </div>
     <div class="ident">
       <div class="line1">Genesis &nbsp;&middot;&nbsp; Monde __WNAME__</div>
@@ -326,7 +339,7 @@
   <div class="side">
     <div id="pulse">
       <div class="h2">Pouls du monde</div>
-      <canvas id="pulsewave" width="692" height="34"></canvas>
+      <canvas id="pulsewave" width="692" height="18"></canvas>
       <div id="pulserows"></div>
     </div>
     <div class="side-groups" id="side"></div>
@@ -1317,6 +1330,11 @@ function drawScene(now) {
 function statRow(label, val, cls) {
   return '<div class="r ' + (cls || '') + '"><span>' + label + '</span><b>' + val + '</b></div>';
 }
+// Un groupe de stats (titre + lignes), place dans la grille 2 colonnes de `.side-groups`.
+// `wide` : le groupe prend toute la largeur (reserve a Cellules, le plus fourni des cinq).
+function grp(title, rowsHtml, wide) {
+  return '<div class="grp' + (wide ? ' wide' : '') + '"><div class="h2">' + title + '</div><div class="rows">' + rowsHtml + '</div></div>';
+}
 // Ligne « tissus » : effectif + repartition par type (LU de la forme, cote scene.json), avec
 // l'ordre global du pavage en repli quand les types ne sont pas encore connus.
 const TLABEL = { epithelium: 'epithelium', conjonctif: 'conjonctif', muscle: 'muscle', nerveux: 'nerveux', adipeux: 'adipeux', squelettique: 'squelett.', indifferencie: 'indiff.' };
@@ -1330,7 +1348,7 @@ function tissueRow(L) {
     const parts = Object.keys(by).sort((a, b) => by[b] - by[a]).map(k => (TLABEL[k] || k) + ' ' + by[k]);
     return statRow('tissus', fr(n) + '  ·  ' + parts.join('  ·  '));
   }
-  return statRow('tissus', fr(n) + '  ·  ordre ' + (((L && L.tissue_order) || 0) * 100).toFixed(0) + ' %');
+  return statRow('tissus', fr(n) + '  ·  ordre ' + (((L && L.tissue_order) || 0) * 100).toFixed(0) + '  %');
 }
 function organismRow(L) {
   const os = (typeof SCENE !== 'undefined' && SCENE && SCENE.organisms) || [];
@@ -1345,12 +1363,13 @@ function organismRow(L) {
   if (oldest) bits.push('doyen ' + ageStr(oldest * secPerTick));
   return statRow('organismes', fr(n) + (bits.length ? '  ·  ' + bits.join('  ·  ') : ''));
 }
+// Libelles explicites (pas de jargon nu) : chaque jauge se comprend sans legende a part.
 const PULSE_DEFS = [
-  ['fill', 'remplissage', 'var(--cyan)'],
-  ['resources', 'ressources', 'var(--green)'],
-  ['diversity', 'diversite', 'var(--violet)'],
-  ['renewal', 'renouvellement', 'var(--amber)'],
-  ['strain', 'surexploitation', 'var(--rose)'],
+  ['fill', 'population / capacite', 'var(--cyan)'],
+  ['resources', 'reserves de nourriture', 'var(--green)'],
+  ['diversity', 'diversite genetique', 'var(--violet)'],
+  ['renewal', 'naissances vs morts', 'var(--amber)'],
+  ['strain', 'sol epuise', 'var(--rose)'],
 ];
 // Ticker du bandeau du bas : melange des constantes physiques du monde (aucun chiffre invente)
 // et de la chronique reelle (memes tournants que le fil et la courbe de population). Duplique
@@ -1361,15 +1380,15 @@ let tickerSig = '';
 function updateTicker(L) {
   const track = document.getElementById('tickertrack');
   if (!track) return;
+  // temperature / saison / milieu vivent maintenant dans la carte horloge (en continu, pas
+  // besoin d'attendre le ticker) : ici, juste la grille et les constantes qui ne bougent jamais.
   const dens = L.occupied_cells ? (L.population / L.occupied_cells).toFixed(1) : '0';
   const g = (L.gravity != null ? L.gravity : 1).toFixed(1).replace('.', ',');
   const atm = (L.pressure_atm != null ? L.pressure_atm : 1).toFixed(1).replace('.', ',');
-  const tc = (L.temperature_c != null ? L.temperature_c : 15).toFixed(0);
   const facts = [
-    'milieu ' + (L.medium || 'eau') + ', ' + tc + ' °C, ' + g + ' g, ' + atm + ' atm',
     'grille ' + (L.grid ? L.grid[0] + ' × ' + L.grid[1] : '--') + ', densite ' + dens + ' individus par case',
+    'gravite ' + g + ' g, pression ' + atm + ' atm',
   ];
-  if (L.season_label) facts.push('saison : ' + L.season_label);
   // les fusions / divisions sont frequentes et noieraient le reste : on privilegie les grands
   // tournants (espece, organisme, extinction, bascule...) et on ne complete qu'avec les plus
   // recentes du remue-menage cellulaire, remises dans l'ordre chronologique.
@@ -1502,9 +1521,20 @@ function applyLive(L) {
   sc.className = 'statuschip ' + (map[L.status] || 'stable');
   document.getElementById('statusv').textContent = L.status || 'STABLE';
   document.getElementById('domname').textContent = L.dominant_lineage || '--';
-  // bandeau du bas : un ticker qui ne s'arrete jamais, melange des vraies constantes du monde
-  // (aucun chiffre invente) et de la chronique reelle (les memes tournants que le fil et la
-  // courbe de population). Vitesse constante en px/s, quel que soit le contenu.
+  // carte horloge : age, jour, tick ET climat rassembles au meme endroit (temperature, saison,
+  // milieu) au lieu d'etre eparpilles entre l'horloge et le bandeau du bas.
+  const tcv = (L.temperature_c != null ? L.temperature_c : 15).toFixed(0);
+  const climBits = [tcv + ' °C'];
+  if (L.season_label) climBits.push(L.season_label);
+  climBits.push(L.medium || 'eau');
+  document.getElementById('climtxt').textContent = climBits.join('  ·  ');
+  const climdot = document.getElementById('climdot');
+  const seasonPh = L.season_phase || 0;
+  const climCol = seasonPh >= 0 ? '#ffcf72' : '#74a8ff';
+  climdot.style.background = climCol; climdot.style.color = climCol;
+  // bandeau du bas : un ticker qui ne s'arrete jamais, melange les constantes du monde qui ne
+  // bougent jamais (aucun chiffre invente) et la chronique reelle (memes tournants que le fil
+  // et la courbe de population). Vitesse constante en px/s, quel que soit le contenu.
   updateTicker(L);
 
   // pouls
@@ -1516,52 +1546,51 @@ function applyLive(L) {
   }).join('');
 
   // panneaux
+  // Vie du monde + Evolution cote a cote, Ecosysteme + Cognition cote a cote, Cellules (le plus
+  // fourni, tissus/organismes inclus) seul en pleine largeur : le panneau etait trop etroit
+  // pour sa hauteur (5 groupes empiles, dont "Cognition et voix" sortait de l'ecran) ; regroupe
+  // par paires, il tient large sans rien couper.
   document.getElementById('side').innerHTML =
-    '<div class="h2">Vie du monde</div><div class="rows">' +
+    grp('Vie du monde',
       statRow('population', fr(L.population)) +
       statRow('capacite', fr(L.carrying_capacity)) +
       statRow('naissances', fr(L.births)) +
       statRow('morts de faim', fr(L.deaths_starv)) +
       ((L.deaths_predation || 0) > 0
-        ? statRow('morts age / proie', frk(L.deaths_age) + ' · ' + frk(L.deaths_predation))
+        ? statRow('morts age / proie', frk(L.deaths_age) + ' · ' + frk(L.deaths_predation), 'wide')
         : statRow('morts d\'age', fr(L.deaths_age))) +
-      statRow('energie moy.', (L.mean_energy_pct * 100).toFixed(0) + ' %') +
-    '</div>' +
-    '<div class="h2">Evolution</div><div class="rows">' +
+      statRow('energie moy.', (L.mean_energy_pct * 100).toFixed(0) + '  %')) +
+    grp('Evolution',
       statRow('diversite', L.diversity.toFixed(3)) +
       statRow('generation max', L.generation_max) +
       statRow('gen. moyenne', L.generation_mean.toFixed(1)) +
       statRow('lignees vivantes', L.lineages) +
       statRow('lignee dominante', L.dominant_lineage, 'wide') +
-      statRow('part dominante', (L.dominant_share * 100).toFixed(0) + ' %') +
-    '</div>' +
-    '<div class="h2">Ecosysteme</div><div class="rows">' +
-      statRow('ressource / case', L.resource_mean.toFixed(2)) +
-      statRow('cases epuisees', L.depleted_pct.toFixed(1) + ' %') +
-      statRow('cases occupees', fr(L.occupied_cells)) +
-    '</div>' +
-    '<div class="h2">Cellules</div><div class="rows">' +
+      statRow('dominance', (L.dominant_share * 100).toFixed(0) + '  %')) +
+    grp('Ecosysteme',
+      statRow('ressource/case', L.resource_mean.toFixed(2)) +
+      statRow('cases videes', L.depleted_pct.toFixed(1) + '  %') +
+      statRow('cases occupees', fr(L.occupied_cells))) +
+    grp('Cognition et voix',
+      statRow('agents vivants', fr(L.agents_alive)) +
+      statRow('eveils (total)', fr(L.agents_awoke_total), 'wide') +
+      statRow('souvenirs moy.', L.mean_memories.toFixed(1)) +
+      statRow('appels « bon coin »', fr(L.calls_live || 0), 'call wide') +
+      statRow('cris d’alarme', fr(L.alarms_live || 0)) +
+      statRow('even. / tick', (L.events_per_tick || 0).toFixed(2))) +
+    grp('Cellules',
       statRow('vivantes', fr(L.cells_alive)) +
-      statRow('en cellule', (L.cells_in_pct || 0).toFixed(0) + ' %') +
+      statRow('en cellule', (L.cells_in_pct || 0).toFixed(0) + '  %') +
       statRow('taille moy. / max', (L.cell_size_mean || 0).toFixed(0) + ' / ' + fr(L.cell_size_max || 0)) +
       statRow('age moyen', ageStr((L.cell_age_mean || 0) * secPerTick)) +
       statRow('formees / dissoutes', fr(L.cells_formed || 0) + ' / ' + fr(L.cells_dissolved || 0)) +
       statRow('fusions', fr(L.cells_merged || 0), 'fus' + (fusionHit ? ' hit' : '')) +
       statRow('divisions', fr(L.cells_divided || 0), 'divs' + (divisionHit ? ' hit' : '')) +
       tissueRow(L) +
-      organismRow(L) +
-    '</div>' +
-    '<div class="h2">Cognition et voix</div><div class="rows">' +
-      statRow('agents vivants', fr(L.agents_alive)) +
-      statRow('eveils (total)', fr(L.agents_awoke_total)) +
-      statRow('souvenirs moy.', L.mean_memories.toFixed(1)) +
-      statRow('appels « bon coin »', fr(L.calls_live || 0), 'call') +
-      statRow('cris d’alarme', fr(L.alarms_live || 0)) +
-      statRow('even. / tick', (L.events_per_tick || 0).toFixed(2)) +
-    '</div>';
+      organismRow(L), true);
 
   // fil
-  document.getElementById('feed').innerHTML = (L.events || []).slice(0, 14).map(e =>
+  document.getElementById('feed').innerHTML = (L.events || []).slice(0, 9).map(e =>
     '<div class="fe ' + e.kind + '"><span class="t">tick ' + fr(e.tick) + '</span><span class="b">' + e.text + '</span></div>'
   ).join('');
 
@@ -1657,8 +1686,10 @@ function drawHist(L) {
     '<path d="' + ln + '" fill="none" stroke="rgba(82,230,223,.9)" stroke-width="1.6"/>' +
     marks;
   const secPer = (L.age_world_seconds / Math.max(1, L.tick)) || 3600;
+  // legende courte : en mono, la colonne ne tient qu'environ 45 caracteres sur une ligne ;
+  // plus long, elle passait a 2 lignes et poussait le panneau hors cadre.
   document.getElementById('histcap').textContent =
-    'an ' + Math.floor(t0 * secPer / (365 * 86400)) + ' a aujourd\'hui  ·  espece, extinction, effondrement, cap, fusion, division';
+    'depuis l\'an ' + Math.floor(t0 * secPer / (365 * 86400)) + ' · tournants marques';
 }
 
 function drawSpark(id, arr, col) {
