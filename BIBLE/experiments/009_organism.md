@@ -171,12 +171,21 @@ decoule. **Resistance a la division** : une cellule tissee voit son seuil d'allo
 tient la nappe), une cellule libre ou de bord se divise normalement. Aucun `if` ne nomme un role,
 c'est l'ancrage physique qui decide.
 
-Test `tissue_bonds_hold_a_tissue_through_perturbation` : sous predation, la somme sur les ticks
-du nombre de cellules en tissu est **plus grande** avec les liens qu'avec la derivation tick a
-tick, meme graine ; `tissue_bond = false` ne garde aucun lien ; l'ecosysteme tient ; deterministe.
-Le SENS (les tissus persistants font-ils enfin emerger des muscles durables, des nappes qui
-bougent en bloc ?) est une **question d'A/B sur w2**. Prochaine marche : que le type **compte**
-(barriere, tampon, relais).
+Test `tissue_bonds_hold_a_tissue_through_perturbation`. A/B graine 1 (`experiments/013`) : psi6
+du tissu passe de 0,24 (liquide) a 0,50 (nappe hexagonale), diversite +40 %, mais la biomasse
+pluricellulaire fond de ~40 % (le coeur tisse ne se divise plus). L'essai a chaud sur w2 age a
+casse la lignee pluricellulaire (genome adapte a l'ancien regime) : w2 remis en tissu derive.
+
+**Premier essai pour que le type compte : la digestion (2026-09-04, ABANDONNE).** `[cells]
+epithelium_seal` : une nappe ordonnee digere les entites libres a sa portee, l'energie va a ses
+membres, pour financer le cout de `tissue_bond`. A/B graine 1 (`experiments/014`) : **negatif
+sur toute la ligne.** Nourrir la nappe l'active, l'activite fait fondre l'ordre (KTHNY), la
+nappe se descelle ; et ponctionner les libres autour asseche le vivier qui forme les cellules.
+Code retire. Lecon : le benefice d'un tissu ne doit pas ajouter d'activite metabolique.
+Meilleures pistes : immunite de predation etendue a toute la nappe scellee (passif), ou une
+nappe qui retient la ressource sous elle, ou une digestion dirigee vers la REPRODUCTION (un
+membre de plus) et non vers l'energie des membres. Voir `014`. Prochaine marche : l'une de ces
+pistes, ou adipeux (tampon d'energie dans le temps), ou nerveux (relais de signal).
 
 **L'organisme, identite persistante (2026-09-03, `[organism] enabled`).** La marche choisie
 comme socle des suivantes. `organism_pass` (phase 5b, aux controles `organism.check_every`)
