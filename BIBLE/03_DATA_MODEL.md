@@ -86,6 +86,7 @@ struct Cell {                        // un amas cohérent de parents, reconnu co
     parent_cell:   Option<u32>,       // (v19) la cellule dont celle-ci s'est détachée par division
     tissue:        Option<u32>,       // (0.0.2) id du tissu (plus petit id du groupe), None si isolée ; dérivé (distance) ou porté par les liens (tissue_bond)
     tissue_bonds:  u8,                // (0.0.2) nb de voisines du même tissu (ou degré dans le graphe de liens) ; beaucoup = intérieure, peu = bord
+    sealed:        bool,              // (0.0.2, [cells] epithelium_shield) cellule d'une nappe ordonnée et grande -> hors d'atteinte d'un prédateur ; dérivé chaque tick
     organism:      Option<u32>,       // (0.0.2) id de l'organisme, None si hors complexe ; recalculé aux contrôles
 }
 

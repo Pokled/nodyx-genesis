@@ -946,6 +946,62 @@ fn tissue_bonds_hold_a_tissue_through_perturbation() {
 }
 
 #[test]
+fn epithelium_shield_makes_a_sealed_nappe_untouchable() {
+    // Nappe scellee (0.0.2, `[cells] epithelium_shield`, config seulement). Un tissu ordonne
+    // (psi6 moyen >= shield_order) et assez grand fait REMPART : toutes ses cellules sont hors
+    // d'atteinte d'un predateur, pas seulement le coeur. Purement passif (aucune energie ne
+    // bouge). Verifie (graine 1, avec tissue_bond et predation) : des nappes se scellent
+    // (`Cell.sealed`) ; sous predation, le rempart fait BAISSER le compte de morts par
+    // predation ; `epithelium_shield = false` laisse `Cell.sealed` a false partout et la
+    // predation intacte ; deterministe ; l'ecosysteme tient.
+    let mut base = SimConfig::default();
+    base.cells.cell_burn_relief = 0.0;
+    base.cells.tissue = true;
+    base.cells.tissue_kin = 0.8;
+    base.cells.tissue_reach = 1.3;
+    base.cells.tissue_bond = true;
+    base.predation.enabled = true;
+
+    let mut shield = base.clone();
+    shield.cells.epithelium_shield = true;
+    shield.cells.shield_order = 0.30; // seuil abaisse pour l'echelle courte du test
+    shield.cells.shield_cells = 4;
+
+    let run = |cfg: &SimConfig| -> (u64, u64, bool, bool) {
+        let mut w = WorldState::new(1, cfg);
+        let mut ever_sealed = false;
+        let mut sealed_without_flag = false;
+        for _ in 0..40_000 {
+            let _ = tick(&mut w, cfg);
+            for c in &w.cells {
+                if c.sealed {
+                    ever_sealed = true;
+                    if !cfg.cells.epithelium_shield {
+                        sealed_without_flag = true;
+                    }
+                }
+            }
+            if w.entities.is_empty() {
+                break;
+            }
+        }
+        (w.deaths_predation, w.entities.len() as u64, ever_sealed, sealed_without_flag)
+    };
+
+    let (shield_deaths, shield_pop, shield_sealed, _) = run(&shield);
+    let (base_deaths, _base_pop, _base_sealed, base_sealed_no_flag) = run(&base);
+
+    assert!(shield_sealed, "aucune nappe scellee en 40000 ticks (graine 1) : le test ne prouve rien");
+    assert!(!base_sealed_no_flag, "Cell.sealed vrai alors que epithelium_shield = false");
+    assert!(shield_pop > 100, "l'ecosysteme s'eteint avec le rempart (pop {shield_pop})");
+    assert!(
+        shield_deaths < base_deaths,
+        "le rempart ne protege pas : {shield_deaths} morts par predation (avec) vs {base_deaths} (sans)"
+    );
+    assert_eq!(run(&shield).0, shield_deaths, "rempart non deterministe");
+}
+
+#[test]
 fn predation_kills_the_weak_and_conserves_the_death_count() {
     // Predation (0.0.2, experiments/012, config seulement, `[predation] enabled`). Une entite
     // affamee mange une entite nettement plus faible a portee : la proie meurt par predation,

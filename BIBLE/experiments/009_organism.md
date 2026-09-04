@@ -182,10 +182,20 @@ membres, pour financer le cout de `tissue_bond`. A/B graine 1 (`experiments/014`
 sur toute la ligne.** Nourrir la nappe l'active, l'activite fait fondre l'ordre (KTHNY), la
 nappe se descelle ; et ponctionner les libres autour asseche le vivier qui forme les cellules.
 Code retire. Lecon : le benefice d'un tissu ne doit pas ajouter d'activite metabolique.
-Meilleures pistes : immunite de predation etendue a toute la nappe scellee (passif), ou une
-nappe qui retient la ressource sous elle, ou une digestion dirigee vers la REPRODUCTION (un
-membre de plus) et non vers l'energie des membres. Voir `014`. Prochaine marche : l'une de ces
-pistes, ou adipeux (tampon d'energie dans le temps), ou nerveux (relais de signal).
+
+**Deuxieme essai : le rempart (2026-09-04, `[cells] epithelium_shield`).** Passif, cette fois.
+Une nappe **ordonnee** (psi6 moyen du tissu >= `shield_order` 0,42) et **grande** (>=
+`shield_cells` 5 cellules qui comptent au psi6) fait rempart : **toutes** ses cellules sont hors
+d'atteinte d'un predateur, pas seulement le coeur (`tissue_shelter`). Aucune energie ne bouge,
+aucune activite ajoutee -> l'ordre ne fond pas. `tissue_pass` marque `Cell.sealed`
+(`#[serde(default)]`) d'apres le psi6 par tissu ; la phase predation lit `Cell.sealed` (tick
+precedent) et epargne la proie. Aucun `if kind == epithelium`. Test
+`epithelium_shield_makes_a_sealed_nappe_untouchable`. A/B graine 1 : **retenu, positif mais
+modeste** -- morts par predation -2,4 %, population finale +4,7 %, plus de tissus vivants ;
+sans fonte de l'ordre (contrairement a l'essai 1). Ne resout pas a lui seul le cout de
+`tissue_bond` (biomasse pluricellulaire stable, pas de rebond). Voir `014`. Prochaine marche :
+adipeux (tampon d'energie dans le temps, a verifier qu'il n'agite pas comme la digestion),
+nerveux (relais de signal).
 
 **L'organisme, identite persistante (2026-09-03, `[organism] enabled`).** La marche choisie
 comme socle des suivantes. `organism_pass` (phase 5b, aux controles `organism.check_every`)

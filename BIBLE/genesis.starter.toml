@@ -228,6 +228,15 @@ divide_bond_resist = 0.15 # le seuil d'allongement pour se diviser monte de ceci
 tissue_shelter    = false
 shelter_bonds     = 4     # nb de voisines du même tissu à partir duquel une cellule est "intérieure"
 shelter_feed      = 0.12  # fraction du surplus des cellules de bord reversée au cœur (0 = abri sans nourrissage)
+# Épithélium qui compte (0.0.2, vers l'organe). epithelium_shield = true : une nappe ORDONNÉE
+# (psi6 moyen du tissu >= shield_order) et assez grande (>= shield_cells cellules) fait REMPART :
+# TOUTES ses cellules sont hors d'atteinte d'un prédateur, pas seulement le cœur. Purement passif
+# (aucune énergie ne bouge, aucune activité ajoutée -> l'ordre ne fond pas). Une lignée à l'abri
+# derrière son épithélium survit mieux : la sélection récompense l'ancrage, ce qui compense le
+# coût de tissue_bond. Aucun if kind == epithelium. epithelium_shield = false coupe (A/B).
+epithelium_shield = false
+shield_order      = 0.42  # psi6 moyen du tissu au-delà duquel la nappe fait rempart
+shield_cells      = 5     # nombre minimal de cellules pour qu'une nappe fasse rempart
 # Contraction musculaire (0.0.2, vers la locomotion). Une cellule d'un tissu dont les membres
 # forment un nuage nettement étiré (elongation >= muscle_elong) exerce une force axiale
 # OSCILLANTE : elle se resserre et se relâche, déphasée le long d'une onde qui traverse le tissu,

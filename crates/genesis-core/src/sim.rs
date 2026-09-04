@@ -520,16 +520,25 @@ pub fn tick(world: &mut WorldState, cfg: &SimConfig) -> Vec<Event> {
         let snap: Vec<(Position, f32)> =
             world.entities.iter().map(|e| (e.position, e.energy)).collect();
         let n = snap.len();
-        // Abri du tissu (`tissue_shelter`) : une entite dont la cellule est a l'interieur d'une
-        // nappe (`tissue_bonds >= shelter_bonds`) est hors d'atteinte d'un predateur, et elle
-        // ne chasse pas non plus (elle est muree au centre). Etat du tick precedent (tissue_pass
-        // tourne en phase 5b). Sans cette marche, `sheltered` est tout faux.
-        let sheltered: Vec<bool> = if cfg.cells.tissue && cfg.cells.tissue_shelter {
+        // Hors d'atteinte d'un predateur, etat du tick precedent (tissue_pass tourne en phase 5b) :
+        //  - `tissue_shelter` : une entite dont la cellule est a l'INTERIEUR d'une nappe
+        //    (`tissue_bonds >= shelter_bonds`) est muree au centre, elle ne chasse pas non plus ;
+        //  - `epithelium_shield` : une entite dont la cellule appartient a une nappe SCELLEE
+        //    (`Cell.sealed`, tissu ordonne et grand) est protegee, meme au bord : l'epithelium
+        //    fait rempart pour toute la feuille.
+        let sheltered: Vec<bool> = if cfg.cells.tissue
+            && (cfg.cells.tissue_shelter || cfg.cells.epithelium_shield)
+        {
             let sb = cfg.cells.shelter_bonds.max(1) as u8;
+            let use_shelter = cfg.cells.tissue_shelter;
+            let use_shield = cfg.cells.epithelium_shield;
             let safe: std::collections::HashSet<u32> = world
                 .cells
                 .iter()
-                .filter(|c| c.tissue.is_some() && c.tissue_bonds >= sb)
+                .filter(|c| {
+                    c.tissue.is_some()
+                        && ((use_shelter && c.tissue_bonds >= sb) || (use_shield && c.sealed))
+                })
                 .map(|c| c.id)
                 .collect();
             world
@@ -1401,6 +1410,7 @@ fn cell_phase(
                 parent_cell: Some(parent_id),
                 tissue: None,
                 tissue_bonds: 0,
+                sealed: false,
                 organism: None,
             });
             let at = if let Some(pc) = world.cell_mut(parent_id) {
@@ -1780,6 +1790,7 @@ fn tissue_pass(
     if !cc.tissue || world.cells.len() < 2 {
         for c in world.cells.iter_mut() {
             c.tissue = None;
+            c.sealed = false;
         }
         if !world.cell_bonds.is_empty() {
             world.cell_bonds.clear();
@@ -2006,6 +2017,9 @@ fn tissue_pass(
     // monter la "temperature effective" et fondre l'ordre.
     let mut psi_sum = 0.0f64;
     let mut psi_n = 0usize;
+    // par tissu : (somme psi6, cellules comptees) -> pour marquer les nappes SCELLEES.
+    let mut psi_by_tissue: std::collections::HashMap<u32, (f64, u32)> =
+        std::collections::HashMap::new();
     for k in 0..n {
         if world.cells[k].tissue.is_none() || neigh[k].len() < 3 {
             continue;
@@ -2018,10 +2032,34 @@ fn tissue_pass(
             re += (6.0 * ang).cos();
             im += (6.0 * ang).sin();
         }
-        psi_sum += (re * re + im * im).sqrt() / neigh[k].len() as f64;
+        let psi_k = (re * re + im * im).sqrt() / neigh[k].len() as f64;
+        psi_sum += psi_k;
         psi_n += 1;
+        let e = psi_by_tissue.entry(world.cells[k].tissue.unwrap()).or_insert((0.0, 0));
+        e.0 += psi_k;
+        e.1 += 1;
     }
     world.tissue_order = if psi_n > 0 { (psi_sum / psi_n as f64) as f32 } else { 0.0 };
+
+    // Nappe scellee (0.0.2, `[cells] epithelium_shield`) : un tissu ordonne (psi6 moyen >=
+    // `shield_order`) et assez grand (>= `shield_cells` cellules) fait rempart. On marque chaque
+    // cellule ; la phase predation lit `Cell.sealed` (etat du tick precedent) et epargne la proie.
+    // Le nombre de cellules qui comptent au psi6 (>= 3 voisines) sert de taille : une chaine ou
+    // un bord effiloche ne scelle pas.
+    let sealed_tids: std::collections::HashSet<u32> = if cc.epithelium_shield {
+        psi_by_tissue
+            .iter()
+            .filter(|(_, &(s, c))| {
+                c >= cc.shield_cells.max(2) && (s / c as f64) as f32 >= cc.shield_order
+            })
+            .map(|(&tid, _)| tid)
+            .collect()
+    } else {
+        std::collections::HashSet::new()
+    };
+    for c in world.cells.iter_mut() {
+        c.sealed = c.tissue.is_some_and(|t| sealed_tids.contains(&t));
+    }
 
     // Adhesion : les cellules d'un meme tissu se rapprochent jusqu'au contact. C'est cette
     // traction qui fait emerger le pavage. Poussee accumulee par entite puis appliquee, bornee,
@@ -2236,6 +2274,7 @@ fn cell_detect(
                 parent_cell: None,
                 tissue: None,
                 tissue_bonds: 0,
+                sealed: false,
                 organism: None,
             });
             world.cells_formed_total += 1;

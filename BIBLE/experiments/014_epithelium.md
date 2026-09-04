@@ -1,8 +1,8 @@
-# 014 - L'epithelium qui compte : une nappe digere ce qu'elle enserre (essai negatif)
+# 014 - L'epithelium qui compte
 
-2026-09-04, v0.0.2. Suite de `013_tissue_bond.md`.
-**Statut : essaye (`[cells] epithelium_seal`), A/B negatif, CODE RETIRE. L'implementation est
-dans l'historique git ; ce document garde le pourquoi.**
+2026-09-04, v0.0.2. Suite de `013_tissue_bond.md`. Deux essais.
+- **Essai 1 : `epithelium_seal` (la digestion). A/B negatif, CODE RETIRE.** Detail plus bas.
+- **Essai 2 : `epithelium_shield` (le rempart). En cours d'A/B.** Section a la fin.
 
 ## Le probleme
 
@@ -87,10 +87,67 @@ reculent par rapport a `tissue_bond` seul :
 
 **Conclusion : abandonne sous cette forme.** Le benefice d'un tissu ne doit pas etre de
 l'energie brute (ca ajoute de l'activite, ca melte l'ordre) ni un prelevement sur les libres (ca
-asseche le vivier). Une meilleure piste : un benefice qui ne rend pas la cellule plus active --
-immunite de predation etendue a toute la nappe scellee (pas seulement au coeur), ou une nappe
-qui retient la ressource sous elle (un garde-manger), ou la digestion dirigee vers la
-REPRODUCTION (un membre de plus) plutot que vers l'energie des membres existants. Le flag reste
-(defaut false, teste) mais n'est pas une voie.
+asseche le vivier). Il faut un benefice **passif**.
+
+---
+
+# Essai 2 : `epithelium_shield` -- le rempart
+
+`[cells] epithelium_shield` (defaut false). Une nappe **ordonnee** (psi6 moyen du tissu >=
+`shield_order` def 0,42) et **assez grande** (>= `shield_cells` def 5 cellules qui comptent au
+psi6) fait **rempart** : TOUTES ses cellules sont hors d'atteinte d'un predateur, pas seulement
+le coeur (`tissue_shelter` ne protege que `tissue_bonds >= shelter_bonds`). C'est la fonction
+canonique d'un epithelium : une barriere qui protege ce qu'elle enveloppe.
+
+**Purement passif** : aucune energie ne bouge, aucune activite ajoutee. Donc l'ordre de la nappe
+ne fond pas (contrairement a l'essai 1). `tissue_pass` marque `Cell.sealed` d'apres le psi6 par
+tissu ; la phase predation (5a) lit `Cell.sealed` (etat du tick precedent, comme `sheltered`) et
+epargne la proie. `#[serde(default)]`, schema inchange, deterministe.
+
+L'idee : une lignee a l'abri derriere son epithelium survit mieux -> la selection recompense
+enfin l'ancrage -> ca compense le cout de `tissue_bond`.
+
+Test `epithelium_shield_makes_a_sealed_nappe_untouchable` : des nappes se scellent, le rempart
+fait baisser les morts par predation, `epithelium_shield = false` laisse `Cell.sealed` a false
+partout, deterministe, ecosysteme tient.
+
+## A/B graine 1, 60 000 ticks (config w2 + muscle + tissue_bond) -- RESULTAT MITIGE, POSITIF
+
+| Mesure | OFF (derive) | tissue_bond | + epithelium_shield |
+| --- | --- | --- | --- |
+| population moyenne (plateau) | 8080 | 7160 | 7145 |
+| population finale | 14749 | 12159 | **12730** |
+| entites en cellule (fin de run) | 3440 | 1960 | 1960 |
+| cellules vivantes, moyenne | 46,7 | 38,9 | 36,8 |
+| tissus vivants (fin de run) | 2,9 | 3,75 | **4,05** |
+| ordre du tissu psi6 (fin de run) | 0,24 | 0,50 | 0,44 |
+| divisions de cellule (cumul) | 59 | 22 | 19 |
+| cellules formees / dissoutes | 544 / - | 569 / - | 514 / 421 |
+| morts par predation (cumul) | 107 900 | 102 400 | **99 900** |
+| diversite genetique (finale) | 0,070 | 0,098 | 0,079 |
+
+Lecture :
+
+**Le rempart aide, sans spectaculaire.** Contrairement a la digestion (essai 1, negatif sur
+toute la ligne), le rempart bouge plusieurs mesures dans le bon sens EN MEME TEMPS :
+
+- **Moins de morts par predation** (102 400 -> 99 900, -2,4 %) : le mecanisme protege pour de
+  vrai, meme si l'effet est modeste (les nappes scellees restent rares).
+- **Population finale plus haute** (12 159 -> 12 727, +4,7 %) et **plus de tissus vivants**
+  (3,75 -> 4,05) : une population un peu mieux protegee tient mieux la duree.
+- **Le psi6 recule un peu** (0,50 -> 0,44) mais reste tres au-dessus du regime derive (0,24) :
+  pas de fonte de l'ordre comme avec la digestion, juste du bruit d'echantillonnage plausible.
+- **La biomasse pluricellulaire ne recupere pas** (`entites en cellule` : 1957 -> 1959, stable)
+  et la **diversite baisse un peu** par rapport a `tissue_bond` seul (0,098 -> 0,079, mais reste
+  au-dessus d'OFF 0,070). Le rempart ne resout donc pas a lui seul le cout de `tissue_bond`
+  identifie dans `013` : il l'attenue, il ne le renverse pas.
+
+**Conclusion : retenu.** Contrairement a la digestion, aucun signe d'auto-sabotage (pas de
+boucle qui se defait). Le mecanisme est passif, sobre, et fait ce qu'on attend d'un epithelium :
+proteger. Pas suffisant a lui seul pour faire croitre la lignee pluricellulaire au-dela du
+niveau `tissue_bond`, mais une brique saine a garder (defaut false, A/B a mener sur d'autres
+graines avant d'envisager un allumage). Prochaine piste pour aller plus loin : combiner avec un
+tampon d'energie (adipeux) qui, lui, stocke sans agiter -- a verifier qu'un tampon passif
+n'a pas le meme travers que la digestion.
 
 Lien : [[organism-path-predation-first]], `013_tissue_bond.md`, `009_organism.md`.

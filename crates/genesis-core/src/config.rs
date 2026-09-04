@@ -569,6 +569,21 @@ pub struct CellsCfg {
     /// l'abri protege de la predation mais ne nourrit pas le coeur (A/B secondaire).
     pub shelter_feed: f32,
 
+    /// Epithelium qui compte (0.0.2, `[cells]`, vers l'organe). Quand `true`, une nappe de tissu
+    /// ORDONNEE et assez grande (psi6 du tissu >= `shield_order`, >= `shield_cells` cellules) fait
+    /// REMPART : TOUTES ses cellules sont hors d'atteinte d'un predateur, pas seulement le coeur
+    /// (contrairement a `tissue_shelter`). Purement passif : aucune energie ne bouge, aucune
+    /// activite ajoutee, donc l'ordre de la nappe ne fond pas. C'est la fonction canonique d'un
+    /// epithelium : une barriere qui protege ce qu'elle enveloppe. Une lignee a l'abri derriere
+    /// son epithelium survit mieux -> la selection recompense enfin l'ancrage, ce qui compense
+    /// le cout de `tissue_bond` (une cellule tissee se divise moins). Aucun `if kind ==
+    /// epithelium` : c'est la geometrie (nappe ordonnee). `false` desactive (bouton d'A/B).
+    pub epithelium_shield: bool,
+    /// psi6 moyen du tissu au-dela duquel la nappe fait rempart.
+    pub shield_order: f32,
+    /// Nombre minimal de cellules pour qu'une nappe fasse rempart.
+    pub shield_cells: u32,
+
     /// Contraction musculaire (0.0.2, vers la locomotion ; config seulement). Une cellule d'un
     /// tissu dont les membres forment un nuage nettement etire (`elongation >= muscle_elong`)
     /// exerce une force axiale OSCILLANTE sur ses membres : elle se resserre et se relache au
@@ -625,6 +640,9 @@ impl Default for CellsCfg {
             tissue_shelter: false,
             shelter_bonds: 4,
             shelter_feed: 0.12,
+            epithelium_shield: false,
+            shield_order: 0.42,
+            shield_cells: 5,
             muscle_contract: false,
             muscle_elong: 1.8,
             muscle_strength: 0.18,

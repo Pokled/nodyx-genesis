@@ -108,6 +108,11 @@ pub struct Cell {
     /// decoulent sans qu'une regle les nomme.
     #[serde(default)]
     pub tissue_bonds: u8,
+    /// `true` si cette cellule appartient a une nappe SCELLEE (0.0.2, `[cells] epithelium_shield`) :
+    /// un tissu ordonne et assez grand. Une telle cellule est hors d'atteinte d'un predateur.
+    /// Derive chaque tick par `tissue_pass`. `false` sans le levier ou hors nappe scellee.
+    #[serde(default)]
+    pub sealed: bool,
     /// Organisme (0.0.2, `[organism] enabled`) auquel cette cellule appartient, `None` si elle
     /// n'est pas prise dans un complexe reconnu. Un organisme peut reunir plusieurs types de
     /// tissus (pas de parente exigee, contrairement au tissu). Recalcule aux controles.
