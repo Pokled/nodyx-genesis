@@ -238,6 +238,15 @@ adhesion_mult_max = 2.0   # multiplicateur du seuil pour la paire au gène le pl
 tissue_shelter    = false
 shelter_bonds     = 4     # nb de voisines du même tissu à partir duquel une cellule est "intérieure"
 shelter_feed      = 0.12  # fraction du surplus des cellules de bord reversée au cœur (0 = abri sans nourrissage)
+# Gène de rôle (0.0.2, piste D étape 2, second gène du génome structurel). Contrairement au gène
+# d'adhésion (moyenné par cellule, dilué, experiments/018), chaque ENTITÉ porte son propre seuil
+# hérité et ne peut se reproduire que si l'entassement de sa cellule l'atteint POUR ELLE :
+# variance intra-cellule réelle (vérifiée), vraie prise pour la sélection individuelle. Mais A/B
+# à l'échelle w7 : coût écologique net et constant (ratio final 0,61-0,94 selon la graine, creux
+# profond en cours de route) — couper le droit de se reproduire punit fort tant que le tissu est
+# encore jeune. Aucune extinction observée, mais pas gratuit (experiments/019). Éteint par défaut.
+role_gene         = false
+role_bonds_scale  = 6.0   # échelle de tissue_bonds (0..~6) à laquelle le seuil personnel se compare
 # Épithélium qui compte (0.0.2, vers l'organe). epithelium_shield = true : une nappe ORDONNÉE
 # (psi6 moyen du tissu >= shield_order) et assez grande (>= shield_cells cellules) fait REMPART :
 # TOUTES ses cellules sont hors d'atteinte d'un prédateur, pas seulement le cœur. Purement passif

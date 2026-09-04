@@ -56,33 +56,56 @@ fn half() -> f32 {
     0.5
 }
 
-/// Genome structurel (0.0.2, piste D, distinct du genome de traits ci-dessus). Premier gene :
-/// `adhesion`, la tolerance PERSONNELLE d'une cellule a la distance de parente mesuree par
-/// `trait_l1` -- pas une dimension de plus dans cette mesure (qui casserait l'echelle deja
-/// calibree de `fuse_kin`/`tissue_kin`/`kin_dist`), mais un multiplicateur heritable du seuil
-/// d'adhesion de tissu (voir `[cells] adhesion_gene`). `0,5` = neutre.
+/// Genome structurel (0.0.2, piste D, distinct du genome de traits ci-dessus). Chaque gene n'est
+/// tire/mute du RNG que si SON levier est actif (`[cells]`) -- sinon il reste fige au neutre
+/// `0,5`, SANS consommer de tirage : `false` doit laisser la trajectoire du monde strictement
+/// inchangee, comme tout autre levier de cette base (voir `experiments/018`, le decalage de
+/// flux RNG inconditionnel avait casse cinq tests sans rapport avant d'etre corrige).
+///
+/// - `adhesion` : la tolerance PERSONNELLE d'une cellule a la distance de parente mesuree par
+///   `trait_l1` -- pas une dimension de plus dans cette mesure (qui casserait l'echelle deja
+///   calibree de `fuse_kin`/`tissue_kin`/`kin_dist`), mais un multiplicateur heritable du seuil
+///   d'adhesion de tissu (`[cells] adhesion_gene`).
+/// - `germinal_bias` : le seuil PERSONNEL (pas moyenne par cellule, contrairement a `adhesion` --
+///   `experiments/018` a montre que moyenner par cellule dilue la selection) d'entassement
+///   (`Cell.tissue_bonds`, deja mesure par `tissue_shelter`) a partir duquel une entite se
+///   compte germinale plutot que somatique (`[cells] role_gene`).
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct StructuralGenome {
     pub adhesion: f32,
+    #[serde(default = "half")]
+    pub germinal_bias: f32,
 }
 
 impl Default for StructuralGenome {
     fn default() -> Self {
-        StructuralGenome { adhesion: 0.5 }
+        StructuralGenome { adhesion: 0.5, germinal_bias: 0.5 }
     }
 }
 
 impl StructuralGenome {
-    fn random(rng: &mut Rng) -> Self {
-        StructuralGenome { adhesion: 0.35 + rng.next_f32() * 0.3 }
+    fn random(rng: &mut Rng, cc: &crate::config::CellsCfg) -> Self {
+        StructuralGenome {
+            adhesion: if cc.adhesion_gene { 0.35 + rng.next_f32() * 0.3 } else { 0.5 },
+            germinal_bias: if cc.role_gene { 0.35 + rng.next_f32() * 0.3 } else { 0.5 },
+        }
     }
 
-    fn divide(parent: &StructuralGenome, cfg: &ReproductionCfg, rng: &mut Rng) -> Self {
+    fn divide(
+        parent: &StructuralGenome,
+        cc: &crate::config::CellsCfg,
+        repro: &ReproductionCfg,
+        rng: &mut Rng,
+    ) -> Self {
         let mut adhesion = parent.adhesion;
-        if rng.chance(cfg.mutation_rate) {
-            adhesion = (adhesion + rng.gaussian(cfg.mutation_scale)).clamp(0.0, 1.0);
+        if cc.adhesion_gene && rng.chance(repro.mutation_rate) {
+            adhesion = (adhesion + rng.gaussian(repro.mutation_scale)).clamp(0.0, 1.0);
         }
-        StructuralGenome { adhesion }
+        let mut germinal_bias = parent.germinal_bias;
+        if cc.role_gene && rng.chance(repro.mutation_rate) {
+            germinal_bias = (germinal_bias + rng.gaussian(repro.mutation_scale)).clamp(0.0, 1.0);
+        }
+        StructuralGenome { adhesion, germinal_bias }
     }
 }
 
@@ -154,14 +177,14 @@ pub struct Genome {
 }
 
 impl Genome {
-    /// `adhesion_gene` : tire le genome structurel du RNG seulement si `[cells] adhesion_gene`
-    /// est actif -- sinon reste au defaut neutre, SANS consommer de tirage. Comme pour tout
-    /// autre levier de cette base : `false` doit laisser la trajectoire du monde strictement
-    /// inchangee, pas seulement l'effet du gene.
-    pub fn founder(rng: &mut Rng, lineage: u16, adhesion_gene: bool) -> Self {
+    /// `cc` : chaque gene structurel n'est tire du RNG que si SON levier (`[cells]`) est actif
+    /// -- sinon fige au neutre, SANS consommer de tirage. Comme pour tout autre levier de
+    /// cette base : `false` doit laisser la trajectoire du monde strictement inchangee, pas
+    /// seulement l'effet du gene.
+    pub fn founder(rng: &mut Rng, lineage: u16, cc: &crate::config::CellsCfg) -> Self {
         Genome {
             traits: Traits::random(rng),
-            structural: if adhesion_gene { StructuralGenome::random(rng) } else { StructuralGenome::default() },
+            structural: StructuralGenome::random(rng, cc),
             generation: 0,
             parent: None,
             lineage,
@@ -175,8 +198,8 @@ impl Genome {
         parent: &Genome,
         parent_id: EntityId,
         cfg: &ReproductionCfg,
+        cc: &crate::config::CellsCfg,
         rng: &mut Rng,
-        adhesion_gene: bool,
     ) -> Option<Genome> {
         let src = parent.traits.as_array();
         let mut child = [0.0f32; N_TRAITS];
@@ -186,13 +209,9 @@ impl Genome {
                 child[i] = (child[i] + rng.gaussian(cfg.mutation_scale)).clamp(0.0, 1.0);
             }
         }
-        // Meme regle que `founder` : pas de tirage RNG pour le genome structurel si le levier
-        // qui le lit est coupe (`false` = trajectoire strictement inchangee).
-        let structural = if adhesion_gene {
-            StructuralGenome::divide(&parent.structural, cfg, rng)
-        } else {
-            parent.structural
-        };
+        // Meme regle que `founder` : chaque gene structurel ne tire du RNG que si son propre
+        // levier est actif (`false` = trajectoire strictement inchangee).
+        let structural = StructuralGenome::divide(&parent.structural, cc, cfg, rng);
         // Un tirage de letalite par division, apres les mutations.
         if rng.chance(cfg.lethal_mutation_rate) {
             return None;

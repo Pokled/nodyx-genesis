@@ -249,6 +249,12 @@ pub struct WorldState {
     /// Rend visible quand la matiere est le facteur limitant.
     #[serde(default)]
     pub repro_blocked_materials: u64,
+    /// Entites qui remplissaient toutes les conditions habituelles de reproduction (energie,
+    /// cooldown, age) mais ecartees par le gene de role (0.0.2, `[cells] role_gene`) : dans
+    /// une cellule, pas assez entassee pour LEUR seuil personnel. Cumule. Zero si le levier
+    /// est coupe. Distingue un effet reel du bruit de trajectoire (voir `experiments/019`).
+    #[serde(default)]
+    pub role_blocked_total: u64,
     /// Cellules formees, dissoutes, fusionnees et divisees depuis le debut du monde. Cumule.
     #[serde(default)]
     pub cells_formed_total: u64,
@@ -306,7 +312,7 @@ impl WorldState {
 
         let mut entities: Vec<Entity> = Vec::with_capacity(2);
         for id in 0u64..2 {
-            let genome = Genome::founder(&mut rng, id as u16, cfg.cells.adhesion_gene);
+            let genome = Genome::founder(&mut rng, id as u16, &cfg.cells);
             // Reproduction asexuee : chaque fondateur amorce sa lignee seul, pas besoin
             // de se rencontrer. On les repartit dans la moitie centrale de la grille pour
             // qu'ils aient de la place et restent visibles.
@@ -359,6 +365,7 @@ impl WorldState {
             deaths_age: 0,
             deaths_predation: 0,
             repro_blocked_materials: 0,
+            role_blocked_total: 0,
             cells_formed_total: 0,
             cells_dissolved_total: 0,
             cells_merged_total: 0,

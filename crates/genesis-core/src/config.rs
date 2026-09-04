@@ -587,6 +587,22 @@ pub struct CellsCfg {
     /// l'abri protege de la predation mais ne nourrit pas le coeur (A/B secondaire).
     pub shelter_feed: f32,
 
+    /// Gene de role (0.0.2, piste D etape 2, genome structurel). `tissue_shelter` ci-dessus
+    /// mesure deja l'entassement (`Cell.tissue_bonds`) mais avec un seuil FIXE
+    /// (`shelter_bonds`) pour toute la population. Avec ce levier, chaque ENTITE (pas une
+    /// moyenne par cellule -- `experiments/018` a montre que moyenner dilue la selection) porte
+    /// son propre seuil heredite (`genome.structural.germinal_bias`) : elle ne peut se
+    /// reproduire (phase 7) que si l'entassement de sa cellule (`tissue_bonds / role_bonds_scale`)
+    /// atteint SON seuil personnel -- germinale si assez entouree, somatique sinon (elle encaisse
+    /// sans se diviser). Une entite hors cellule reste toujours eligible (comportement d'origine
+    /// inchange). `false` desactive : AUCUN tirage RNG pour ce gene (fige au neutre `0,5`), et
+    /// la reproduction ne regarde jamais le role -- trajectoire strictement inchangee.
+    pub role_gene: bool,
+    /// Echelle de `tissue_bonds` (nombre de voisines du meme tissu) a laquelle le seuil
+    /// personnel `germinal_bias` (dans [0, 1]) se compare. Un `tissue_bonds` typique va de 0 a
+    /// environ 6 (pavage hexagonal complet).
+    pub role_bonds_scale: f32,
+
     /// Epithelium qui compte (0.0.2, `[cells]`, vers l'organe). Quand `true`, une nappe de tissu
     /// ORDONNEE et assez grande (psi6 du tissu >= `shield_order`, >= `shield_cells` cellules) fait
     /// REMPART : TOUTES ses cellules sont hors d'atteinte d'un predateur, pas seulement le coeur
@@ -672,6 +688,8 @@ impl Default for CellsCfg {
             tissue_shelter: false,
             shelter_bonds: 4,
             shelter_feed: 0.12,
+            role_gene: false,
+            role_bonds_scale: 6.0,
             epithelium_shield: false,
             shield_order: 0.42,
             shield_cells: 5,

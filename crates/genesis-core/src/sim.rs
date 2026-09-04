@@ -820,19 +820,44 @@ pub fn tick(world: &mut WorldState, cfg: &SimConfig) -> Vec<Event> {
     // surpeuplee, sans infrastructure, fait echouer la plupart des divisions.
     let repro_index = SpatialHash::build(&world.entities, &space, 1.0);
 
+    // Role (0.0.2, piste D etape 2, `[cells] role_gene`) : `tissue_bonds` par cellule, pour que
+    // chaque entite compare son PROPRE seuil heredite (`germinal_bias`) a l'entassement de la
+    // sienne. Construit une seule fois ici (pas de moyenne par cellule -- `experiments/018`).
+    let role_gene = cfg.cells.role_gene;
+    let bonds_by_cell: std::collections::HashMap<u32, u8> = if role_gene {
+        world.cells.iter().map(|c| (c.id, c.tissue_bonds)).collect()
+    } else {
+        std::collections::HashMap::new()
+    };
+    let role_bonds_scale = cfg.cells.role_bonds_scale.max(0.5);
+
     // Eligible : assez d'energie, gestation terminee, et assez age (maturite). Un juvenile
     // ne se reproduit pas, ce qui casse la croissance exponentielle sans plafond artificiel.
-    let candidates: Vec<EntityId> = world
-        .entities
-        .iter()
-        .filter(|e| {
-            e.energy >= threshold
-                && e.cooldown == 0
-                && (e.age_ticks as f32)
-                    >= lifespan_mean * (0.5 + e.genome.traits.lifespan) * maturity_frac
-        })
-        .map(|e| e.id)
-        .collect();
+    // Avec `role_gene`, une entite dans une cellule doit aussi etre germinale (son seuil
+    // personnel <= l'entassement de sa cellule) ; hors cellule, toujours eligible (inchange).
+    let mut candidates: Vec<EntityId> = Vec::new();
+    let mut role_blocked_now = 0u64;
+    for e in world.entities.iter() {
+        let base_ok = e.energy >= threshold
+            && e.cooldown == 0
+            && (e.age_ticks as f32)
+                >= lifespan_mean * (0.5 + e.genome.traits.lifespan) * maturity_frac;
+        if !base_ok {
+            continue;
+        }
+        if role_gene {
+            let germinal = match e.cell_id.and_then(|id| bonds_by_cell.get(&id)) {
+                Some(&bonds) => (bonds as f32) >= e.genome.structural.germinal_bias * role_bonds_scale,
+                None => true,
+            };
+            if !germinal {
+                role_blocked_now += 1;
+                continue;
+            }
+        }
+        candidates.push(e.id);
+    }
+    world.role_blocked_total += role_blocked_now;
 
     let cell_birth_relief = cfg.cells.cell_birth_relief.clamp(0.0, 0.95);
     for a in candidates {
@@ -913,8 +938,8 @@ pub fn tick(world: &mut WorldState, cfg: &SimConfig) -> Vec<Event> {
                 &parent_genome,
                 a,
                 &cfg.reproduction,
+                &cfg.cells,
                 &mut world.rng,
-                cfg.cells.adhesion_gene,
             ) {
                 Some(g) => g,
                 None => {

@@ -1431,6 +1431,85 @@ fn adhesion_gene_changes_tissue_formation() {
 }
 
 #[test]
+fn role_gene_creates_selectable_variance_without_cell_averaging() {
+    // Gene de role (0.0.2, piste D etape 2, `[cells] role_gene`). Contrairement au gene
+    // d'adhesion (etape 1, `018_adhesion_gene.md`) qui moyennait par cellule et diluait toute
+    // variance exploitable entre membres, ce gene est lu PAR ENTITE : chaque entite compare
+    // SON PROPRE seuil heredite (`germinal_bias`) a l'entassement de sa cellule
+    // (`Cell.tissue_bonds`), et seule une entite germinale (assez entouree pour SON seuil) peut
+    // se reproduire (phase 7) -- une entite hors cellule reste toujours eligible.
+    // Verifie (graine 1, tissu + predation + abri, meme regime que `018`) :
+    // - le levier bloque reellement des candidats a la reproduction (la trajectoire diverge) ;
+    // - la variance INTRA-cellule du gene est reelle sous selection (`on_sd` > 0), CONTRAIREMENT
+    //   a une moyenne par cellule qui l'aurait effacee par construction (`off_sd` = 0, gene fige
+    //   au neutre sans le levier, aucun tirage RNG) ;
+    // - l'ecosysteme tient des deux cotes ; deterministe.
+    // Pas d'assertion de DIRECTION de derive de la moyenne de population : sondage prealable sur
+    // plusieurs graines (voir `019_role_gene.md`) montre un sens qui depend du contexte (une
+    // graine derive vers plus permissif, une autre vers plus strict) -- une pression de
+    // selection reelle mais dependante de l'ecologie locale, pas un seuil stable a figer ici.
+    let mut on = SimConfig::default();
+    on.cells.cell_burn_relief = 0.0;
+    on.cells.tissue = true;
+    on.cells.tissue_bond = true;
+    on.cells.tissue_kin = 0.8;
+    on.cells.tissue_reach = 1.3;
+    on.cells.tissue_shelter = true;
+    on.predation.enabled = true;
+    on.cells.role_gene = true;
+    let mut off = on.clone();
+    off.cells.role_gene = false;
+
+    let run = |cfg: &SimConfig| -> (u64, i64, f64, u64) {
+        let mut w = WorldState::new(1, cfg);
+        for _ in 0..40_000 {
+            let _ = tick(&mut w, cfg);
+            if w.entities.is_empty() {
+                break;
+            }
+        }
+        let mut fp: i64 = 0;
+        for e in &w.entities {
+            fp = fp.wrapping_add((e.position.x * 97.0) as i64);
+            fp = fp.wrapping_mul(1_000_003).wrapping_add((e.energy * 13.0) as i64);
+        }
+        let mut var_sum = 0.0f64;
+        let mut var_n = 0usize;
+        for c in &w.cells {
+            let vals: Vec<f64> = w
+                .entities
+                .iter()
+                .filter(|e| e.cell_id == Some(c.id))
+                .map(|e| e.genome.structural.germinal_bias as f64)
+                .collect();
+            if vals.len() < 2 {
+                continue;
+            }
+            let m = vals.iter().sum::<f64>() / vals.len() as f64;
+            let v = vals.iter().map(|x| (x - m).powi(2)).sum::<f64>() / vals.len() as f64;
+            var_sum += v;
+            var_n += 1;
+        }
+        let within_cell_sd = if var_n > 0 { (var_sum / var_n as f64).sqrt() } else { 0.0 };
+        (w.entities.len() as u64, fp, within_cell_sd, w.role_blocked_total)
+    };
+
+    let (on_pop, on_fp, on_sd, on_blocked) = run(&on);
+    let (off_pop, off_fp, off_sd, off_blocked) = run(&off);
+
+    assert!(on_pop > 100 && off_pop > 100, "l'ecosysteme s'eteint (on {on_pop}, off {off_pop})");
+    assert_ne!(on_fp, off_fp, "role_gene ne change rien a la trajectoire");
+    assert_eq!(off_sd, 0.0, "germinal_bias varie sans le levier (devrait rester fige a 0,5)");
+    assert_eq!(off_blocked, 0, "role_blocked_total avance sans le levier");
+    assert!(on_blocked > 0, "le gene de role n'a jamais ecarte personne (mecanisme jamais exerce)");
+    assert!(
+        on_sd > 0.02,
+        "le gene de role n'a pas de variance intra-cellule exploitable : sd {on_sd:.4}"
+    );
+    assert_eq!(run(&on).1, on_fp, "gene de role non deterministe");
+}
+
+#[test]
 fn muscle_contract_perturbs_only_when_an_elongated_tissue_cell_exists() {
     // Contraction musculaire (0.0.2, `[cells] muscle_contract`, config seulement). Une cellule
     // d'un tissu dont le nuage de membres est assez fusiforme exerce une force axiale oscillante

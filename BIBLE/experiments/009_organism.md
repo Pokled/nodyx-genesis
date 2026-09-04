@@ -255,9 +255,22 @@ un probleme classique de selection de groupe sans regroupement assorti. Ni un po
 (`015`/`017`), ni un pur no-op (`016`) : un troisieme cas, le mecanisme marche mais la
 selection n'a presque rien a mordre. Garde dans le code (defaut `false`). Voir `018`.
 
-Prochaine marche : etape 2 de la piste D (carte de roles + reproduction a l'echelle de
-l'organisme entier) -- la seule ou la selection s'exercerait directement sur l'unite qui porte
-le genome structurel, pas sur une moyenne diluee par des voisins non apparentes au gene.
+**Le gene de role, variance reelle mais cout ecologique (2026-09-05, `[cells] role_gene`).**
+Repond directement au diagnostic de `018` : au lieu d'une moyenne par cellule (qui efface la
+variance), chaque ENTITE porte son propre seuil d'entassement (`germinal_bias`) et ne peut se
+reproduire que si sa cellule est assez entouree POUR ELLE -- germinale ou somatique, jamais
+nomme, juste mesure. Verifie : l'ecart-type intra-cellule (0,04-0,06) prouve enfin une variance
+exploitable, la ou `018` tombait a zero. Mais A/B a l'echelle w7 (deux graines) : cout net et
+constant sur la population (ratio final 0,61-0,94, avec un creux profond en cours de route sur
+une graine) -- couper le droit de se reproduire punit fort tant que le tissu est encore jeune et
+rare, exactement le moment ou la population a le plus besoin de croitre. Aucune extinction dans
+les graines testees, mais un cout reel, plus proche de `tissue_bond` que des mecanismes gratuits
+de cette session. Garde dans le code (defaut `false`). Voir `019`.
+
+Prochaine marche : soit ajuster ce que le role module (une part d'energie/vitesse de gestation
+plutot qu'un interrupteur tout ou rien sur la reproduction), soit passer directement a l'etape 3
+de la piste D (reproduction a l'echelle de l'organisme entier) -- la seule ou la selection
+s'exercerait directement sur l'unite qui porte le genome structurel.
 
 **L'organisme, identite persistante (2026-09-03, `[organism] enabled`).** La marche choisie
 comme socle des suivantes. `organism_pass` (phase 5b, aux controles `organism.check_every`)
