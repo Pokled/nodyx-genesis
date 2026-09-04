@@ -238,6 +238,27 @@ essais "que le type compte" a ce jour. Voir `017`.
 Prochaine marche : essayer le relais depuis la genese sur un monde neuf (jamais a chaud, meme
 regle que `013`/`015`) ; puis selection a l'echelle organisme + genome structurel Sims (D).
 
+**Le gene d'adhesion, piste D etape 1 : ca marche, mais ca ne se selectionne presque pas
+(2026-09-04, `[cells] adhesion_gene`).** Premier gene d'un genome STRUCTUREL, separe du genome
+de traits (`Genome.structural`, hors `trait_l1` -- sinon ca fausserait en silence l'echelle de
+`fuse_kin`/`tissue_kin`/`kin_dist`, deja calibree sur 10 dimensions) : la tolerance heritee
+d'une cellule a la parente pour adherer sans fusionner, qui remplace le seuil `tissue_kin` fixe
+pour tout le monde par un multiplicateur personnel (`Cell.mean_adhesion`, mute a chaque division
+comme les traits). Verifie mecaniquement : le levier change reellement la formation de tissu
+(13 vs 22 cellules, graine 1). Mais la moyenne ponderee-population du gene ne derive quasiment
+pas sous selection (+0,002 a +0,02 selon la graine/le seuil, parfois nul ou legerement negatif --
+un ordre de grandeur sous tout ce qui a ete retenu cette session). Cause : la formation de
+cellule est gouvernee par la parente de TRAITS, sans rapport avec ce gene -- les cellules
+regroupent des entites presque au hasard de son point de vue, la variance exploitable
+s'effondre au niveau cellule (ecart-type ~0,01-0,02 entre cellules contre ~0,05 entre entites),
+un probleme classique de selection de groupe sans regroupement assorti. Ni un positif net
+(`015`/`017`), ni un pur no-op (`016`) : un troisieme cas, le mecanisme marche mais la
+selection n'a presque rien a mordre. Garde dans le code (defaut `false`). Voir `018`.
+
+Prochaine marche : etape 2 de la piste D (carte de roles + reproduction a l'echelle de
+l'organisme entier) -- la seule ou la selection s'exercerait directement sur l'unite qui porte
+le genome structurel, pas sur une moyenne diluee par des voisins non apparentes au gene.
+
 **L'organisme, identite persistante (2026-09-03, `[organism] enabled`).** La marche choisie
 comme socle des suivantes. `organism_pass` (phase 5b, aux controles `organism.check_every`)
 reconnait les **composantes connexes de cellules qui se touchent** (`organism.reach` x (r1+r2),

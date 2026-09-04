@@ -220,6 +220,16 @@ bond_form         = 1.15  # distance (x (r1+r2)) en deçà de laquelle un lien s
 bond_break        = 2.4   # distance (x (r1+r2)) au-delà de laquelle un lien casse (hystérésis : > bond_form)
 bond_stiffness    = 0.12  # raideur du ressort de lien (rappel vers le contact, plus ferme que tissue_pull)
 divide_bond_resist = 0.15 # le seuil d'allongement pour se diviser monte de ceci par lien (cellule tissée = somatique)
+# Gène d'adhésion (0.0.2, piste D étape 1, premier gène d'un génome STRUCTUREL séparé du génome
+# de traits). Sans lui, tissue_kin est un seuil de parenté fixe pour tout le monde ; avec lui,
+# chaque paire de cellules adhère selon SA tolérance héritée (mutée à chaque division comme les
+# traits). Marche mécaniquement (change réellement la formation de tissu, vérifié), mais la
+# sélection sur le gène lui-même reste trop diluée pour être fiable : la formation de cellule
+# est gouvernée par la parenté de TRAITS, sans rapport avec ce gène, donc la variance utile
+# s'effondre au niveau cellule (voir experiments/018). Gardé éteint par défaut.
+adhesion_gene     = false
+adhesion_mult_min = 0.4   # multiplicateur du seuil pour la paire au gène le plus timide
+adhesion_mult_max = 2.0   # multiplicateur du seuil pour la paire au gène le plus permissif
 # Abri du tissu (0.0.2, vers les rôles). Une cellule entourée (tissue_bonds >= shelter_bonds
 # voisines du même tissu) est à l'intérieur de la nappe : un prédateur ne peut pas l'atteindre,
 # et une part shelter_feed du surplus des cellules de bord coule vers elle. Le cœur, protégé et

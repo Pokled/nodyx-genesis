@@ -553,6 +553,24 @@ pub struct CellsCfg {
     /// une cellule libre ou de bord se divise normalement. Sans effet si `tissue_bond = false`.
     pub divide_bond_resist: f32,
 
+    /// Gene d'adhesion (0.0.2, piste D etape 1, genome structurel). Sans lui, `tissue_kin` est
+    /// un seuil FIXE, identique pour tout le monde. Avec lui, chaque paire de cellules adhere
+    /// selon SA propre tolerance heritee (`Cell.mean_adhesion`, moyenne du gene
+    /// `genome.structural.adhesion` sur les membres, `0,5` = neutre) : le seuil effectif devient
+    /// `tissue_kin * mult` (et `tissue_kin * 1.8 * mult` pour `kin_keep`, l'hysteresis de
+    /// `tissue_bond` reste a facteur 1.8 constant), `mult` interpole entre `adhesion_mult_min` et
+    /// `adhesion_mult_max` selon la moyenne d'adhesion des deux cellules. `false` desactive :
+    /// AUCUN tirage RNG pour ce gene (reste fige au neutre `0,5`), et `tissue_pass` se comporte
+    /// exactement comme avant son existence -- trajectoire strictement inchangee, pas seulement
+    /// son effet (bouton d'A/B, meme garantie que tous les autres leviers de cette base).
+    pub adhesion_gene: bool,
+    /// Multiplicateur du seuil d'adhesion pour une paire au gene le plus timide (`mean_adhesion`
+    /// moyen proche de 0).
+    pub adhesion_mult_min: f32,
+    /// Multiplicateur du seuil d'adhesion pour une paire au gene le plus permissif
+    /// (`mean_adhesion` moyen proche de 1).
+    pub adhesion_mult_max: f32,
+
     /// Abri du tissu (0.0.2, vers la marche organisme : les roles). Une cellule entouree
     /// (`tissue_bonds >= shelter_bonds` voisines du meme tissu) est a l'interieur de la nappe :
     /// un predateur ne peut pas l'atteindre, et une part `shelter_feed` du surplus des cellules
@@ -648,6 +666,9 @@ impl Default for CellsCfg {
             bond_break: 2.4,
             bond_stiffness: 0.12,
             divide_bond_resist: 0.15,
+            adhesion_gene: false,
+            adhesion_mult_min: 0.4,
+            adhesion_mult_max: 2.0,
             tissue_shelter: false,
             shelter_bonds: 4,
             shelter_feed: 0.12,

@@ -1374,6 +1374,63 @@ fn adipeux_reserve_rescues_starving_organism_members() {
 }
 
 #[test]
+fn adhesion_gene_changes_tissue_formation() {
+    // Gene d'adhesion (0.0.2, piste D etape 1, `[cells] adhesion_gene`) : premier gene d'un
+    // genome STRUCTUREL, distinct du genome de traits (`Genome.structural`, hors `trait_l1` --
+    // sinon ca fausserait en silence l'echelle de `fuse_kin`/`tissue_kin`/`kin_dist`). Sans le
+    // levier, `tissue_kin` est un seuil de parente FIXE pour tout le monde ; avec lui, chaque
+    // paire de cellules adhere selon SA tolerance heritee (`Cell.mean_adhesion`, moyenne du
+    // gene sur les membres). `adhesion_gene = false` ne tire AUCUN RNG pour ce gene (fige au
+    // neutre `0,5`) : la trajectoire du monde reste strictement identique a avant son existence,
+    // meme garantie que tout autre levier de cette base.
+    //
+    // Verifie ici seulement l'effet MECANIQUE, deterministe : le levier change reellement la
+    // formation de tissu (nombre de cellules, trajectoire). L'hypothese plus ambitieuse --
+    // que la moyenne ponderee-population du gene DERIVE sous selection -- a ete testee
+    // empiriquement (plusieurs graines, plusieurs seuils) et n'a montre qu'un signal faible et
+    // incoherent (+0,002 a +0,02 selon la graine, parfois nul ou legerement negatif) : la
+    // formation de cellule est gouvernee par la parente de TRAITS (`fuse_kin`), pas par ce
+    // gene, donc les cellules regroupent des entites sans correlation avec lui -- peu de
+    // variance exploitable entre cellules, donc peu de prise pour la selection individuelle,
+    // meme si le seuil marche mecaniquement. Documente dans `experiments/018_adhesion_gene.md`.
+    // Pas d'assertion de derive ici : ce serait un seuil instable, pas un invariant.
+    let mut on = SimConfig::default();
+    on.cells.cell_burn_relief = 0.0;
+    on.cells.tissue = true;
+    on.cells.tissue_bond = true;
+    on.cells.tissue_kin = 0.5;
+    on.cells.tissue_reach = 1.3;
+    on.cells.tissue_shelter = true;
+    on.predation.enabled = true;
+    on.cells.adhesion_gene = true;
+    let mut off = on.clone();
+    off.cells.adhesion_gene = false;
+
+    let run = |cfg: &SimConfig| -> (u64, i64) {
+        let mut w = WorldState::new(1, cfg);
+        for _ in 0..40_000 {
+            let _ = tick(&mut w, cfg);
+            if w.entities.is_empty() {
+                break;
+            }
+        }
+        let mut fp: i64 = 0;
+        for e in &w.entities {
+            fp = fp.wrapping_add((e.position.x * 97.0) as i64);
+            fp = fp.wrapping_mul(1_000_003).wrapping_add((e.energy * 13.0) as i64);
+        }
+        (w.entities.len() as u64, fp)
+    };
+
+    let (on_pop, on_fp) = run(&on);
+    let (off_pop, off_fp) = run(&off);
+
+    assert!(on_pop > 100 && off_pop > 100, "l'ecosysteme s'eteint (on {on_pop}, off {off_pop})");
+    assert_ne!(on_fp, off_fp, "adhesion_gene ne change rien a la trajectoire");
+    assert_eq!(run(&on).1, on_fp, "gene d'adhesion non deterministe");
+}
+
+#[test]
 fn muscle_contract_perturbs_only_when_an_elongated_tissue_cell_exists() {
     // Contraction musculaire (0.0.2, `[cells] muscle_contract`, config seulement). Une cellule
     // d'un tissu dont le nuage de membres est assez fusiforme exerce une force axiale oscillante

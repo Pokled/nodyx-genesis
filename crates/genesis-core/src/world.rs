@@ -118,10 +118,19 @@ pub struct Cell {
     /// tissus (pas de parente exigee, contrairement au tissu). Recalcule aux controles.
     #[serde(default)]
     pub organism: Option<u32>,
+    /// Moyenne du gene d'adhesion (`genome.structural.adhesion`) sur les membres (0.0.2, piste
+    /// D etape 1, `[cells] adhesion_gene`). `0,5` = neutre. Recalculee partout ou `mean_traits`
+    /// l'est (formation, division, detection d'amas).
+    #[serde(default = "half_adhesion")]
+    pub mean_adhesion: f32,
 }
 
 fn one_f32() -> f32 {
     1.0
+}
+
+fn half_adhesion() -> f32 {
+    0.5
 }
 
 /// Un organisme : une composante connexe de cellules qui adherent, reconnue et gardee dans le
@@ -297,7 +306,7 @@ impl WorldState {
 
         let mut entities: Vec<Entity> = Vec::with_capacity(2);
         for id in 0u64..2 {
-            let genome = Genome::founder(&mut rng, id as u16);
+            let genome = Genome::founder(&mut rng, id as u16, cfg.cells.adhesion_gene);
             // Reproduction asexuee : chaque fondateur amorce sa lignee seul, pas besoin
             // de se rencontrer. On les repartit dans la moitie centrale de la grille pour
             // qu'ils aient de la place et restent visibles.

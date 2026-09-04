@@ -909,7 +909,13 @@ pub fn tick(world: &mut WorldState, cfg: &SimConfig) -> Vec<Event> {
         // 2) copie du genome, avec chance de mutation letale (tirages RNG dans divide).
         let parent_genome = world.get(a).unwrap().genome.clone();
         let child_genome =
-            match Genome::divide(&parent_genome, a, &cfg.reproduction, &mut world.rng) {
+            match Genome::divide(
+                &parent_genome,
+                a,
+                &cfg.reproduction,
+                &mut world.rng,
+                cfg.cells.adhesion_gene,
+            ) {
                 Some(g) => g,
                 None => {
                     emit(
@@ -1116,6 +1122,7 @@ fn cell_phase(
         let n = idxs.len() as f32;
         let (mut cx, mut cy, mut e_sum) = (0.0f32, 0.0f32, 0.0f32);
         let mut mean = [0.0f32; N_TRAITS];
+        let mut adh_sum = 0.0f32;
         for &i in idxs {
             let e = &world.entities[i];
             cx += e.position.x;
@@ -1125,6 +1132,7 @@ fn cell_phase(
             for j in 0..N_TRAITS {
                 mean[j] += a[j];
             }
+            adh_sum += e.genome.structural.adhesion;
         }
         cx /= n;
         cy /= n;
@@ -1194,6 +1202,7 @@ fn cell_phase(
         c.radius = rad;
         c.member_count = count;
         c.mean_traits = mean;
+        c.mean_adhesion = adh_sum / n;
         c.genome_key = genome_key_arr(&mean);
         c.elongation = elong;
     }
@@ -1414,6 +1423,7 @@ fn cell_phase(
             let n = leaving.len() as f32;
             let (mut cx, mut cy) = (0.0f32, 0.0f32);
             let mut mean = [0.0f32; N_TRAITS];
+            let mut adh_sum = 0.0f32;
             for &i in &leaving {
                 let e = &world.entities[i];
                 cx += e.position.x;
@@ -1422,12 +1432,14 @@ fn cell_phase(
                 for j in 0..N_TRAITS {
                     mean[j] += a[j];
                 }
+                adh_sum += e.genome.structural.adhesion;
             }
             cx /= n;
             cy /= n;
             for m in mean.iter_mut() {
                 *m /= n;
             }
+            let adh_mean = adh_sum / n;
             let mut rad = 0.0f32;
             for &i in &leaving {
                 let p = world.entities[i].position;
@@ -1448,6 +1460,7 @@ fn cell_phase(
                 tissue_bonds: 0,
                 sealed: false,
                 organism: None,
+                mean_adhesion: adh_mean,
             });
             let at = if let Some(pc) = world.cell_mut(parent_id) {
                 pc.member_count = pc.member_count.saturating_sub(leaving.len() as u32);
@@ -1949,6 +1962,19 @@ fn tissue_pass(
         }
         x
     }
+    // Gene d'adhesion (0.0.2, piste D etape 1, `[cells] adhesion_gene`) : le seuil de parente
+    // pour adherer n'est plus forcement le meme pour tout le monde. Multiplicateur PERSONNEL a
+    // la paire, tire de la tolerance heritee des deux cellules (`mean_adhesion`, moyenne du
+    // gene sur leurs membres). `1.0` (neutre, comportement inchange) si le levier est coupe.
+    let adh_lo = cc.adhesion_mult_min.max(0.05);
+    let adh_span = (cc.adhesion_mult_max - adh_lo).max(0.0);
+    let adhesion_gene = cc.adhesion_gene;
+    let adhesion_mult = |ca: &Cell, cb: &Cell| -> f32 {
+        if !adhesion_gene {
+            return 1.0;
+        }
+        adh_lo + ((ca.mean_adhesion + cb.mean_adhesion) * 0.5).clamp(0.0, 1.0) * adh_span
+    };
     if cc.tissue_bond {
         // --- adhesion persistante : ce sont les LIENS gardes dans le temps qui portent la
         //     connexite, pas un test de distance refait de zero. Un tissu tient une perturbation.
@@ -1956,7 +1982,6 @@ fn tissue_pass(
             world.cells.iter().enumerate().map(|(k, c)| (c.id, k)).collect();
         let form = cc.bond_form.max(0.1);
         let brk = cc.bond_break.max(form + 0.05);
-        let kin_keep = cc.tissue_kin * 1.8;
         // 1. elaguer les liens morts : cellule disparue, paire trop etiree, genomes trop derives.
         let mut bonds = std::mem::take(&mut world.cell_bonds);
         bonds.retain(|&(a, b)| {
@@ -1966,6 +1991,7 @@ fn tissue_pass(
             };
             let (ca, cb) = (&world.cells[ka], &world.cells[kb]);
             let lim = (ca.radius + cb.radius) * brk;
+            let kin_keep = cc.tissue_kin * 1.8 * adhesion_mult(ca, cb);
             ca.position.dist2(&cb.position) <= lim * lim
                 && trait_l1(&ca.mean_traits, &cb.mean_traits) <= kin_keep
         });
@@ -1984,7 +2010,7 @@ fn tissue_pass(
                 if ca.position.dist2(&cb.position) > reach * reach {
                     continue;
                 }
-                if trait_l1(&ca.mean_traits, &cb.mean_traits) > cc.tissue_kin {
+                if trait_l1(&ca.mean_traits, &cb.mean_traits) > cc.tissue_kin * adhesion_mult(ca, cb) {
                     continue;
                 }
                 set.insert(key);
@@ -2018,7 +2044,7 @@ fn tissue_pass(
                 if ca.position.dist2(&cb.position) > reach * reach {
                     continue;
                 }
-                if trait_l1(&ca.mean_traits, &cb.mean_traits) > cc.tissue_kin {
+                if trait_l1(&ca.mean_traits, &cb.mean_traits) > cc.tissue_kin * adhesion_mult(ca, cb) {
                     continue;
                 }
                 neigh[a].push(b);
@@ -2383,16 +2409,19 @@ fn cell_detect(
             let cid = world.next_cell_id;
             world.next_cell_id += 1;
             let mut mean = [0.0f32; N_TRAITS];
+            let mut adh_sum = 0.0f32;
             for &i in &g {
                 world.entities[i].cell_id = Some(cid);
                 let a = world.entities[i].genome.traits.as_array();
                 for j in 0..N_TRAITS {
                     mean[j] += a[j];
                 }
+                adh_sum += world.entities[i].genome.structural.adhesion;
             }
             for m in mean.iter_mut() {
                 *m /= n;
             }
+            let adh_mean = adh_sum / n;
             let mut rad = 0.0f32;
             for &i in &g {
                 let p = world.entities[i].position;
@@ -2413,6 +2442,7 @@ fn cell_detect(
                 tissue_bonds: 0,
                 sealed: false,
                 organism: None,
+                mean_adhesion: adh_mean,
             });
             world.cells_formed_total += 1;
             emit(
