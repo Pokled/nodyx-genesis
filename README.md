@@ -231,6 +231,12 @@ quatorze mille au fil de l'année. Prédation, tissus, abri du tissu et organism
 allumés : une centaine de cellules vivantes, des tissus qui se forment, des organismes qui
 naissent et se nomment. Il dérive, c'est voulu.
 
+**w5**, graine 24, est le banc d'essai de l'adhésion persistante (`tissue_bond`) et du
+rempart épithélial (`epithelium_shield`), allumés dès la genèse (le génome co-évolue avec
+eux, contrairement à un allumage en cours de vie qui casse la lignée pluricellulaire, voir
+`BIBLE/experiments/013`). Même grille, mêmes leviers que w2, plus ces deux-là. Tenu en
+direct à part, sur `--port 8081`, pour ne jamais toucher à w2.
+
 **w1** (graine 8) a les disettes les plus violentes et la plus haute diversité génétique.
 **w4** (graine 13) est le plus foisonnant, une douzaine d'émergences d'espèce. **w3**
 (graine 4) ne prend pas : les deux lignées fondatrices s'éteignent avant la première
