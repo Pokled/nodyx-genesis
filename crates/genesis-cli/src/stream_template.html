@@ -58,16 +58,51 @@
     content:''; position:absolute; left:0; top:0; width:620px; height:430px; z-index:2;
     background:linear-gradient(146deg, rgba(4,6,11,.9) 0%, rgba(4,6,11,.55) 44%, rgba(4,6,11,0) 80%); pointer-events:none;
   }
+  /* --- particules ambiantes : une poussiere de vie qui derive lentement, independante de la
+     camera et de la simulation. Pur CSS (transform + opacity, compositeur GPU) : zero cout sur
+     la boucle de rendu. Toujours un peu de mouvement, meme quand rien de marquant n'arrive. */
+  .ambient { position:absolute; inset:0; z-index:1; pointer-events:none; overflow:hidden; }
+  .ambient .mote {
+    position:absolute; width:3px; height:3px; border-radius:50%;
+    background:radial-gradient(circle, rgba(130,235,225,.95) 0%, rgba(130,235,225,0) 72%);
+    opacity:0; will-change:transform,opacity;
+    animation-name:drift1; animation-timing-function:ease-in-out; animation-iteration-count:infinite;
+  }
+  .ambient .mote:nth-child(3n) { animation-name:drift2; width:2px; height:2px; }
+  .ambient .mote:nth-child(3n+1) { animation-name:drift3; width:4px; height:4px; }
+  @keyframes drift1 {
+    0% { transform:translate(0,0); opacity:0; } 10% { opacity:.5; }
+    50% { transform:translate(44px,-62px); opacity:.7; } 90% { opacity:.4; }
+    100% { transform:translate(92px,-10px); opacity:0; }
+  }
+  @keyframes drift2 {
+    0% { transform:translate(0,0); opacity:0; } 12% { opacity:.45; }
+    50% { transform:translate(-56px,-38px); opacity:.65; } 88% { opacity:.35; }
+    100% { transform:translate(-18px,-88px); opacity:0; }
+  }
+  @keyframes drift3 {
+    0% { transform:translate(0,0); opacity:0; } 14% { opacity:.4; }
+    50% { transform:translate(28px,52px); opacity:.6; } 86% { opacity:.32; }
+    100% { transform:translate(76px,8px); opacity:0; }
+  }
   .scene::after {
     content:''; position:absolute; right:0; top:0; width:340px; height:150px; z-index:2;
     background:linear-gradient(215deg, rgba(4,6,11,.82) 0%, rgba(4,6,11,0) 75%); pointer-events:none;
   }
   .clock { position:absolute; left:34px; top:26px; z-index:3; }
   .clock .k { font-size:.7rem; letter-spacing:.26em; text-transform:uppercase; color:var(--cyan); }
-  .clock .age { font-family:var(--serif); font-weight:500; font-size:3.5rem; line-height:1; letter-spacing:.02em; margin-top:6px; font-variant-numeric:tabular-nums; }
+  .clock .row { display:flex; align-items:center; gap:16px; margin-top:6px; }
+  .clock .age { font-family:var(--serif); font-weight:500; font-size:3.5rem; line-height:1; letter-spacing:.02em; font-variant-numeric:tabular-nums; }
   .clock .sub { color:var(--soft); font-size:1rem; margin-top:8px; letter-spacing:.04em; font-variant-numeric:tabular-nums; }
   .clock .sub b { color:var(--ink); font-weight:500; }
   .clock .tk { color:var(--muted); font-size:.86rem; margin-top:3px; letter-spacing:.06em; font-variant-numeric:tabular-nums; }
+  /* anneau de l'annee : tourne en continu (fraction de jour), une revolution = 365 jours-monde */
+  .yearring { flex:none; transform:rotate(-90deg); }
+  .yearring .yr-bg { fill:none; stroke:rgba(126,158,214,.16); stroke-width:3.4; }
+  .yearring .yr-fg {
+    fill:none; stroke:var(--cyan); stroke-width:3.4; stroke-linecap:round;
+    stroke-dasharray:169.6; stroke-dashoffset:169.6; filter:drop-shadow(0 0 4px rgba(82,230,223,.5));
+  }
 
   .ident {
     position:absolute; left:30px; top:228px; z-index:3; max-width:470px;
@@ -105,6 +140,7 @@
   }
   .h2::after { content:''; flex:1; height:1px; background:linear-gradient(90deg,var(--line),transparent); align-self:center; }
 
+  #pulsewave { display:block; width:100%; height:34px; margin:1px 0 9px; }
   #pulse .pr { display:grid; grid-template-columns:118px 1fr 46px; align-items:center; gap:10px; padding:1px 0; font-size:.8rem; }
   #pulse .pr span { color:var(--soft); }
   #pulse .pr .track { height:7px; border-radius:4px; background:rgba(126,158,214,.12); overflow:hidden; }
@@ -169,11 +205,28 @@
   .records .rec.hit { animation:recflash 2.4s ease; }
   @keyframes recflash { 0%,100%{background:transparent} 20%{background:rgba(255,207,114,.16)} }
 
-  /* --- footer bar --- */
-  .bar { grid-area:bar; display:flex; align-items:center; justify-content:center;
+  /* --- footer bar : constantes fixes + ticker de chronique, jamais a l'arret --- */
+  .bar { grid-area:bar; display:flex; align-items:center; gap:22px; padding:0 26px;
     border-top:1px solid var(--line); background:rgba(6,9,15,.65);
-    color:var(--muted); font-size:.76rem; letter-spacing:.2em; text-transform:uppercase; }
+    color:var(--muted); font-size:.76rem; letter-spacing:.14em; text-transform:uppercase; overflow:hidden; }
   .bar b { color:var(--soft); font-weight:400; margin:0 5px; }
+  .bar .barfix { flex:none; white-space:nowrap; }
+  .bar .tickerwrap { flex:1; min-width:0; height:100%; position:relative; overflow:hidden; }
+  .bar .tickerwrap::before, .bar .tickerwrap::after {
+    content:''; position:absolute; top:0; bottom:0; width:46px; z-index:1; pointer-events:none;
+  }
+  .bar .tickerwrap::before { left:0; background:linear-gradient(90deg, rgba(6,9,15,.9), rgba(6,9,15,0)); }
+  .bar .tickerwrap::after { right:0; background:linear-gradient(270deg, rgba(6,9,15,.9), rgba(6,9,15,0)); }
+  .bar .tickertrack {
+    position:absolute; left:0; top:0; height:100%; display:flex; align-items:center;
+    white-space:nowrap; will-change:transform; animation:ticker 60s linear infinite;
+  }
+  .bar .tickertrack span { padding:0 22px; position:relative; color:var(--soft); }
+  .bar .tickertrack span.tk-fact { color:var(--muted); }
+  .bar .tickertrack span::before {
+    content:'\00b7'; position:absolute; left:-2px; color:var(--line); font-size:1.1em;
+  }
+  @keyframes ticker { from { transform:translateX(0); } to { transform:translateX(-50%); } }
 
   /* --- grand carton d'evenement --- */
   #card {
@@ -226,11 +279,37 @@
 
   <div class="scene">
     <canvas id="c"></canvas>
+    <div class="ambient" aria-hidden="true">
+      <span class="mote" style="left:5%;top:12%;animation-duration:44s;animation-delay:-3s;"></span>
+      <span class="mote" style="left:15%;top:68%;animation-duration:58s;animation-delay:-19s;"></span>
+      <span class="mote" style="left:25%;top:35%;animation-duration:51s;animation-delay:-27s;"></span>
+      <span class="mote" style="left:35%;top:80%;animation-duration:63s;animation-delay:-8s;"></span>
+      <span class="mote" style="left:45%;top:20%;animation-duration:47s;animation-delay:-35s;"></span>
+      <span class="mote" style="left:55%;top:55%;animation-duration:55s;animation-delay:-14s;"></span>
+      <span class="mote" style="left:65%;top:8%;animation-duration:60s;animation-delay:-41s;"></span>
+      <span class="mote" style="left:75%;top:42%;animation-duration:49s;animation-delay:-6s;"></span>
+      <span class="mote" style="left:85%;top:75%;animation-duration:66s;animation-delay:-22s;"></span>
+      <span class="mote" style="left:92%;top:28%;animation-duration:53s;animation-delay:-30s;"></span>
+      <span class="mote" style="left:10%;top:60%;animation-duration:45s;animation-delay:-11s;"></span>
+      <span class="mote" style="left:30%;top:15%;animation-duration:59s;animation-delay:-45s;"></span>
+      <span class="mote" style="left:50%;top:88%;animation-duration:52s;animation-delay:-17s;"></span>
+      <span class="mote" style="left:70%;top:48%;animation-duration:64s;animation-delay:-38s;"></span>
+      <span class="mote" style="left:90%;top:5%;animation-duration:48s;animation-delay:-2s;"></span>
+      <span class="mote" style="left:20%;top:72%;animation-duration:57s;animation-delay:-25s;"></span>
+    </div>
     <div class="clock">
       <div class="k">Age du monde</div>
-      <div class="age" id="age">--</div>
-      <div class="sub" id="agesub">--</div>
-      <div class="tk">tick <span id="tick">--</span></div>
+      <div class="row">
+        <svg class="yearring" width="66" height="66" viewBox="0 0 66 66">
+          <circle class="yr-bg" cx="33" cy="33" r="27"/>
+          <circle class="yr-fg" id="yearringfg" cx="33" cy="33" r="27"/>
+        </svg>
+        <div>
+          <div class="age" id="age">--</div>
+          <div class="sub" id="agesub">--</div>
+          <div class="tk">tick <span id="tick">--</span></div>
+        </div>
+      </div>
     </div>
     <div class="ident">
       <div class="line1">Genesis &nbsp;&middot;&nbsp; Monde __WNAME__</div>
@@ -247,6 +326,7 @@
   <div class="side">
     <div id="pulse">
       <div class="h2">Pouls du monde</div>
+      <canvas id="pulsewave" width="692" height="34"></canvas>
       <div id="pulserows"></div>
     </div>
     <div class="side-groups" id="side"></div>
@@ -280,11 +360,8 @@
   </div>
 
   <div class="bar" id="bar">
-    <span>graine __SEED__</span><b>&middot;</b>
-    <span id="barenv">grille -- &middot; 1 tick = 1 heure-monde</span><b>&middot;</b>
-    <span id="barseason" hidden></span><b id="barseasonsep" hidden>&middot;</b>
-    <span>simulation deterministe, replay disponible</span><b>&middot;</b>
-    <span>24/7</span>
+    <span class="barfix">graine __SEED__ &middot; deterministe, replay disponible &middot; 24/7</span>
+    <div class="tickerwrap"><div class="tickertrack" id="tickertrack"></div></div>
   </div>
 </div>
 
@@ -341,13 +418,13 @@ const cluBlob = (() => {
   bx.fillStyle = g; bx.fillRect(0, 0, 48, 48);
   return b;
 })();
-let sceneBg = null, dnaGrad = null;
+let sceneBg = null, dnaGrad = null, seasonVign = null;
 function resize() {
   cv.width = Math.round(cv.clientWidth * RENDER_SCALE);
   cv.height = Math.round(cv.clientHeight * RENDER_SCALE);
   dnaCv.width = dnaCv.clientWidth * DPR; dnaCv.height = dnaCv.clientHeight * DPR;
   dctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-  sceneBg = null; dnaGrad = null; resDirty = true; cluDirty = true;
+  sceneBg = null; dnaGrad = null; seasonVign = null; resDirty = true; cluDirty = true;
 }
 window.addEventListener('resize', resize); resize();
 
@@ -551,14 +628,21 @@ setInterval(() => {
 // --- horloge du monde : tick fluide entre deux sondages ---
 let ageBase = 0, ageAt = performance.now(), tickBase = 0, secPerTick = 3600;
 let apparentRate = 0, apparentTickRate = 0, lastTick = 0, lastPollMs = performance.now();
+const YEAR_SEC = 365 * 86400;
+const YEAR_RING_C = 2 * Math.PI * 27; // circonference du cercle de l'annee (r=27)
 function tickClock() {
   const extra = (performance.now() - ageAt) / 1000;
   // Interpolation lisible : au-dela de ~2 jours-monde par seconde reelle, l'horloge
   // se resynchronise a chaque sondage plutot que de defiler trop vite.
-  const a = worldAge(ageBase + extra * Math.min(apparentRate, 172800));
+  const secTotal = ageBase + extra * Math.min(apparentRate, 172800);
+  const a = worldAge(secTotal);
   document.getElementById('age').textContent = a.big;
   document.getElementById('agesub').innerHTML = a.sub;
   document.getElementById('tick').textContent = fr(tickBase + Math.floor(extra * apparentTickRate));
+  // anneau de l'annee : tourne en continu (fraction de jour, pas juste le jour entier), pas de
+  // saut visible d'un jour a l'autre.
+  const ring = document.getElementById('yearringfg');
+  if (ring) ring.style.strokeDashoffset = (YEAR_RING_C * (1 - (secTotal % YEAR_SEC) / YEAR_SEC)).toFixed(1);
   requestAnimationFrame(tickClock);
 }
 
@@ -1206,13 +1290,24 @@ function drawScene(now) {
     ctx.globalAlpha = 1;
   }
 
-  // saison thermique : un voile tres leger sur toute la scene, chaud vers l'ete, froid vers
-  // l'hiver. Atmosphere, pas decor : l'alpha plafonne bas. L'abondance ou la disette se lit
-  // au fil de population et a l'etiquette du bandeau.
+  // saison thermique : un voile sur toute la scene, chaud vers l'ete, froid vers l'hiver, plus
+  // une touche de vignette aux bords dans la meme teinte (un peu plus de presence qu'avant,
+  // toujours une atmosphere, pas un decor plaque). L'abondance ou la disette se lit au fil de
+  // population et au ticker du bas.
   const tph = LIVE ? (LIVE.season_temp_phase || 0) : 0;
   if (Math.abs(tph) > 0.02) {
-    ctx.globalAlpha = Math.min(0.08, Math.abs(tph) * 0.08);
-    ctx.fillStyle = tph > 0 ? '#ffb648' : '#5aa0e6';
+    const seasonCol = tph > 0 ? '#ffb648' : '#5aa0e6';
+    ctx.globalAlpha = Math.min(0.12, Math.abs(tph) * 0.12);
+    ctx.fillStyle = seasonCol;
+    ctx.fillRect(0, 0, W, H);
+    if (!seasonVign || seasonVign.col !== seasonCol) {
+      const vg = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.42, W / 2, H / 2, Math.max(W, H) * 0.72);
+      vg.addColorStop(0, 'rgba(0,0,0,0)');
+      vg.addColorStop(1, seasonCol);
+      seasonVign = { col: seasonCol, grad: vg };
+    }
+    ctx.globalAlpha = Math.min(0.16, Math.abs(tph) * 0.16);
+    ctx.fillStyle = seasonVign.grad;
     ctx.fillRect(0, 0, W, H);
     ctx.globalAlpha = 1;
   }
@@ -1257,6 +1352,93 @@ const PULSE_DEFS = [
   ['renewal', 'renouvellement', 'var(--amber)'],
   ['strain', 'surexploitation', 'var(--rose)'],
 ];
+// Ticker du bandeau du bas : melange des constantes physiques du monde (aucun chiffre invente)
+// et de la chronique reelle (memes tournants que le fil et la courbe de population). Duplique
+// une fois son propre contenu et boucle par translation continue (`@keyframes ticker`) : jamais
+// a l'arret, jamais de saut visible. La duree d'animation est recalculee sur la largeur reelle
+// du texte pour garder une vitesse de lecture constante, quelle que soit la longueur du jour.
+let tickerSig = '';
+function updateTicker(L) {
+  const track = document.getElementById('tickertrack');
+  if (!track) return;
+  const dens = L.occupied_cells ? (L.population / L.occupied_cells).toFixed(1) : '0';
+  const g = (L.gravity != null ? L.gravity : 1).toFixed(1).replace('.', ',');
+  const atm = (L.pressure_atm != null ? L.pressure_atm : 1).toFixed(1).replace('.', ',');
+  const tc = (L.temperature_c != null ? L.temperature_c : 15).toFixed(0);
+  const facts = [
+    'milieu ' + (L.medium || 'eau') + ', ' + tc + ' °C, ' + g + ' g, ' + atm + ' atm',
+    'grille ' + (L.grid ? L.grid[0] + ' × ' + L.grid[1] : '--') + ', densite ' + dens + ' individus par case',
+  ];
+  if (L.season_label) facts.push('saison : ' + L.season_label);
+  // les fusions / divisions sont frequentes et noieraient le reste : on privilegie les grands
+  // tournants (espece, organisme, extinction, bascule...) et on ne complete qu'avec les plus
+  // recentes du remue-menage cellulaire, remises dans l'ordre chronologique.
+  const chronAll = L.chronicle || [];
+  const isChurn = c => c.kind === 'fusion' || c.kind === 'division';
+  const chron = chronAll.filter(c => !isChurn(c)).slice(-16)
+    .concat(chronAll.filter(isChurn).slice(-6))
+    .sort((a, b) => a.tick - b.tick);
+  const items = facts.map(t => ({ t, fact: true })).concat(
+    chron.map(c => ({ t: c.text.charAt(0).toUpperCase() + c.text.slice(1), fact: false }))
+  );
+  if (!items.length) return;
+  const sig = items.map(i => i.t).join('|');
+  if (sig === tickerSig) return; // rien de neuf : on laisse l'animation en cours filer
+  tickerSig = sig;
+  const html = items.map(i => '<span' + (i.fact ? ' class="tk-fact"' : '') + '>' + i.t + '</span>').join('');
+  track.innerHTML = html + html; // le contenu double : la boucle ne montre jamais de coupure
+  const w = track.scrollWidth / 2;
+  track.style.animationDuration = Math.max(24, w / 38) + 's'; // ~38px/s, vitesse de lecture
+}
+
+// --- pouls vivant : une ligne façon moniteur cardiaque, jamais a l'arret. La cadence des
+// battements suit `events_per_tick` (naissances + morts recentes) et la teinte suit
+// `pulse.renewal` (vert = naissances dominantes, rose = morts dominantes) : un vrai signal, pas
+// un decor. Trace de facon procedurale a partir du temps ecoule, aucun historique a garder.
+let pulseRate = 0.8, pulseRateTarget = 0.8;   // battements par seconde reelle
+let pulseTone = 0.5, pulseToneTarget = 0.5;   // 0 = morts dominantes, 1 = naissances dominantes
+let pulseLast = performance.now();
+function beatShape(p) {
+  // p dans [0,1) : un battement (petit creux, pic net, petit creux), plat ailleurs.
+  const spike = Math.exp(-((p - 0.5) ** 2) * 900);
+  const dip = -0.22 * Math.exp(-((p - 0.36) ** 2) * 500) - 0.16 * Math.exp(-((p - 0.63) ** 2) * 600);
+  return spike + dip;
+}
+function drawPulse(now) {
+  requestAnimationFrame(drawPulse);
+  const cv = document.getElementById('pulsewave');
+  if (!cv) return;
+  let dt = (now - pulseLast) / 1000; pulseLast = now;
+  dt = Math.max(0.001, Math.min(0.1, dt));
+  const k = 1 - Math.pow(0.5, dt / 1.4); // demi-vie 1,4 s : la cadence change en douceur
+  pulseRate += (pulseRateTarget - pulseRate) * k;
+  pulseTone += (pulseToneTarget - pulseTone) * k;
+  const ctx2 = cv.getContext('2d');
+  const W = cv.width, H = cv.height, mid = H / 2;
+  ctx2.clearRect(0, 0, W, H);
+  const speed = 90; // px/s de defilement
+  const tsec = now / 1000;
+  // rose (morts dominantes) <-> neutre (equilibre) <-> vert (naissances dominantes). Un lerp
+  // direct rose-vert donne un beige terne au milieu ; on passe par un neutre franc (le --soft
+  // de la charte) pour que l'equilibre (l'etat le plus frequent) reste lisible.
+  const lerp3 = (a, b, c, t) => t <= 0.5
+    ? Math.round(a + (b - a) * (t * 2))
+    : Math.round(b + (c - b) * ((t - 0.5) * 2));
+  const rr = lerp3(255, 154, 126, pulseTone);
+  const gg = lerp3(143, 166, 240, pulseTone);
+  const bb = lerp3(160, 190, 166, pulseTone);
+  ctx2.strokeStyle = 'rgba(' + rr + ',' + gg + ',' + bb + ',.9)';
+  ctx2.lineWidth = 1.6;
+  ctx2.beginPath();
+  for (let x = 0; x <= W; x += 2) {
+    const tt = tsec - (W - x) / speed;
+    const ph = ((tt * pulseRate) % 1 + 1) % 1;
+    const y = mid - beatShape(ph) * (H * 0.42);
+    if (x === 0) ctx2.moveTo(x, y); else ctx2.lineTo(x, y);
+  }
+  ctx2.stroke();
+}
+
 let seenTournants = new Set();
 let prevRecords = null;
 let prevMerged = null;
@@ -1298,6 +1480,10 @@ function applyLive(L) {
     dnaFlash = performance.now();
   }
   if (seenShifts.size > 60) seenShifts = new Set(Array.from(seenShifts).slice(-30));
+  // pouls vivant : la cadence des battements suit l'activite vitale reelle (naissances + morts
+  // recentes par tick), la teinte suit qui domine. Lisse vers la cible dans `drawPulse`.
+  pulseRateTarget = Math.max(0.5, Math.min(2.2, 0.55 + (L.events_per_tick || 0) * 0.09));
+  pulseToneTarget = (L.pulse && L.pulse.renewal != null) ? L.pulse.renewal : 0.5;
   // horloge du monde
   const now = performance.now();
   const realDelta = (now - lastPollMs) / 1000;
@@ -1316,26 +1502,10 @@ function applyLive(L) {
   sc.className = 'statuschip ' + (map[L.status] || 'stable');
   document.getElementById('statusv').textContent = L.status || 'STABLE';
   document.getElementById('domname').textContent = L.dominant_lineage || '--';
-  // bandeau du bas : les vraies constantes physiques du monde et ses grandeurs (aucun
-  // chiffre invente ; la temperature agit sur le metabolisme, la gravite sur le deplacement)
-  const dens = L.occupied_cells ? (L.population / L.occupied_cells).toFixed(1) : '0';
-  const g = (L.gravity != null ? L.gravity : 1).toFixed(1).replace('.', ',');
-  const atm = (L.pressure_atm != null ? L.pressure_atm : 1).toFixed(1).replace('.', ',');
-  const tc = (L.temperature_c != null ? L.temperature_c : 15).toFixed(0);
-  document.getElementById('barenv').textContent =
-    'milieu ' + (L.medium || 'eau') + '  ·  ' + tc + ' °C  ·  ' + g + ' g  ·  ' + atm + ' atm  ·  ' +
-    'grille ' + (L.grid ? L.grid[0] + ' × ' + L.grid[1] : '--') + '  ·  densite ' + dens +
-    ' ind/case  ·  1 tick = 1 heure-monde';
-  const bs = document.getElementById('barseason'), bsep = document.getElementById('barseasonsep');
-  if (L.season_label) {
-    const ph = L.season_phase || 0;
-    bs.textContent = 'saison : ' + L.season_label;
-    bs.style.color = ph >= 0 ? 'rgba(255,207,114,' + (0.55 + 0.4 * ph) + ')'
-                             : 'rgba(126,180,240,' + (0.55 - 0.4 * ph) + ')';
-    bs.hidden = false; bsep.hidden = false;
-  } else {
-    bs.hidden = true; bsep.hidden = true;
-  }
+  // bandeau du bas : un ticker qui ne s'arrete jamais, melange des vraies constantes du monde
+  // (aucun chiffre invente) et de la chronique reelle (les memes tournants que le fil et la
+  // courbe de population). Vitesse constante en px/s, quel que soit le contenu.
+  updateTicker(L);
 
   // pouls
   const P = L.pulse || {};
@@ -1663,6 +1833,7 @@ if (LIVE) {
 requestAnimationFrame(tickClock);
 requestAnimationFrame(drawScene);
 requestAnimationFrame(drawDna);
+requestAnimationFrame(drawPulse);
 poll();
 </script>
 </body>
