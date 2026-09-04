@@ -202,6 +202,14 @@ pub struct WorldState {
     #[serde(default)]
     pub next_cell_id: u32,
 
+    /// Liens d'adhesion entre cellules (0.0.2, `[cells] tissue_bond`). Paires `(id_bas, id_haut)`
+    /// triees et uniques. Un lien se noue quand deux cellules parentes se touchent et persiste
+    /// tant que ses deux cellules existent et ne se sont ni trop eloignees (`bond_break`) ni
+    /// trop eloignees genetiquement. Le tissu = composante connexe de ce graphe. C'est l'etat
+    /// qui donne au tissu sa tenue dans le temps (avant : recompose de zero chaque tick).
+    #[serde(default)]
+    pub cell_bonds: Vec<(u32, u32)>,
+
     /// L'etat du RNG fait partie du World State (tranchee 5). Il est donc dans les instantanes.
     pub rng: Rng,
 
@@ -319,6 +327,7 @@ impl WorldState {
             next_entity_id: 2,
             cells: Vec::new(),
             next_cell_id: 0,
+            cell_bonds: Vec::new(),
             rng,
             next_event_seq: 0,
             // Matiere totale = matter_per_cell * cases ; deux corps fondateurs deja batis.

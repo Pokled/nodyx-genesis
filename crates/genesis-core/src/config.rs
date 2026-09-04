@@ -528,6 +528,31 @@ pub struct CellsCfg {
     /// qui fait emerger le pavage hexagonal (et la phase hexatique quand l'agitation monte).
     pub tissue_pull: f32,
 
+    /// Adhesion persistante (0.0.2, vers l'organe). Quand `true`, la connexite d'un tissu ne
+    /// vient plus d'un test de distance refait de zero chaque tick, mais de LIENS de paire
+    /// gardes dans le temps (`WorldState.cell_bonds`). Deux cellules parentes (`trait_l1 <=
+    /// tissue_kin`) qui se touchent (`< (r1+r2) * bond_form`) nouent un lien. Le lien ne casse
+    /// qu'au-dela d'un etirement franc (`> (r1+r2) * bond_break`, hysteresis) ou d'une derive
+    /// genetique forte (`trait_l1 > tissue_kin * 1.8`). Entre les deux, un ressort
+    /// (`bond_stiffness`) ramene les deux cellules au contact. Un tissu tient alors une
+    /// perturbation (predation d'une cellule de bord, division d'un membre, agitation) au lieu
+    /// de se defaire au premier ecart et de voir ses cellules "redevenir" isolees. `false`
+    /// desactive : retour au tissu derive tick a tick (bouton d'A/B).
+    pub tissue_bond: bool,
+    /// Distance (x (r1+r2)) en deca de laquelle un lien se noue entre deux cellules parentes.
+    pub bond_form: f32,
+    /// Distance (x (r1+r2)) au-dela de laquelle un lien noue casse. Strictement > `bond_form` :
+    /// c'est l'hysteresis qui fait tenir le tissu.
+    pub bond_break: f32,
+    /// Raideur du ressort de lien (rappel vers le contact). Plus ferme que `tissue_pull` : le
+    /// lien tire vraiment, il ne fait pas que suggerer.
+    pub bond_stiffness: f32,
+    /// Resistance a la division d'une cellule ancree dans un tissu : le seuil d'allongement
+    /// effectif devient `divide_elongation + tissue_bonds * divide_bond_resist`. Une cellule
+    /// tissee par plusieurs liens est somatique (elle tient la nappe, elle ne se pince pas) ;
+    /// une cellule libre ou de bord se divise normalement. Sans effet si `tissue_bond = false`.
+    pub divide_bond_resist: f32,
+
     /// Abri du tissu (0.0.2, vers la marche organisme : les roles). Une cellule entouree
     /// (`tissue_bonds >= shelter_bonds` voisines du meme tissu) est a l'interieur de la nappe :
     /// un predateur ne peut pas l'atteindre, et une part `shelter_feed` du surplus des cellules
@@ -592,6 +617,11 @@ impl Default for CellsCfg {
             tissue_kin: 0.5,
             tissue_min: 3,
             tissue_pull: 0.04,
+            tissue_bond: false,
+            bond_form: 1.15,
+            bond_break: 2.4,
+            bond_stiffness: 0.12,
+            divide_bond_resist: 0.15,
             tissue_shelter: false,
             shelter_bonds: 4,
             shelter_feed: 0.12,

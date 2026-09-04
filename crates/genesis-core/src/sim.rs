@@ -1315,9 +1315,15 @@ fn cell_phase(
         for &k in &order {
             let c = &world.cells[k];
             let age = t.saturating_sub(c.formed_tick);
+            // Une cellule ancree dans un tissu par plusieurs liens resiste a la division : le
+            // seuil d'allongement monte avec le nombre de liens (`tissue_bonds`, tick precedent).
+            // Une cellule tissee est somatique (elle tient la nappe) ; une cellule libre ou de
+            // bord se pince normalement. Sans `tissue_bond`, aucun effet.
+            let elong_gate = cc.divide_elongation
+                + if cc.tissue_bond { c.tissue_bonds as f32 * cc.divide_bond_resist.max(0.0) } else { 0.0 };
             if c.member_count < cc.divide_members
                 || age < cc.divide_age_ticks
-                || c.elongation < cc.divide_elongation
+                || c.elongation < elong_gate
             {
                 continue;
             }
@@ -1421,11 +1427,12 @@ fn cell_phase(
     }
 
     // -- 3d. Tissus (0.0.2, `[cells] tissue`, config seulement). Des cellules de genome proche
-    //    (`trait_l1 <= tissue_kin`) dont les membranes se touchent (`distance <
-    //    (r1 + r2) * tissue_reach`) adherent : elles forment un tissu. Un tissu = composante
-    //    connexe de telles cellules, d'au moins `tissue_min` membres. Derive chaque tick,
-    //    union-find sur les positions, ordre stable (cellules triees par id) ; l'id du tissu
-    //    est le plus petit id de cellule du groupe. Pas d'etat serialise, pas d'hysteresis.
+    //    (`trait_l1 <= tissue_kin`) dont les membranes se touchent adherent : elles forment un
+    //    tissu = composante connexe d'au moins `tissue_min` cellules, id = plus petit id du
+    //    groupe. Sans `tissue_bond` : derive tick a tick d'un test de distance. Avec
+    //    `tissue_bond` : la connexite vient de LIENS de paire gardes dans le temps
+    //    (`world.cell_bonds`), qui ne cassent qu'au-dela d'un etirement franc -> le tissu tient
+    //    une perturbation au lieu de se defaire au premier ecart.
     tissue_pass(
         world,
         &cc,
@@ -1774,6 +1781,9 @@ fn tissue_pass(
         for c in world.cells.iter_mut() {
             c.tissue = None;
         }
+        if !world.cell_bonds.is_empty() {
+            world.cell_bonds.clear();
+        }
         world.tissues_alive = 0;
         world.tissue_order = 0.0;
         return;
@@ -1791,24 +1801,86 @@ fn tissue_pass(
         }
         x
     }
-    for ii in 0..n {
-        for jj in (ii + 1)..n {
-            let (a, b) = (order[ii], order[jj]);
-            let (ca, cb) = (&world.cells[a], &world.cells[b]);
-            let reach = (ca.radius + cb.radius) * cc.tissue_reach.max(0.1);
-            if ca.position.dist2(&cb.position) > reach * reach {
-                continue;
+    if cc.tissue_bond {
+        // --- adhesion persistante : ce sont les LIENS gardes dans le temps qui portent la
+        //     connexite, pas un test de distance refait de zero. Un tissu tient une perturbation.
+        let idx: std::collections::HashMap<u32, usize> =
+            world.cells.iter().enumerate().map(|(k, c)| (c.id, k)).collect();
+        let form = cc.bond_form.max(0.1);
+        let brk = cc.bond_break.max(form + 0.05);
+        let kin_keep = cc.tissue_kin * 1.8;
+        // 1. elaguer les liens morts : cellule disparue, paire trop etiree, genomes trop derives.
+        let mut bonds = std::mem::take(&mut world.cell_bonds);
+        bonds.retain(|&(a, b)| {
+            let (ka, kb) = match (idx.get(&a), idx.get(&b)) {
+                (Some(&ka), Some(&kb)) => (ka, kb),
+                _ => return false,
+            };
+            let (ca, cb) = (&world.cells[ka], &world.cells[kb]);
+            let lim = (ca.radius + cb.radius) * brk;
+            ca.position.dist2(&cb.position) <= lim * lim
+                && trait_l1(&ca.mean_traits, &cb.mean_traits) <= kin_keep
+        });
+        // 2. nouer les liens neufs : paires parentes qui se touchent, pas deja liees. Meme cout
+        //    que l'ancien balayage O(n^2) (~120 cellules).
+        let mut set: std::collections::HashSet<(u32, u32)> = bonds.iter().copied().collect();
+        for ii in 0..n {
+            for jj in (ii + 1)..n {
+                let (a, b) = (order[ii], order[jj]);
+                let (ca, cb) = (&world.cells[a], &world.cells[b]);
+                let key = if ca.id <= cb.id { (ca.id, cb.id) } else { (cb.id, ca.id) };
+                if set.contains(&key) {
+                    continue;
+                }
+                let reach = (ca.radius + cb.radius) * form;
+                if ca.position.dist2(&cb.position) > reach * reach {
+                    continue;
+                }
+                if trait_l1(&ca.mean_traits, &cb.mean_traits) > cc.tissue_kin {
+                    continue;
+                }
+                set.insert(key);
+                bonds.push(key);
             }
-            if trait_l1(&ca.mean_traits, &cb.mean_traits) > cc.tissue_kin {
-                continue;
+        }
+        bonds.sort_unstable();
+        bonds.dedup();
+        // 3. graphe de liens -> voisinage + union-find (id de tissu = plus petit id du groupe).
+        for &(a, b) in &bonds {
+            if let (Some(&ka), Some(&kb)) = (idx.get(&a), idx.get(&b)) {
+                neigh[ka].push(kb);
+                neigh[kb].push(ka);
+                let (ra, rb) = (find(&mut uf, ka), find(&mut uf, kb));
+                if ra != rb {
+                    let (lo, hi) = if world.cells[ra].id <= world.cells[rb].id { (ra, rb) } else { (rb, ra) };
+                    uf[hi] = lo;
+                }
             }
-            neigh[a].push(b);
-            neigh[b].push(a);
-            let (ra, rb) = (find(&mut uf, a), find(&mut uf, b));
-            if ra != rb {
-                // rattacher a la racine dont la cellule a le plus petit id : id de tissu stable
-                let (lo, hi) = if world.cells[ra].id <= world.cells[rb].id { (ra, rb) } else { (rb, ra) };
-                uf[hi] = lo;
+        }
+        world.cell_bonds = bonds;
+    } else {
+        if !world.cell_bonds.is_empty() {
+            world.cell_bonds.clear();
+        }
+        for ii in 0..n {
+            for jj in (ii + 1)..n {
+                let (a, b) = (order[ii], order[jj]);
+                let (ca, cb) = (&world.cells[a], &world.cells[b]);
+                let reach = (ca.radius + cb.radius) * cc.tissue_reach.max(0.1);
+                if ca.position.dist2(&cb.position) > reach * reach {
+                    continue;
+                }
+                if trait_l1(&ca.mean_traits, &cb.mean_traits) > cc.tissue_kin {
+                    continue;
+                }
+                neigh[a].push(b);
+                neigh[b].push(a);
+                let (ra, rb) = (find(&mut uf, a), find(&mut uf, b));
+                if ra != rb {
+                    // rattacher a la racine dont la cellule a le plus petit id : id de tissu stable
+                    let (lo, hi) = if world.cells[ra].id <= world.cells[rb].id { (ra, rb) } else { (rb, ra) };
+                    uf[hi] = lo;
+                }
             }
         }
     }
@@ -1952,9 +2024,11 @@ fn tissue_pass(
     world.tissue_order = if psi_n > 0 { (psi_sum / psi_n as f64) as f32 } else { 0.0 };
 
     // Adhesion : les cellules d'un meme tissu se rapprochent jusqu'au contact. C'est cette
-    // traction douce qui fait emerger le pavage. Poussee accumulee par entite puis appliquee,
-    // bornee, gardee dans la grille. Sequentiel, sans RNG, ordre des id.
-    let pull = cc.tissue_pull.max(0.0);
+    // traction qui fait emerger le pavage. Poussee accumulee par entite puis appliquee, bornee,
+    // gardee dans la grille. Sequentiel, sans RNG, ordre des id. Avec `tissue_bond`, `neigh`
+    // est le graphe de liens et la raideur est celle du ressort de lien (plus ferme) : un lien
+    // etire tire vraiment ses deux cellules vers le contact.
+    let pull = if cc.tissue_bond { cc.bond_stiffness.max(0.0) } else { cc.tissue_pull.max(0.0) };
     if pull <= 0.0 {
         return;
     }

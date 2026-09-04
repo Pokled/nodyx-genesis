@@ -149,6 +149,35 @@ Le SENS (l'abri fait-il durer le tissu ? localise-t-il la division ? sous quelle
 predation ?) est une **question d'A/B a mener sur w2**, pas tranchee par le test. A surveiller :
 le bord ne doit pas s'effondrer plus vite qu'il n'est reconstitue par les divisions du coeur.
 
+**Tissus qui tiennent : l'adhesion persistante (2026-09-04, `[cells] tissue_bond`, defaut false).**
+Constat de l'utilisateur en direct : les tissus et les muscles finissent par se decrocher et
+leurs cellules "redeviennent" isolees. Cause : un tissu n'etait pas un lien mais un verdict
+recompose de zero chaque tick (composante connexe d'un test de distance + parente + taille), sans
+aucune hysteresis ni cohesion ferme (`tissue_pull` = 0,04, tres mou). Le moindre ecart (predation
+d'une cellule de bord, division d'un membre qui redistribue le nuage, agitation) coupait la
+composante ; un fragment sous `tissue_min` perdait `tissue`. Et le muscle se sabordait : muscle =
+allongement >= `muscle_elong` (1,8), or depasser `divide_elongation` (1,9) declenche la division,
+qui remet les filles a `elongation = 1` et casse la connexite locale.
+
+Solution : quand `tissue_bond`, la connexite vient de **liens de paire gardes dans le temps**
+(`WorldState.cell_bonds: Vec<(u32,u32)>`, `#[serde(default)]`, schema inchange). Un lien se noue
+au contact entre cellules parentes (`< (r1+r2) * bond_form`, `trait_l1 <= tissue_kin`) ; il ne
+casse qu'au-dela d'un **etirement franc** (`> (r1+r2) * bond_break`, def 2,4 contre 1,15 pour
+nouer -> hysteresis) ou d'une derive genetique forte (`trait_l1 > tissue_kin * 1,8`). Entre les
+deux, un ressort `bond_stiffness` (0,12, plus ferme que `tissue_pull`) ramene les deux cellules
+au contact. Le tissu = composante connexe du graphe de liens, `neigh` (donc psi6, abri) en
+decoule. **Resistance a la division** : une cellule tissee voit son seuil d'allongement monter de
+`tissue_bonds * divide_bond_resist` (0,15/lien) -> une cellule bien ancree est somatique (elle
+tient la nappe), une cellule libre ou de bord se divise normalement. Aucun `if` ne nomme un role,
+c'est l'ancrage physique qui decide.
+
+Test `tissue_bonds_hold_a_tissue_through_perturbation` : sous predation, la somme sur les ticks
+du nombre de cellules en tissu est **plus grande** avec les liens qu'avec la derivation tick a
+tick, meme graine ; `tissue_bond = false` ne garde aucun lien ; l'ecosysteme tient ; deterministe.
+Le SENS (les tissus persistants font-ils enfin emerger des muscles durables, des nappes qui
+bougent en bloc ?) est une **question d'A/B sur w2**. Prochaine marche : que le type **compte**
+(barriere, tampon, relais).
+
 **L'organisme, identite persistante (2026-09-03, `[organism] enabled`).** La marche choisie
 comme socle des suivantes. `organism_pass` (phase 5b, aux controles `organism.check_every`)
 reconnait les **composantes connexes de cellules qui se touchent** (`organism.reach` x (r1+r2),

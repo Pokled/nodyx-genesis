@@ -207,6 +207,19 @@ tissue_reach      = 1.15  # facteur de portée de l'adhésion (membranes qui se 
 tissue_kin        = 0.5   # distance L1 max des génomes moyens (plus stricte que fuse_kin)
 tissue_min        = 3     # nombre minimal de cellules pour un tissu
 tissue_pull       = 0.04  # traction d'adhésion : rapproche les cellules d'un tissu jusqu'au contact (fait émerger le pavage)
+# Adhésion persistante (0.0.2, vers l'organe). tissue_bond = true : la connexité d'un tissu vient
+# de LIENS de paire gardés dans le temps (world.cell_bonds), pas d'un test de distance refait de
+# zéro chaque tick. Un lien se noue au contact entre cellules parentes et ne casse qu'au-delà d'un
+# étirement franc (bond_break) ou d'une dérive génétique forte ; entre les deux un ressort
+# (bond_stiffness) ramène les deux cellules. Une cellule tissée par plusieurs liens résiste à la
+# division (elle est somatique). Un tissu tient alors une perturbation (prédation d'une cellule de
+# bord, division d'un membre) au lieu de se défaire et de voir ses cellules "redevenir" isolées.
+# tissue_bond = false : dérivation tick à tick, comportement d'origine (A/B).
+tissue_bond       = false
+bond_form         = 1.15  # distance (x (r1+r2)) en deçà de laquelle un lien se noue
+bond_break        = 2.4   # distance (x (r1+r2)) au-delà de laquelle un lien casse (hystérésis : > bond_form)
+bond_stiffness    = 0.12  # raideur du ressort de lien (rappel vers le contact, plus ferme que tissue_pull)
+divide_bond_resist = 0.15 # le seuil d'allongement pour se diviser monte de ceci par lien (cellule tissée = somatique)
 # Abri du tissu (0.0.2, vers les rôles). Une cellule entourée (tissue_bonds >= shelter_bonds
 # voisines du même tissu) est à l'intérieur de la nappe : un prédateur ne peut pas l'atteindre,
 # et une part shelter_feed du surplus des cellules de bord coule vers elle. Le cœur, protégé et

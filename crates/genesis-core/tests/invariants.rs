@@ -892,6 +892,60 @@ fn tissues_form_from_adhering_kin_cells() {
 }
 
 #[test]
+fn tissue_bonds_hold_a_tissue_through_perturbation() {
+    // Adhesion persistante (0.0.2, `[cells] tissue_bond`, config seulement). La connexite d'un
+    // tissu ne vient plus d'un test de distance refait de zero chaque tick, mais de LIENS de
+    // paire gardes dans le temps : un lien ne casse qu'au-dela d'un etirement franc
+    // (`bond_break`) ou d'une derive genetique forte, et une cellule tissee resiste a la
+    // division. Un tissu tient alors une perturbation au lieu de se defaire au premier ecart.
+    // Verifie (graine 1, avec predation comme perturbation) : il se noue des liens ; les tissus
+    // tiennent PLUS AU TOTAL avec les liens qu'avec la derivation tick a tick, meme graine ;
+    // `tissue_bond = false` ne garde aucun lien ; l'ecosysteme tient ; deterministe.
+    let mut on = SimConfig::default();
+    on.cells.tissue = true;
+    on.cells.tissue_kin = 0.8;
+    on.cells.tissue_reach = 1.3;
+    on.cells.tissue_bond = true;
+    on.predation.enabled = true; // la perturbation : on mange les cellules de bord
+    let mut off = on.clone();
+    off.cells.tissue_bond = false;
+
+    let run = |cfg: &SimConfig| -> (u64, u64, bool, u64) {
+        let mut w = WorldState::new(1, cfg);
+        let mut tissue_cell_ticks = 0u64; // somme sur les ticks du nombre de cellules en tissu
+        let mut ever_bonded = false;
+        let mut bonds_when_off = 0u64;
+        for _ in 0..45_000 {
+            let _ = tick(&mut w, cfg);
+            tissue_cell_ticks += w.cells.iter().filter(|c| c.tissue.is_some()).count() as u64;
+            if !w.cell_bonds.is_empty() {
+                ever_bonded = true;
+            }
+            if !cfg.cells.tissue_bond {
+                bonds_when_off += w.cell_bonds.len() as u64;
+            }
+            if w.entities.is_empty() {
+                break;
+            }
+        }
+        (tissue_cell_ticks, w.entities.len() as u64, ever_bonded, bonds_when_off)
+    };
+
+    let (on_ticks, on_pop, on_bonded, _) = run(&on);
+    let (off_ticks, _off_pop, _, off_bonds) = run(&off);
+
+    assert!(on_bonded, "aucun lien d'adhesion noue en 45000 ticks (graine 1)");
+    assert_eq!(off_bonds, 0, "des liens gardes alors que tissue_bond = false");
+    assert!(on_pop > 100, "l'ecosysteme s'eteint avec l'adhesion persistante (pop {on_pop})");
+    assert!(
+        on_ticks > off_ticks,
+        "l'adhesion persistante ne fait pas tenir les tissus plus longtemps : \
+         {on_ticks} (liens) vs {off_ticks} (derive tick a tick)"
+    );
+    assert_eq!(run(&on).0, on_ticks, "adhesion persistante non deterministe");
+}
+
+#[test]
 fn predation_kills_the_weak_and_conserves_the_death_count() {
     // Predation (0.0.2, experiments/012, config seulement, `[predation] enabled`). Une entite
     // affamee mange une entite nettement plus faible a portee : la proie meurt par predation,

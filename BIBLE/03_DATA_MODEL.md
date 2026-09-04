@@ -61,6 +61,7 @@ struct WorldState {
 
     cells:            Vec<Cell>,     // (0.0.2, tranche 2) cellules vivantes, triées par id
     next_cell_id:     u32,
+    cell_bonds:       Vec<(u32,u32)>,// (0.0.2, [cells] tissue_bond) liens d'adhésion (id_bas,id_haut) triés ; le tissu = composante connexe
 
     organisms:        Vec<Organism>, // (0.0.2, [organism]) complexes de cellules reconnus, id stable
     next_organism_id: u32,
@@ -83,8 +84,8 @@ struct Cell {                        // un amas cohérent de parents, reconnu co
     mean_traits:   [f32; N_TRAITS],
     elongation:    f32,               // (v19) étalement axe long / axe court ; > 1.7 -> division
     parent_cell:   Option<u32>,       // (v19) la cellule dont celle-ci s'est détachée par division
-    tissue:        Option<u32>,       // (0.0.2) id du tissu (plus petit id du groupe), None si isolée ; dérivé chaque tick
-    tissue_bonds:  u8,                // (0.0.2) nb de cellules voisines du même tissu ; beaucoup = intérieure (abri), peu = bord
+    tissue:        Option<u32>,       // (0.0.2) id du tissu (plus petit id du groupe), None si isolée ; dérivé (distance) ou porté par les liens (tissue_bond)
+    tissue_bonds:  u8,                // (0.0.2) nb de voisines du même tissu (ou degré dans le graphe de liens) ; beaucoup = intérieure, peu = bord
     organism:      Option<u32>,       // (0.0.2) id de l'organisme, None si hors complexe ; recalculé aux contrôles
 }
 
