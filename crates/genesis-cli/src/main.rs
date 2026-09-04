@@ -365,6 +365,11 @@ struct Sim {
     /// vieilles biographies pour ne pas gonfler sans fin, `lives.len()` sous-estimerait.
     awoke_count: u64,
     extinct_at: Option<u64>,
+    /// Vrai quand la derniere frame poussee est une frame "provisoire" de fin de pas `serve`
+    /// (hors frontiere `frame_every`). Le pas suivant la remplace au lieu de l'empiler : sinon
+    /// un `serve` a petit pas ferait grossir `frames` cinq fois plus vite et la fenetre
+    /// d'historique de `view.html` fondrait d'autant.
+    last_frame_provisional: bool,
 }
 
 impl Sim {
@@ -376,6 +381,7 @@ impl Sim {
             lives: std::collections::HashMap::new(),
             awoke_count: 0,
             extinct_at: None,
+            last_frame_provisional: false,
         }
     }
 
@@ -560,6 +566,7 @@ impl Sim {
             if world.tick % interval == 0 {
                 self.frames.push(project(world, cfg, tps, &since_frame));
                 since_frame.clear();
+                self.last_frame_provisional = false;
                 while self.frames.len() > max_frames {
                     self.frames.remove(0);
                 }
@@ -584,7 +591,27 @@ impl Sim {
             wdir.write_snapshot(world)?;
             wdir.prune_snapshots(SNAPSHOTS_KEPT)?;
         }
-        self.frames.push(project(world, cfg, tps, &since_frame));
+        // Frame de fin de pas.
+        // - birth / replay (`checkpoint`) : il FAUT une frame pile au dernier tick pour la
+        //   comparaison ; la boucle l'a peut-etre deja poussee sur une frontiere, ne pas
+        //   dupliquer.
+        // - `serve` (petits pas) : cette frame sert de scene "live" a chaque tour. On la marque
+        //   provisoire et le tour suivant la remplace, sauf sur une frontiere `frame_every` ou
+        //   la boucle vient de pousser la frame definitive. Sans ca, `frames` grossirait au
+        //   rythme des pas et la fenetre d'historique de `view.html` fondrait d'autant.
+        let on_boundary = frame_every > 0 && world.tick % frame_every == 0;
+        if checkpoint {
+            if self.frames.last().map_or(true, |f| f.tick != world.tick) {
+                self.frames.push(project(world, cfg, tps, &since_frame));
+            }
+            self.last_frame_provisional = false;
+        } else if !on_boundary {
+            if self.last_frame_provisional {
+                self.frames.pop();
+            }
+            self.frames.push(project(world, cfg, tps, &since_frame));
+            self.last_frame_provisional = true;
+        }
         while self.frames.len() > max_frames {
             self.frames.remove(0);
         }
@@ -869,14 +896,18 @@ fn cmd_serve(
     // Cadence voulue, en ticks par seconde reelle. Un monde qui tourne 24/24 se regarde :
     // le defaut est lent. `--rate 0` = a fond.
     let rate: f64 = flags.get("rate").and_then(|s| s.parse().ok()).unwrap_or(30.0);
-    // Pas d'avancement : environ une seconde de temps-monde par tour de boucle, pour que
-    // l'overlay (qui relit live.json toutes les 3 s) voie le monde bouger en continu.
+    // Pas d'avancement : une FRACTION de seconde de temps-monde par tour de boucle. scene.json
+    // est reecrit a chaque tour ; si le pas valait une seconde entiere (~45 ticks), l'overlay
+    // recevrait les positions par bonds de 45 ticks et le lissage donnerait un "avance puis
+    // se fige" a chaque seconde, la saccade du monde. En decoupant en ~1/5 s, la cible du
+    // lissage bouge cinq fois plus souvent, par pas cinq fois plus petits : le monde glisse.
+    // Le rythme reel (`rate` ticks/s) ne change pas, seule la granularite des ecritures.
     let step: u64 = flags
         .get("step")
         .or_else(|| flags.get("chunk"))
         .and_then(|s| s.parse().ok())
         .filter(|&n| n > 0)
-        .unwrap_or_else(|| if rate > 0.0 { (rate.round() as u64).max(1) } else { 400 });
+        .unwrap_or_else(|| if rate > 0.0 { (rate / 5.0).round().max(1.0) as u64 } else { 400 });
     // Les pages lourdes (view / series / lives / index) : au plus une fois toutes ces secondes.
     let pages_every: f64 = flags
         .get("pages-every")

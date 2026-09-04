@@ -1,7 +1,7 @@
 //! `stream.html` : l'overlay du direct 24/24 (source navigateur pour OBS, 1920x1080).
 //!
-//! Coquille statique qui relit `live.json` et `scene.json` toutes les quelques secondes et
-//! anime les changements. A servir par `genesis serve --port`, ou a ouvrir en `file://`
+//! Coquille statique qui relit `scene.json` a chaque pas serveur (~1/5 s) et `live.json` plus
+//! rarement, et anime les changements. A servir par `genesis serve --port`, ou a ouvrir en `file://`
 //! (l'overlay tente `fetch`, et retombe sur les balises JSON embarquees a la generation).
 
 const TEMPLATE: &str = include_str!("stream_template.html");

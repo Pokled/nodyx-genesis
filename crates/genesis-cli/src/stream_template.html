@@ -370,8 +370,8 @@ function worldAge(sec) {
 // Le serveur envoie `no-store` sur ces fichiers : pas besoin de casse-cache. On relit les deux
 // a chaque tour (scene.json ~ quelques dizaines de ko en localhost) et on espace les tentatives
 // si le serveur ne repond plus (relance de `genesis serve`), sans rien casser a l'ecran.
-// `genesis serve` reecrit scene.json a chaque tranche (~1 s) : entre deux, on interpole
-// (`frameAt`) pour que les cellules glissent au lieu de sauter d'un tick a l'autre.
+// `genesis serve` reecrit scene.json a chaque pas (~1/5 s, ~9 ticks) : on sonde au meme rythme
+// et `frameAt` lisse les petits pas restants pour que les cellules glissent.
 let sceneT0 = performance.now();   // arrivee de la derniere image distincte
 let sceneSpan = 1300;              // ms observes entre deux images distinctes (adaptatif)
 let sceneFetched = false;
@@ -408,16 +408,17 @@ let poll;
     }
     let sMiss = 0, lMiss = 0, lastSceneTick = -1;
     async function loopScene() {
-      // On sonde plus vite que le serveur n'ecrit (~1 s) et on ne re-transmet que les images
-      // NOUVELLES : le fil principal recoit exactement une image par tranche serveur, jamais
-      // deux d'un coup -> le monde avance a pas reguliers, pas en dents de scie.
+      // genesis serve reecrit scene.json a chaque pas (~1/5 s, ~9 ticks). On sonde au meme
+      // rythme et on ne re-transmet que les images NOUVELLES : le fil principal recoit un flux
+      // regulier de petits pas, jamais un gros saut toutes les secondes -> plus de saut dans
+      // le temps dans le monde. Si le serveur ralentit, on espace (sMiss).
       const sc = await get('scene.json');
       if (sc) {
         sMiss = 0;
         const tk = sc.tick != null ? sc.tick : (sc.stats && sc.stats.tick);
         if (tk == null || tk !== lastSceneTick) { lastSceneTick = tk; self.postMessage({ t: 'scene', d: sc }); }
       } else sMiss = Math.min(sMiss + 1, 6);
-      setTimeout(loopScene, 600 + sMiss * 1500);
+      setTimeout(loopScene, 170 + sMiss * 1800);
     }
     async function loopLive() {
       const l = await get('live.json');
@@ -440,7 +441,7 @@ let poll;
       let ok = false;
       try { const sc = await fetch('scene.json').then(r => r.ok ? r.json() : null).catch(() => null); if (sc) { ingestScene(sc); ok = true; } } catch (e) {}
       sMiss = ok ? 0 : Math.min(sMiss + 1, 6);
-      clearTimeout(sTimer); sTimer = setTimeout(pollScene, 1200 + sMiss * 1500);
+      clearTimeout(sTimer); sTimer = setTimeout(pollScene, 200 + sMiss * 1800);
     };
     const pollLive = async () => {
       let ok = false;
@@ -453,12 +454,12 @@ let poll;
 })();
 
 // --- lissage de la scene entre deux images ---
-// Les donnees du monde arrivent en dents de scie (image toutes les 1,2 a 1,5 s, +45 ou +90
-// ticks), et le mouvement des centroides de cellules est lui-meme saccade a la source (un
-// centroide de ~30 entites qui se reforme). On ne cherche pas a suivre au plus pres : on tient
-// une position d'affichage ramenee vers la cible par un lissage exponentiel a constante de
-// temps LONGUE (~2,5 s). Les a-coups des donnees sont ainsi filtres en mouvement continu ; le
-// prix est un retard de ~2 s, invisible pour un direct. Independant du pas de temps.
+// scene.json arrive maintenant par petits pas reguliers (~1/5 s, ~9 ticks) au lieu d'un gros
+// saut par seconde. Le mouvement des centroides de cellules reste un peu saccade a la source
+// (un centroide de ~30 entites qui se reforme), mais les pas sont cinq fois plus petits. On
+// tient une position d'affichage ramenee vers la cible par un lissage exponentiel a demi-vie
+// COURTE (~0,45 s) : assez pour lisser le grain de la source, assez peu pour que le monde
+// colle au direct (retard ~0,4 s, imperceptible). Independant du pas de temps.
 const CDISP = new Map();   // id cellule -> {x, y, r, seen}
 const EDISP = new Map();   // id entite  -> {x, y, seen}
 const KDISP = new Map();   // amas : cle spatiale grossiere -> {x, y, e, h, seen}
@@ -470,8 +471,8 @@ function frameAt(now) {
   if (!S || !S.grid) return S;
   let dt = (now - dispLast) / 1000; dispLast = now;
   dt = Math.max(0.001, Math.min(0.05, dt));
-  const a = 1 - Math.pow(0.5, dt / 1.6);    // demi-vie 1,6 s : filtre les pas, garde peu de retard
-  const ak = 1 - Math.pow(0.5, dt / 1.0);   // le fond suit un peu plus vite
+  const a = 1 - Math.pow(0.5, dt / 0.45);   // demi-vie 0,45 s : lisse le grain, colle au direct
+  const ak = 1 - Math.pow(0.5, dt / 0.6);   // le fond, un peu plus pose
 
   if (S.cells && S.cells.length) {
     for (const c of S.cells) {
@@ -702,10 +703,14 @@ function drawScene(now) {
     // le contour ne se recroise jamais (deformation << espacement des points).
     const wob = Math.min(0.16, 0.05 + (elong - 1) * 0.12);
     const young = 1 - Math.min(1, (c.age || 99999) / 2400);   // 1 = vient de naitre
-    const ph = tsec * 1.1 + (c.pos[0] + c.pos[1]) * 0.05;     // phase propre a la cellule
-    // squash d'ellipse (allongement), sans orientation connue : le long d'un axe fixe par
-    // cellule, doux. sx*sy = 1 -> aire conservee.
-    const ang = (c.pos[0] * 0.7 + c.pos[1] * 0.9) % 6.2832;
+    // phase et axe propres a la cellule : cales sur la position LISSEE (dc), jamais sur c.pos
+    // brut. Le centroide d'une cellule saute a chaque scene (le nuage de membres se recompose) ;
+    // si la phase d'ondulation ou l'axe d'ellipse suivaient c.pos, tout le contour se
+    // teleporterait a chaque scene (~1 s) alors que le centre, lui, glisse. C'est la source des
+    // "sauts dans le temps" reguliers : le monde qui se fige puis rattrape. Avec dc, la forme
+    // derive doucement comme le reste.
+    const ph = tsec * 1.1 + (dc.x + dc.y) * 0.05;
+    const ang = (dc.x * 0.7 + dc.y * 0.9) % 6.2832;
     const es = Math.min(0.22, (elong - 1) * 0.42);
     const ca = Math.cos(ang), sa = Math.sin(ang);
 
