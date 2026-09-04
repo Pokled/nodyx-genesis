@@ -211,8 +211,32 @@ pleine" mesurait l'inverse de "avoir bien mange". Mesure corrigee : l'energie de
 population globale stable. La premiere brique de la marche organe qui ameliore les mesures sans
 contrepartie identifiee. Voir `015`. Allume sur w5.
 
-Prochaine marche : adipeux (tampon d'energie dans le temps, a verifier qu'il n'agite pas comme
-la digestion), nerveux (relais de signal).
+**La reserve adipeuse, un essai inerte (2026-09-04, `[organism] adipeux_share`).** Une graisse
+passive, distincte de `pool_share` : les membres ronds et gorges versent une part de leur surplus
+aux membres vraiment en danger (energie sous le point de mort par famine + une marge), sans
+mouvement, sans rien preleve hors de l'organisme. Un premier piege de seuil (`starve_at * 2,0`
+degenere a 0 quand `starve_at = 0`, corrige) faisait croire a une absence totale d'effet ; le
+test unitaire, une fois le seuil corrige, passe net. Mais a l'echelle de w6 (toute la pile,
+`pool_share = 0,15` actif), l'A/B ressort **identique a l'octet pres** meme au reglage le plus
+permissif. Diagnostic direct (compteur temporaire) : sur 95 controles consecutifs, jamais un
+organisme n'a eu un membre gorge ET un membre en danger en meme temps. Pas un bug -- `pool_share`,
+deja actif a la meme cadence, ramene sans arret tous les membres vers leur moyenne commune et
+efface exactement l'ecart dont la reserve a besoin pour se declencher. Garde dans le code
+(defaut a 0, aucun monde vivant affecte), documente comme piste fermee a ce regime. Voir `016`.
+
+**Le relais nerveux, retenu net (2026-09-04, `[voice] nerve_relay`).** Un tissu qui compte assez
+de membres agents (mesure, pas nomme) etend leur portee de perception de signal (alarme, appel)
+au-dela de `signal_radius`, comme si le reseau relayait le cri plutot que chacun le percevant
+seul. Compteur direct `nerve_signals_relayed` (incremente SEULEMENT quand l'extension a fait la
+difference) pour valider la cause sans ambiguite -- pas de piege de seuil cette fois, le test
+passe du premier coup. A/B graine 26 (config w6) : population finale +50 %, tissus vivants x1,6,
+psi6 x2,8 (0,18 -> 0,51, l'ordre franchement etabli), agents vivants +41 %, sans changer le
+PROFIL de mortalite (part famine/predation stable) -- un monde plus grand et plus tisse dans son
+ensemble, pas juste moins de morts. Seul recul : diversite genetique -17 %. Le plus net des
+essais "que le type compte" a ce jour. Voir `017`.
+
+Prochaine marche : essayer le relais depuis la genese sur un monde neuf (jamais a chaud, meme
+regle que `013`/`015`) ; puis selection a l'echelle organisme + genome structurel Sims (D).
 
 **L'organisme, identite persistante (2026-09-03, `[organism] enabled`).** La marche choisie
 comme socle des suivantes. `organism_pass` (phase 5b, aux controles `organism.check_every`)

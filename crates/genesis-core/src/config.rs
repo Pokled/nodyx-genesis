@@ -718,6 +718,15 @@ pub struct OrganismCfg {
     /// colonie. Conserve (deplacement vers la moyenne), sans RNG. `0` : l'organisme a une
     /// identite mais pas de destin partage (A/B).
     pub pool_share: f32,
+    /// Reserve adipeuse (0.0.2, vers l'organe). En plus du `pool_share` uniforme, les membres
+    /// d'une cellule RONDE (`elongation < 1.6`) et GORGEE (energie >= `adipeux_rich_frac` du
+    /// plafond) versent une part `adipeux_share` de LEUR surplus aux membres de l'organisme
+    /// vraiment en danger (energie sous 2x le seuil de famine) -- une graisse de reserve qui ne
+    /// se vide que dans le besoin, distincte du lissage constant de `pool_share`. Conserve, sans
+    /// RNG, aucune activite ajoutee. `0` desactive (A/B).
+    pub adipeux_share: f32,
+    /// Fraction du plafond d'energie au-dela de laquelle une cellule ronde compte comme "gorgee".
+    pub adipeux_rich_frac: f32,
 }
 impl Default for OrganismCfg {
     fn default() -> Self {
@@ -728,6 +737,8 @@ impl Default for OrganismCfg {
             persist_checks: 2,
             check_every: 200,
             pool_share: 0.15,
+            adipeux_share: 0.0,
+            adipeux_rich_frac: 0.75,
         }
     }
 }
@@ -876,6 +887,16 @@ pub struct VoiceCfg {
     /// Fraction du plafond d'une case au-dessus de laquelle elle est « franchement riche » :
     /// un agent qui y mange bien lance un appel.
     pub bounty_cell_frac: f32,
+    /// Relais nerveux (0.0.2, vers l'organe). Un tissu qui compte au moins `nerve_min_agents`
+    /// membres agents (mesure, pas nomme : aucun `if kind==nerveux`) etend la portee de
+    /// perception d'un signal (alarme ou appel) de TOUS ses membres agents, comme si le
+    /// reseau du tissu relayait le signal plutot que chacun le percevant seul. `false`
+    /// desactive (A/B) : chaque agent percoit seul, dans `signal_radius`.
+    pub nerve_relay: bool,
+    /// Nombre minimal de membres agents dans un meme tissu pour que le relais s'applique.
+    pub nerve_min_agents: u32,
+    /// Multiplicateur de portee de perception pour un agent dans un tissu qui relaie.
+    pub nerve_radius_mult: f32,
 }
 impl Default for VoiceCfg {
     fn default() -> Self {
@@ -887,6 +908,9 @@ impl Default for VoiceCfg {
             bounty_call: true,
             bounty_pull: 0.35,
             bounty_cell_frac: 0.55,
+            nerve_relay: false,
+            nerve_min_agents: 3,
+            nerve_radius_mult: 2.5,
         }
     }
 }

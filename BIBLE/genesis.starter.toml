@@ -282,6 +282,10 @@ min_cells         = 3     # nombre minimal de cellules pour un organisme
 persist_checks    = 2     # contrôles tenus avant reconnaissance, et tolérance avant dissolution
 check_every       = 200   # période de détection, en ticks
 pool_share        = 0.15  # à chaque contrôle, chaque membre est ramené de cette fraction vers l'énergie moyenne de l'organisme (il a faim / est repu EN ENTIER). 0 = identité sans destin partagé (A/B)
+# Réserve adipeuse (0.0.2, essai inerte au régime de w6 : pool_share efface déjà l'écart dont
+# elle a besoin pour se déclencher — voir experiments/016). Gardée éteinte par défaut.
+adipeux_share     = 0.0   # part du surplus des membres ronds et gorgés versée aux membres en danger (0 = coupé)
+adipeux_rich_frac = 0.75  # fraction du plafond d'énergie à partir de laquelle un membre rond compte "gorgé"
 
 [cognition]
 # Cognition (0.0.3, tranche 1 « le premier souvenir »). Une entité qui perçoit assez bien
@@ -343,6 +347,17 @@ max_signals   = 128    # signaux vivants au plus ; en famine générale on garde
 bounty_call      = true  # false = aucun appel émis (A/B)
 bounty_pull      = 0.35  # à quel point un appel entendu tire la cible vers lui ; 0 = appel visible mais inerte
 bounty_cell_frac = 0.55  # fraction du plafond d'une case au-dessus de laquelle elle est « franchement riche »
+
+# Relais nerveux (0.0.2, vers l'organe). Un tissu qui compte au moins nerve_min_agents membres
+# agents (mesure, pas nommé) étend leur portée de perception de signal — comme si le réseau du
+# tissu relayait le cri plutôt que chacun le percevant seul. A/B graine 26, 60000 ticks (config
+# w6, toute la pile) : population finale +50 %, tissus vivants x1,6, psi6 x2,8 (0,18 -> 0,51),
+# agents vivants +41 %, profil de mortalité inchangé — un monde plus grand et plus tissé dans
+# son ensemble. Le plus net des essais « que le type compte » à ce jour (experiments/017).
+# Retenu, mais jamais à chaud sur un monde qui tourne (même règle que tissue_bond/muscle_seek_food).
+nerve_relay       = false  # false = chaque agent perçoit seul, dans signal_radius (A/B)
+nerve_min_agents  = 3      # membres agents minimum dans un même tissu pour que le relais s'applique
+nerve_radius_mult = 2.5    # multiplicateur de portée de perception pour un agent relayé
 
 [view]
 # Niveau de détail de la projection (genesis-view::project). Au delà du seuil, la frame

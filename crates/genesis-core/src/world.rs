@@ -271,6 +271,11 @@ pub struct WorldState {
     /// une nuee d'alarmes. Bornes en nombre et en duree (voir `[voice]`).
     #[serde(default)]
     pub signals: Vec<crate::voice::Signal>,
+    /// Relais nerveux (0.0.2, `[voice] nerve_relay`) : nombre de fois ou un agent a percu une
+    /// alarme SEULEMENT grace a l'extension de portee de son tissu (hors de `signal_radius`
+    /// mais dans la portee relayee). Cumule. Zero si `nerve_relay = false`.
+    #[serde(default)]
+    pub nerve_signals_relayed: u64,
 
     pub watch: Watch,
 }
@@ -355,6 +360,7 @@ impl WorldState {
             next_organism_id: 0,
             organisms_formed_total: 0,
             signals: Vec::new(),
+            nerve_signals_relayed: 0,
             watch: Watch {
                 pop_history: Vec::new(),
                 milestone_hi: 0,

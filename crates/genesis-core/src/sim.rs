@@ -187,6 +187,38 @@ pub fn tick(world: &mut WorldState, cfg: &SimConfig) -> Vec<Event> {
     let sim_scale = coh.similarity_scale.max(0.01);
     let repro_threshold = cfg.reproduction.energy_threshold.max(0.01);
 
+    // Voix : relais nerveux (0.0.2, `[voice] nerve_relay`). Un tissu qui compte assez de
+    // membres agents etend leur portee de perception de signal. Mesure une fois ici (pas de
+    // nom de tissu) : par entite, le carre du multiplicateur de portee applicable, 1.0 sinon.
+    let nerve_r2_mult: Vec<f32> = if cfg.voice.nerve_relay {
+        let cslot: std::collections::HashMap<u32, usize> =
+            world.cells.iter().enumerate().map(|(k, c)| (c.id, k)).collect();
+        let entity_tissue: Vec<Option<u32>> = world
+            .entities
+            .iter()
+            .map(|e| e.cell_id.and_then(|id| cslot.get(&id)).and_then(|&k| world.cells[k].tissue))
+            .collect();
+        let mut tissue_agents: std::collections::HashMap<u32, u32> = std::collections::HashMap::new();
+        for (e, tid) in world.entities.iter().zip(entity_tissue.iter()) {
+            if e.mind.is_some() {
+                if let Some(tid) = tid {
+                    *tissue_agents.entry(*tid).or_insert(0) += 1;
+                }
+            }
+        }
+        let min_agents = cfg.voice.nerve_min_agents;
+        let mult2 = cfg.voice.nerve_radius_mult.max(1.0).powi(2);
+        entity_tissue
+            .iter()
+            .map(|tid| match tid {
+                Some(tid) if tissue_agents.get(tid).copied().unwrap_or(0) >= min_agents => mult2,
+                _ => 1.0,
+            })
+            .collect()
+    } else {
+        Vec::new()
+    };
+
     drop(_sp.take()); _sp = prof::Span::start(1);
     // -- Phase 2 et 3, perception et decision : chaque entite choisit une cible.
     // La cible de nourriture (balayage large et couteux) n'est recalculee que tous les
@@ -297,13 +329,17 @@ pub fn tick(world: &mut WorldState, cfg: &SimConfig) -> Vec<Event> {
                     // `born == t` serait un cas limite, mais un appel de ce tick n'existe pas
                     // encore ici, il est emis plus bas).
                     let call = if hear_calls {
+                        let r2 = match nerve_r2_mult.get(my_idx) {
+                            Some(&m) => voice_r2 * m,
+                            None => voice_r2,
+                        };
                         let mut best: Option<(f32, Position)> = None;
                         for s in signals_ref.iter() {
                             if s.kind != crate::voice::SignalKind::Bounty {
                                 continue;
                             }
                             let d = pos.dist2(&s.pos);
-                            if d <= voice_r2 && best.map_or(true, |(bd, _)| d < bd) {
+                            if d <= r2 && best.map_or(true, |(bd, _)| d < bd) {
                                 best = Some((d, s.pos));
                             }
                         }
@@ -606,7 +642,7 @@ pub fn tick(world: &mut WorldState, cfg: &SimConfig) -> Vec<Event> {
     //    ont vecu assez ; entretien de la memoire des agents (decroissance, nouveaux
     //    souvenirs) ; retombee des agents sans souvenir depuis longtemps. Sequentiel, sans
     //    RNG, avant la mort pour qu'un frole-la-mort non fatal soit memorise.
-    cognition_phase(world, cfg, t, &index, &mut events);
+    cognition_phase(world, cfg, t, &index, &nerve_r2_mult, &mut events);
 
     drop(_sp.take()); _sp = prof::Span::start(6);
     // -- Phase 6, cycle de vie : vieillissement, mort par famine ou par age. Sequentiel :
@@ -1455,7 +1491,14 @@ fn cell_phase(
     // -- 3e. Organismes (0.0.2, `[organism] enabled`, config seulement). Une composante connexe
     //    de cellules qui adherent (sans parente exigee), reconnue apres quelques controles et
     //    gardee avec un id stable. Aux controles seulement.
-    organism_pass(world, &cfg.organism, t, events);
+    organism_pass(
+        world,
+        &cfg.organism,
+        t,
+        events,
+        cfg.lifecycle.starve_at,
+        cfg.reproduction.energy_threshold * 2.0,
+    );
 
     // -- 3f. Contraction musculaire (0.0.2, `[cells] muscle_contract`). Une cellule d'un tissu
     //    dont le nuage de membres est nettement etire exerce une force axiale oscillante : elle
@@ -1479,6 +1522,8 @@ fn organism_pass(
     oc: &crate::config::OrganismCfg,
     t: u64,
     events: &mut Vec<Event>,
+    starve_at: f32,
+    energy_ceiling: f32,
 ) {
     use std::collections::{HashMap, HashSet};
     if !oc.enabled {
@@ -1672,6 +1717,65 @@ fn organism_pass(
             for &i in idxs {
                 let e = &mut world.entities[i];
                 e.energy += (mean - e.energy) * share;
+            }
+        }
+    }
+
+    // Reserve adipeuse (0.0.2, `[organism] adipeux_share`) : en plus du lissage uniforme
+    // ci-dessus, les membres d'une cellule RONDE (`elongation < 1.6`) et GORGEE (energie >=
+    // `adipeux_rich_frac` du plafond) versent une part de LEUR surplus aux membres de
+    // l'organisme vraiment en danger (energie sous 2x le seuil de famine). Une graisse de
+    // reserve qui ne se vide que dans le besoin, pas un lissage constant : distinct de
+    // `pool_share`. Conserve, sans RNG, ordre des id d'organisme puis des entites. Aucune
+    // activite ajoutee (aucun mouvement, aucune entite hors de l'organisme ponctionnee).
+    let adi_share = oc.adipeux_share.clamp(0.0, 1.0);
+    if adi_share > 0.0 && !world.organisms.is_empty() {
+        let cslot: HashMap<u32, usize> =
+            world.cells.iter().enumerate().map(|(k, c)| (c.id, k)).collect();
+        let rich_at = energy_ceiling * oc.adipeux_rich_frac.clamp(0.0, 1.0);
+        // Marge au-dessus du point de mort par famine (`starve_at`, souvent 0), a l'echelle du
+        // monde plutot qu'un doublement degenere quand `starve_at = 0`.
+        let danger_at = starve_at + energy_ceiling * 0.08;
+        // organisme -> (indices donneurs gorges, indices en danger)
+        let mut groups: HashMap<u32, (Vec<usize>, Vec<usize>)> = HashMap::new();
+        for (i, e) in world.entities.iter().enumerate() {
+            let Some(&k) = e.cell_id.and_then(|id| cslot.get(&id)) else { continue };
+            let Some(oid) = world.cells[k].organism else { continue };
+            let round = world.cells[k].elongation < 1.6;
+            let grp = groups.entry(oid).or_default();
+            if round && e.energy >= rich_at {
+                grp.0.push(i);
+            } else if e.energy < danger_at {
+                grp.1.push(i);
+            }
+        }
+        let mut oids: Vec<u32> = groups.keys().copied().collect();
+        oids.sort_unstable();
+        let mut delta = vec![0.0f32; world.entities.len()];
+        for oid in oids {
+            let (donors, needy) = &groups[&oid];
+            if donors.is_empty() || needy.is_empty() {
+                continue;
+            }
+            let mut pot = 0.0f32;
+            for &i in donors {
+                pot += (world.entities[i].energy - rich_at).max(0.0) * adi_share;
+            }
+            if pot <= 0.0 {
+                continue;
+            }
+            let per = pot / needy.len() as f32;
+            for &i in donors {
+                let surplus = (world.entities[i].energy - rich_at).max(0.0);
+                delta[i] -= surplus * adi_share;
+            }
+            for &i in needy {
+                delta[i] += per;
+            }
+        }
+        for (i, d) in delta.into_iter().enumerate() {
+            if d != 0.0 {
+                world.entities[i].energy = (world.entities[i].energy + d).clamp(0.0, energy_ceiling);
             }
         }
     }
@@ -2336,6 +2440,7 @@ fn cognition_phase(
     cfg: &SimConfig,
     t: u64,
     index: &SpatialHash,
+    nerve_r2_mult: &[f32],
     events: &mut Vec<Event>,
 ) {
     let cg = &cfg.cognition;
@@ -2368,12 +2473,31 @@ fn cognition_phase(
         // Une alarme a portee ? (avant le `&mut mind`). On ignore la sienne : `born == t` et
         // meme position exacte serait un cas limite, mais l'alarme d'un autre a la meme case
         // compte, c'est voulu (la panique se partage).
-        let near_alarm = hear_alarms
-            && world.entities[i].mind.is_some()
+        let is_agent = world.entities[i].mind.is_some();
+        let plain_near = hear_alarms
+            && is_agent
             && world
                 .signals
                 .iter()
                 .any(|s| epos.dist2(&s.pos) <= alarm_r2 && !(s.born == t && s.pos == epos));
+        let my_r2 = match nerve_r2_mult.get(i) {
+            Some(&m) => alarm_r2 * m,
+            None => alarm_r2,
+        };
+        let near_alarm = if plain_near {
+            true
+        } else if my_r2 > alarm_r2 && hear_alarms && is_agent {
+            let relayed = world
+                .signals
+                .iter()
+                .any(|s| epos.dist2(&s.pos) <= my_r2 && !(s.born == t && s.pos == epos));
+            if relayed {
+                world.nerve_signals_relayed += 1;
+            }
+            relayed
+        } else {
+            false
+        };
 
         // Agents proches : collectes avant le `&mut mind` (conflit de borrow sinon).
         let mut near_agents: Vec<EntityId> = Vec::new();
