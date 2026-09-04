@@ -243,6 +243,13 @@ le gradient de nourriture au lieu de battre sur place (`BIBLE/experiments/015`).
 de tissus vus en même temps sur ses premières années, dont adipeux et conjonctif, des
 organismes nommés qui persistent. Tenu en direct sur `--port 8082`.
 
+**w7**, graine 40, ajoute le relais nerveux (`nerve_relay`) à toute la pile de w6, dès la
+genèse : un tissu qui compte assez de membres agents relaie leurs alarmes et leurs appels
+bien au-delà de la portée d'un individu seul (`BIBLE/experiments/017`). Fondation plus
+laborieuse que d'habitude (six graines éteintes avant que la 40 tienne), mais une fois
+établi, un monde qui respire fort : quatre mille à quinze mille d'une saison à l'autre, une
+douzaine de types de tissus vus en pointe. Tenu en direct sur `--port 8083`.
+
 **w1** (graine 8) a les disettes les plus violentes et la plus haute diversité génétique.
 **w4** (graine 13) est le plus foisonnant, une douzaine d'émergences d'espèce. **w3**
 (graine 4) ne prend pas : les deux lignées fondatrices s'éteignent avant la première
