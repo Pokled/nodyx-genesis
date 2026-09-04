@@ -105,13 +105,23 @@ Lecture :
   l'economie pluricellulaire se cale plus bas). Adoucir ne fait que degrader le reste. On garde
   les valeurs par defaut.
 
-**Retenu pour w2 en direct : ON, valeurs par defaut.** Le retrait de ~11 % de population et
-~40 % de biomasse pluricellulaire est le cout assume d'un tissu qui existe vraiment. Un tissu
-ordonne et durable est le prerequis de tout l'aval (muscle qui tient sa forme, epithelium
-barriere, organe). A surveiller sur plusieurs jours : si la lignee pluricellulaire s'etiole
-jusqu'a disparaitre, il faudra donner au tissu un BENEFICE de survie qui compense sa cote,
-c'est exactement l'objet de `014` (que le type compte). Graine 1 seulement : refaire sur
-d'autres graines si un doute subsiste.
+**Essai sur w2 en direct (2026-09-04) : bascule en cours de vie, echec, revenu en arriere.**
+w2 est un monde age (an ~284, tick 2,49 M) dont le genome s'est adapte pendant 2,4 M ticks au
+tissu DERIVE. Allumer `tissue_bond` (+ `muscle_contract`) en cours de vie a fait chuter la
+lignee pluricellulaire en ~6000 ticks : cellules 25 -> 6, tissus 1-3 -> 0, biomasse en cellule
+~900 -> effondree. Population globale non touchee (~10000, dans la respiration saisonniere de
+disette). Le genome adapte a l'ancien regime ne supporte pas le choc : la resistance a la
+division sterilise des cellules qui comptaient sur la division pour leur fitness, sans qu'une
+selection ait eu le temps de recompenser l'ancrage. w2 remis en tissu derive.
+
+**Conclusion.** Le mecanisme est valide (l'A/B graine 1, ne de la genese avec les liens,
+montre une transition d'ordre nette et une diversite en hausse). Mais il ne s'introduit pas a
+chaud sur un monde adapte autrement. Deux voies propres :
+1. regenerer w2 depuis la genese avec `tissue_bond` des le depart (le genome co-evolue avec
+   les liens), comme dans l'A/B ;
+2. d'abord donner au tissu un BENEFICE de survie (`014`, epithelium barriere) pour que
+   l'ancrage paie, PUIS l'allumer.
+Graine 1 seulement pour l'A/B : refaire sur d'autres graines avant d'en faire un defaut.
 
 ## Suite
 
