@@ -61,29 +61,57 @@ perturbation) :
 - `tissue_bond = false` ne garde aucun lien ;
 - l'ecosysteme tient ; deterministe.
 
-## A/B sur w2 (graine 1, 60 000 ticks, muscle allume des deux cotes)
+## A/B graine 1, 60 000 ticks, muscle allume des trois cotes (2026-09-04)
 
-<!-- REMPLIR APRES LE RUN -->
+Base = config w2 (tous les leviers : predation, tissu, abri, organisme) + `muscle_contract`.
+- **OFF** : `tissue_bond = false` (derivation tick a tick).
+- **ON** : `tissue_bond = true`, `bond_stiffness = 0,12`, `divide_bond_resist = 0,15` (valeurs par defaut).
+- **ON doux** : `bond_stiffness = 0,09`, `divide_bond_resist = 0,08` (le coeur peut encore se diviser).
 
-| Mesure | OFF (derive) | ON (liens) | Effet |
+Moyennes sur la 2e moitie du run ; tissus / psi6 / entites-en-cellule sur les 20 derniers points.
+
+| Mesure | OFF | ON (defaut) | ON doux |
 | --- | --- | --- | --- |
-| population moyenne (plateau) | | | |
-| population minimale | | | |
-| cellules vivantes, moyenne | | | |
-| entites en cellule, moyenne | | | |
-| tissus vivants, moyenne | | | |
-| ordre du tissu (psi6), moyenne | | | |
-| cellules formees (cumul) | | | |
-| cellules dissoutes (cumul) | | | |
-| divisions (cumul) | | | |
-| morts par predation (cumul) | | | |
-| derive de cohesion | | | |
+| population moyenne (plateau) | 8080 | 7160 | 7120 |
+| population finale | 14749 | 12159 | 12026 |
+| cellules vivantes, moyenne | 46,7 | 38,9 | 31,7 |
+| entites en cellule (fin de run) | 3440 | 1960 | 2190 |
+| tissus vivants (fin de run) | 2,9 | 3,8 | 3,5 |
+| ordre du tissu psi6 (fin de run) | 0,24 | 0,50 | 0,46 |
+| cellules formees (cumul) | 544 | 569 | 438 |
+| divisions de cellule (cumul) | 59 | 22 | 19 |
+| diversite genetique (finale) | 0,070 | 0,098 | 0,054 |
+| morts par predation (cumul) | 107 900 | 102 400 | - |
 
 Lecture :
 
-<!-- REMPLIR : les tissus persistants font-ils enfin emerger des muscles durables, des nappes
-     qui bougent en bloc ? la resistance a la division localise-t-elle la reproduction au bord ?
-     l'ecosysteme paie-t-il un prix ? -->
+- **Les liens font ce qu'on attend.** Les tissus persistent plus (2,9 -> 3,8 en nombre moyen) et
+  surtout **s'ordonnent** : psi6 passe de 0,24 (liquide, phase hexatique) a 0,50 (nappe quasi
+  hexagonale). C'est une transition de phase, pas une nuance. Le seuil "epithelium" de la vue
+  (psi6 >= 0,50) est atteint pour de vrai.
+- **La diversite genetique MONTE** (+40 %) avec les valeurs par defaut : sans les liens, une
+  cellule de tissu se divise sans arret et amplifie clonalement la lignee dominante ; avec les
+  liens et la resistance a la division, le coeur est somatique, il n'amplifie plus, la diversite
+  se garde.
+- **Le prix** : le coeur se divise beaucoup moins (divisions 59 -> 22), la biomasse
+  pluricellulaire fond (entites-en-cellule -43 % en fin de run), la population moyenne perd
+  ~11 %. Le tissu paie sa cote (logique du Cambrien : un tissu coute). C'est un tissu plus
+  petit mais VRAI (ordonne, durable) au lieu d'un tissu plus gros mais ephemere.
+- **ON doux** (`divide_bond_resist` 0,15 -> 0,08, `bond_stiffness` 0,12 -> 0,09) : **pas mieux,
+  souvent pire.** Ne recupere pas la biomasse (entites-en-cellule 1960 -> 2190, toujours loin
+  des 3440 d'OFF), fait CHUTER la diversite (0,098 -> 0,054, sous OFF) et former moins de
+  cellules (569 -> 438). Le retrait de biomasse n'est donc PAS cause par la resistance a la
+  division : il vient des liens eux-memes (une nappe qui tient occupe l'espace plus compactement,
+  l'economie pluricellulaire se cale plus bas). Adoucir ne fait que degrader le reste. On garde
+  les valeurs par defaut.
+
+**Retenu pour w2 en direct : ON, valeurs par defaut.** Le retrait de ~11 % de population et
+~40 % de biomasse pluricellulaire est le cout assume d'un tissu qui existe vraiment. Un tissu
+ordonne et durable est le prerequis de tout l'aval (muscle qui tient sa forme, epithelium
+barriere, organe). A surveiller sur plusieurs jours : si la lignee pluricellulaire s'etiole
+jusqu'a disparaitre, il faudra donner au tissu un BENEFICE de survie qui compense sa cote,
+c'est exactement l'objet de `014` (que le type compte). Graine 1 seulement : refaire sur
+d'autres graines si un doute subsiste.
 
 ## Suite
 
