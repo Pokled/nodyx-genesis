@@ -320,20 +320,34 @@ const RENDER_SCALE = 0.62;
 const resCv = document.createElement('canvas');
 const resx = resCv.getContext('2d');
 let resDirty = true;
-// Fond de population : au pic, ~900 amas qui se recouvrent -> une GRILLE de disques translucides
-// (moche et lourde en logiciel). A la place : on peint les amas dans un petit canvas basse
-// resolution (en coordonnees du monde), puis un seul `drawImage` etire et lisse -> une nappe
-// douce, pas une grille, et une fraction du cout.
+// Fond de vie : ou la population se concentre. Chaque amas depose un halo doux (une pastille
+// radiale pre-rendue, tamponnee en accumulation) dans un buffer basse resolution ; un seul
+// `drawImage` etire ensuite -> une nappe organique de lumiere, pas une grille de carres. Refait
+// seulement a l'arrivee d'une image serveur (`cluDirty`), jamais par frame. Un degrade radial
+// est lisse par nature : agrandi ~6x il reste une brume.
 const cluCv = document.createElement('canvas');
-cluCv.width = 84; cluCv.height = 84;
+cluCv.width = 160; cluCv.height = 160;
 const clux = cluCv.getContext('2d');
+let cluDirty = true;
+// la pastille : un disque flou, tamponne des centaines de fois (drawImage d'un sprite <<
+// createRadialGradient a repetition sur Skia logiciel).
+const cluBlob = (() => {
+  const b = document.createElement('canvas'); b.width = b.height = 48;
+  const bx = b.getContext('2d');
+  const g = bx.createRadialGradient(24, 24, 0, 24, 24, 24);
+  g.addColorStop(0, 'rgba(255,255,255,1)');
+  g.addColorStop(0.5, 'rgba(255,255,255,0.35)');
+  g.addColorStop(1, 'rgba(255,255,255,0)');
+  bx.fillStyle = g; bx.fillRect(0, 0, 48, 48);
+  return b;
+})();
 let sceneBg = null, dnaGrad = null;
 function resize() {
   cv.width = Math.round(cv.clientWidth * RENDER_SCALE);
   cv.height = Math.round(cv.clientHeight * RENDER_SCALE);
   dnaCv.width = dnaCv.clientWidth * DPR; dnaCv.height = dnaCv.clientHeight * DPR;
   dctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-  sceneBg = null; dnaGrad = null; resDirty = true;
+  sceneBg = null; dnaGrad = null; resDirty = true; cluDirty = true;
 }
 window.addEventListener('resize', resize); resize();
 
@@ -381,7 +395,7 @@ function tickOf(s) { return s && (s.tick != null ? s.tick : (s.stats && s.stats.
 function ingestScene(sc) {
   if (!sc || !sc.grid) return;
   if (!sceneFetched) { sceneFetched = true; SCENE = sc; scenePrev = sc; sceneT0 = performance.now(); CDISP.clear(); EDISP.clear(); return; }
-  resDirty = true;
+  resDirty = true; cluDirty = true;
   const prevTick = tickOf(SCENE), curTick = tickOf(sc);
   if (SCENE && prevTick != null && curTick === prevTick) { SCENE = sc; return; }  // meme image
   const gap = performance.now() - sceneT0;
@@ -462,9 +476,7 @@ let poll;
 // colle au direct (retard ~0,4 s, imperceptible). Independant du pas de temps.
 const CDISP = new Map();   // id cellule -> {x, y, r, seen}
 const EDISP = new Map();   // id entite  -> {x, y, seen}
-const KDISP = new Map();   // amas : cle spatiale grossiere -> {x, y, e, h, seen}
 let dispLast = performance.now();
-function cluKey(px, py) { return ((px / 24) | 0) * 8192 + ((py / 24) | 0); }
 
 function frameAt(now) {
   const S = SCENE;
@@ -472,7 +484,6 @@ function frameAt(now) {
   let dt = (now - dispLast) / 1000; dispLast = now;
   dt = Math.max(0.001, Math.min(0.05, dt));
   const a = 1 - Math.pow(0.5, dt / 0.45);   // demi-vie 0,45 s : lisse le grain, colle au direct
-  const ak = 1 - Math.pow(0.5, dt / 0.6);   // le fond, un peu plus pose
 
   if (S.cells && S.cells.length) {
     for (const c of S.cells) {
@@ -492,19 +503,10 @@ function frameAt(now) {
     }
     if (EDISP.size > S.entities.length + 64) for (const [k, d] of EDISP) if (now - d.seen > 4000) EDISP.delete(k);
   }
-  if (S.clusters && S.clusters.length) {
-    for (const c of S.clusters) {
-      const k = cluKey(c.pos[0], c.pos[1]);
-      let d = KDISP.get(k);
-      if (!d) { d = { x: c.pos[0], y: c.pos[1], e: c.energy, h: c.hue, seen: 0 }; KDISP.set(k, d); }
-      d.x += (c.pos[0] - d.x) * ak; d.y += (c.pos[1] - d.y) * ak;
-      d.e += (c.energy - d.e) * ak; d.h += (c.hue - d.h) * ak; d.seen = now;
-    }
-    if (KDISP.size > S.clusters.length + 40) for (const [k, d] of KDISP) if (now - d.seen > 3000) KDISP.delete(k);
-  }
+  // les amas (fond de vie) ne sont plus lisses ici : leur nappe n'est refaite qu'a l'arrivee
+  // d'une image, tres flou et a faible alpha -> un pas de position sous-pixel est invisible.
   return S;
 }
-function dispClu(c) { const d = KDISP.get(cluKey(c.pos[0], c.pos[1])); return d || { x: c.pos[0], y: c.pos[1], e: c.energy, h: c.hue }; }
 // position lissee d'affichage (fallback sur la cible brute si pas encore d'etat)
 function dispCell(c) { const d = CDISP.get(c.id); return d ? d : { x: c.pos[0], y: c.pos[1], r: c.radius }; }
 function dispEnt(e) { const d = e.id != null && EDISP.get(e.id); return d || { x: e.pos[0], y: e.pos[1] }; }
@@ -642,8 +644,9 @@ function drawScene(now) {
       for (let i = 0; i < rv.cells.length; i++) {
         const v = rv.cells[i] / 255;
         const o = i * 4;
-        img.data[o] = 74; img.data[o + 1] = 150; img.data[o + 2] = 96;   // vert sol, discret
-        img.data[o + 3] = v < 0.05 ? 0 : Math.round(Math.pow(v, 1.1) * 0.11 * 255);
+        // substrat = eau : un bleu-vert sombre et froid, sous la lumiere chaude de la vie.
+        img.data[o] = 34; img.data[o + 1] = 92; img.data[o + 2] = 104;
+        img.data[o + 3] = v < 0.05 ? 0 : Math.round(Math.pow(v, 1.35) * 0.13 * 255);
       }
       resx.putImageData(img, 0, 0);
       resDirty = false;
@@ -651,35 +654,47 @@ function drawScene(now) {
     ctx.imageSmoothingEnabled = true;
     ctx.drawImage(resCv, ox, oy, s * gw, s * gh);
   }
-  // amas : le fond de population. Ce n'est pas le sujet du direct, juste un indice de OU la vie
-  // se concentre. Peint dans `cluCv` (basse resolution, coords du monde) puis recopie en un
-  // `drawImage` etire et lisse -> une brume douce, jamais une grille. Normalise sur l'amas le
-  // plus dense : au pic, on voit encore les coeurs se detacher du fond au lieu d'un aplat vert.
+  // fond de vie : ou la population se concentre. On tamponne une pastille floue par amas dans
+  // `cluCv` (basse resolution, coords du monde), en accumulation : les zones denses s'eclairent,
+  // les zones eparses restent une brume a peine visible. Contraste un peu durci pour qu'au pic,
+  // quand la vie couvre tout, seuls les vrais coeurs ressortent au lieu d'un aplat.
+  // Puis un seul `source-in` teinte toute la nappe en bio-teal d'un coup. Refait seulement a
+  // l'arrivee d'une image (`cluDirty`) ; le blit, lui, suit la camera a chaque frame.
   const clu = S.clusters || [];
   if (clu.length) {
+    const CH0 = Math.max(48, Math.round(160 * gh / gw));
+    if (cluCv.height !== CH0) { cluCv.height = CH0; cluDirty = true; }
     const CW = cluCv.width, CH = cluCv.height;
-    const kx = CW / gw, ky = CH / gh;
-    let maxN = 1;
-    for (const c of clu) if (c.count > maxN) maxN = c.count;
-    clux.clearRect(0, 0, CW, CH);
-    // des `fillRect` minuscules (pas d'arc : l'anti-aliasing des courbes en logiciel Skia etait
-    // le nouveau poste n°1). Le canvas 84x84 est ensuite etire ~16x avec lissage -> tout
-    // redevient rond et flou, aucune grille.
-    const q = Math.max(1.6, gw / 30 * kx * 1.15);
-    for (let i = 0; i < clu.length; i++) {
-      const c = clu[i];
-      const dk = dispClu(c);
-      // petit decalage deterministe par indice : casse le reseau regulier des cases (sinon,
-      // meme floute, une grille reste visible dans la brume).
-      const jx = (((i * 1103515245 + 12345) >>> 16) & 255) / 255 - 0.5;
-      const jy = (((i * 214013 + 2531011) >>> 16) & 255) / 255 - 0.5;
-      const px = (dk.x / PS) * kx + jx * q * 2.2, py = (dk.y / PS) * ky + jy * q * 2.2;
-      const dens = c.count / maxN;
-      clux.fillStyle = bio(dk.h, 52, 0.04 + dens * 0.11);
-      clux.fillRect(px - q, py - q, q * 2, q * 2);
+    if (cluDirty) {
+      const kx = CW / gw, ky = CH / gh;
+      let maxN = 1;
+      for (const c of clu) if (c.count > maxN) maxN = c.count;
+      clux.clearRect(0, 0, CW, CH);
+      clux.globalCompositeOperation = 'lighter';
+      const rBase = Math.max(5, CW / 22);
+      for (let i = 0; i < clu.length; i++) {
+        const c = clu[i];
+        const px = (c.pos[0] / PS) * kx, py = (c.pos[1] / PS) * ky;
+        const rel = c.count / maxN;
+        const dens = rel * (0.4 + rel * 0.6);            // durcit un peu le contraste
+        const r = rBase * (0.75 + dens * 1.1);
+        clux.globalAlpha = 0.05 + dens * 0.20;
+        clux.drawImage(cluBlob, px - r, py - r, r * 2, r * 2);
+      }
+      clux.globalAlpha = 1;
+      // teinte : la densite accumulee (blanc) devient une nappe bio-teal, degradee en diagonale
+      // pour une variation organique. `source-in` garde la forme, remplace la couleur.
+      clux.globalCompositeOperation = 'source-in';
+      const tg = clux.createLinearGradient(0, 0, CW, CH);
+      tg.addColorStop(0, bio(190, 52, 1));
+      tg.addColorStop(1, bio(168, 46, 1));
+      clux.fillStyle = tg;
+      clux.fillRect(0, 0, CW, CH);
+      clux.globalCompositeOperation = 'source-over';
+      cluDirty = false;
     }
     ctx.imageSmoothingEnabled = true;
-    ctx.globalAlpha = 0.6;
+    ctx.globalAlpha = 0.5 + 0.055 * Math.sin(tsec * 0.22);   // respiration lente
     ctx.drawImage(cluCv, 0, 0, CW, CH, ox, oy, s * gw, s * gh);
     ctx.globalAlpha = 1;
   }
