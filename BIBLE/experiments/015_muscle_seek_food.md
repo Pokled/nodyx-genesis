@@ -82,9 +82,27 @@ place trouve plus souvent de quoi tenir, se dissout moins, et une lignee tissee 
 longtemps pour que la selection ait le temps de jouer en sa faveur (au lieu d'etre rabotee par
 le hasard de sa position de naissance).
 
-**Retenu.** Contrairement a `tissue_bond` (cout net sur la biomasse) et a l'essai 1 de
-`014` (negatif), c'est la premiere brique de la marche organe qui ameliore les mesures sans
-compromis identifie. A verifier sur d'autres graines avant d'en faire un defaut ; pour
-l'instant, `false` par defaut, allume sur w5 (deja sur la meme configuration que l'A/B).
+**Retenu comme mecanisme.** Contrairement a `tissue_bond` (cout net sur la biomasse) et a
+l'essai 1 de `014` (negatif), c'est la premiere brique de la marche organe qui ameliore les
+mesures sans compromis identifie -- **quand elle nait avec le monde**. A verifier sur d'autres
+graines avant d'en faire un defaut.
+
+## Essai a chaud sur w5 -- ECHEC, meme lecon que `013`
+
+Allume sur w5 en cours de vie (an ~46, tick 400 000+, genome deja adapte a l'axe arbitraire
+d'origine) : population 14 960 -> **8 260 en environ 1800 ticks (~40 secondes reelles a
+45 t/s)**, cellules vivantes 46 -> 7, tissus vivants -> 0. Effondrement rapide et net, la
+signature exacte du choc deja observe avec `tissue_bond` sur w2 (`013`) : un mecanisme qui
+co-evolue proprement avec le genome depuis la genese (l'A/B le montre, population stable,
+aucun effondrement en 60 000 ticks) peut choquer une population deja etablie autour du
+comportement precedent. **w5 remis sans `muscle_seek_food`**, la population est remontee a la
+normale (~14 960, cellules 65-86, tissus 4-8) des le redemarrage suivant.
+
+**Regle qui se confirme, a deux reprises maintenant :** un nouveau mecanisme de tissu ou
+d'organisme ne s'allume PAS a chaud sur un monde qui tourne. Soit il nait avec un monde neuf
+(comme `muscle_seek_food` a ete verifie sur w5 via l'A/B ci-dessus, jamais deploye a chaud sur
+LE w5 en direct), soit il attend que le monde en direct actuel s'eteigne et reparte d'une
+graine fraiche (`--restart`). `muscle_seek_food` reste un candidat solide pour la PROCHAINE
+genese, pas pour une bascule en direct.
 
 Lien : [[organism-path-predation-first]], `009_organism.md`, `014_epithelium.md`.
