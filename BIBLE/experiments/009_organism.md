@@ -364,6 +364,41 @@ structure ne se contente pas de la figer au detriment du renouvellement (une nap
 renouvelle jamais pourrait etouffer sa propre selection, le meme piege que `pool_share` genereux
 deja note en `piste A`).
 
+**Raffinement apres triage de la boite a idees de l'atlas (2026-09-05).** Cinq sources lues
+(genomequebec.com, trustmyscience.com, un entretien clinique sur la therapie par cellules
+souches, performe.co, une page universitaire d'anatomie pathologique -- trois autres liens
+deposes ont bloque la recuperation, 403/404, a revisiter si le sujet s'avere important)
+convergent sur trois points qui affinent la conception au-dela de l'intuition de depart :
+
+1. **Ce n'est pas une resistance passive, c'est un EQUILIBRE construction/destruction.** La
+   regeneration reelle n'est pas "empecher la degradation", c'est un flux constant
+   (anabolisme contre catabolisme) dont le SOLDE determine si une structure grandit, tient ou
+   se defait -- ralenti par le stress et l'usure, accelere par le repos et l'abondance. Traduit
+   pour Genesis : `entretien` ne devrait pas etre un cout fixe qui repousse un seuil de
+   dissolution, mais un DEUXIEME FLUX (une reconstruction) qui s'ajoute a la perte existante
+   (predation, etirement) -- le solde des deux, pas un plancher artificiel.
+2. **La reparation a DEUX issues, pas une : regeneration complete si le squelette tient, sinon
+   une cicatrice -- un patch permanent, fonctionnellement moindre.** Une lesion qui garde sa
+   trame de soutien (le tissu conjonctif) se reforme a l'identique ; une lesion qui la perd ne
+   laisse qu'une marque durable, jamais restauree. Traduit pour Genesis : si `tissue_bonds` (le
+   graphe de liens d'une cellule) tombe sous un seuil avant que l'entretien ne la rattrape, la
+   reconstruction ne redonne pas la structure d'origine -- elle stabilise a un etat degrade
+   (moins apte a re-adherer, un type de tissu different). Un vrai enjeu de conception, pas
+   seulement "tenir plus longtemps."
+3. **La reparation commence par un debridement : nettoyer avant de reconstruire.**
+   Systematiquement, la premiere phase reelle est l'elimination du necrotique (phagocytose),
+   pas la reconstruction elle-meme. Bonne nouvelle : Genesis a DEJA cette phase -- la
+   dissolution d'une cellule qui n'a plus assez de membres EST le debridement. L'entretien
+   actif n'a donc pas a remplacer la dissolution existante, juste a s'ajouter APRES elle, pour
+   qu'une cellule/organisme puisse re-accueillir des membres au lieu de rester vide.
+
+Piste laterale, hors scope immediat mais notee : l'article sur les cellules synthetiques
+(liposomes assembles en laboratoire) vise, dans ses mots, un « systeme d'auto-correction qui
+s'ameliore au fur et a mesure » -- exactement la question que pose la piste E, mais cote
+biologie synthetique reelle. Rien a en tirer mecaniquement pour l'instant, mais ca confirme que
+l'auto-correction est bien ce qui separe une structure durablement vivante d'une structure qui
+persiste par accident.
+
 **Note deposee pour plus tard, distincte de ce chantier : les neurones.** L'utilisateur a
 apporte la structure reelle du neurone (dendrites qui recoivent et peuvent amplifier ou bloquer
 l'influx, corps cellulaire qui traite, axone et gaine de myeline qui transmettent). `nerve_relay`

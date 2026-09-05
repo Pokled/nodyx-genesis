@@ -205,16 +205,16 @@
     "n24": {
       "title": "Piste E : l'entretien actif",
       "status": "idee",
-      "summary": "Constat (2026-09-05) : les organismes ne tiennent pas longtemps. Cause structurelle : rien dans le moteur n'investit de l'energie pour MAINTENIR une structure, tout ne fait que perdre (predation, dissolution, liens qui cassent). Proposition : un entretien actif, fonctionnellement equivalent a la reparation proteique sans en simuler la chimie -- deliberement PAS de simulation litterale d'ARN/proteines (sauterait la piste C, deferee a 0.1+).",
+      "summary": "Constat (2026-09-05) : les organismes ne tiennent pas longtemps. Cause structurelle : rien dans le moteur n'investit de l'energie pour MAINTENIR une structure, tout ne fait que perdre (predation, dissolution, liens qui cassent). Proposition : un entretien actif, fonctionnellement equivalent a la reparation proteique sans en simuler la chimie -- deliberement PAS de simulation litterale d'ARN/proteines (sauterait la piste C, deferee a 0.1+). Raffine le 2026-09-05 apres triage de 5 sources deposees dans la boite a idees : voir les 3 nœuds enfants + BIBLE/experiments/009_organism.md.",
       "links": [
         "BIBLE/experiments/009_organism.md"
       ],
       "parent": "n23"
     },
     "n25": {
-      "title": "manque : quelle ressource consomme l'entretien",
-      "status": "manque",
-      "summary": "Energie directe pooled, ou une reserve dediee (comme adipeux_share l'aurait ete) ? A trancher avant tout code.",
+      "title": "raffine : un equilibre construction/destruction, pas un cout fixe",
+      "status": "idee",
+      "summary": "La regeneration reelle n'est pas une resistance passive a la degradation, c'est un SOLDE constant anabolisme/catabolisme (ralenti par le stress et l'usure, accelere par le repos et l'abondance). Traduit pour Genesis : 'entretien' devrait etre un DEUXIEME FLUX (reconstruction) qui s'ajoute a la perte existante, pas un plancher artificiel qui repousse un seuil de dissolution.",
       "links": [],
       "parent": "n24"
     },
@@ -278,6 +278,31 @@
         "README.md"
       ],
       "parent": "n31"
+    },
+    "n33": {
+      "title": "Deux issues : regeneration complete ou cicatrice degradee",
+      "status": "idee",
+      "summary": "Une lesion qui garde sa trame de soutien (tissue_bonds) se reforme a l'identique ; une lesion qui la perd ne laisse qu'une marque durable, jamais restauree. Pour Genesis : si tissue_bonds tombe sous un seuil avant que l'entretien ne rattrape, la reconstruction ne redonne pas la structure d'origine -- elle stabilise a un etat degrade. Un vrai enjeu de conception, pas seulement 'tenir plus longtemps'.",
+      "links": [
+        "BIBLE/experiments/009_organism.md"
+      ],
+      "parent": "n24"
+    },
+    "n34": {
+      "title": "Debridement avant reparation (deja fait : la dissolution existante)",
+      "status": "fait",
+      "summary": "La premiere phase reelle d'une reparation est l'elimination du necrotique (phagocytose), pas la reconstruction elle-meme. Genesis a DEJA cette phase : la dissolution d'une cellule qui n'a plus assez de membres EST le debridement. L'entretien actif n'a donc pas a la remplacer, juste a s'ajouter APRES.",
+      "links": [
+        "BIBLE/experiments/009_organism.md"
+      ],
+      "parent": "n24"
+    },
+    "n35": {
+      "title": "Piste laterale notee : auto-correction des cellules synthetiques",
+      "status": "idee",
+      "summary": "Un article sur les cellules synthetiques (liposomes assembles en laboratoire) vise un 'systeme d'auto-correction qui s'ameliore au fur et a mesure' -- la meme question que la piste E, cote biologie synthetique reelle. Rien a en tirer mecaniquement pour l'instant, mais ca confirme que l'auto-correction est ce qui separe une structure durablement vivante d'une structure qui persiste par accident.",
+      "links": [],
+      "parent": "n24"
     }
   }
 }
