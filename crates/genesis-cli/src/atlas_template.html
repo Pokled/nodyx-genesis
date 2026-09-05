@@ -33,8 +33,9 @@
   .layout { flex:1; display:grid; grid-template-columns:1fr 380px; gap:16px; padding:16px; min-height:0; }
   .tree-pane {
     position:relative; overflow:auto; border:1px solid var(--line); border-radius:14px;
-    background:var(--panel); backdrop-filter:blur(6px);
+    background:var(--panel); backdrop-filter:blur(6px); cursor:grab;
   }
+  .tree-pane.grabbing { cursor:grabbing; user-select:none; }
   .side { display:flex; flex-direction:column; gap:16px; overflow:auto; min-height:0; }
   .card {
     background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:14px 16px;
@@ -400,6 +401,35 @@ document.getElementById('fileInput').addEventListener('change', async e => {
 });
 
 loadAll();
+
+// ---- se promener dans l'arbre a la souris (poignee), au lieu des seules scrollbars ----
+(function () {
+  const pane = document.querySelector('.tree-pane');
+  let dragging = false, moved = false, startX = 0, startY = 0, startLeft = 0, startTop = 0;
+  pane.addEventListener('mousedown', e => {
+    if (e.target.closest('.node')) return; // laisse le clic sur un noeud faire son travail
+    dragging = true; moved = false;
+    startX = e.clientX; startY = e.clientY;
+    startLeft = pane.scrollLeft; startTop = pane.scrollTop;
+    pane.classList.add('grabbing');
+  });
+  window.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    const dx = e.clientX - startX, dy = e.clientY - startY;
+    if (Math.abs(dx) > 2 || Math.abs(dy) > 2) moved = true;
+    pane.scrollLeft = startLeft - dx;
+    pane.scrollTop = startTop - dy;
+  });
+  window.addEventListener('mouseup', () => {
+    dragging = false;
+    pane.classList.remove('grabbing');
+  });
+  // un clic sur le fond (sans glisser) deselectionne, pour retrouver le panneau vide facilement
+  pane.addEventListener('click', e => {
+    if (moved || e.target.closest('.node')) return;
+    SELECTED = null; renderTree(); renderDetail();
+  });
+})();
 </script>
 </body>
 </html>
