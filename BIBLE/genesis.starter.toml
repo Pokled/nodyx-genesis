@@ -316,6 +316,15 @@ pool_share        = 0.15  # à chaque contrôle, chaque membre est ramené de ce
 # elle a besoin pour se déclencher — voir experiments/016). Gardée éteinte par défaut.
 adipeux_share     = 0.0   # part du surplus des membres ronds et gorgés versée aux membres en danger (0 = coupé)
 adipeux_rich_frac = 0.75  # fraction du plafond d'énergie à partir de laquelle un membre rond compte "gorgé"
+# Reproduction d'organisme (0.0.2, piste D étape 3). Un organisme qui atteint split_cells
+# cellules se scinde en deux (projection sur l'axe de plus grande dispersion, comme la division
+# de cellule) : la moitié qui reste garde l'id/le nom du parent, la moitié qui part en reçoit des
+# neufs. Contrairement au gène de rôle (experiments/019-020), le coût écologique est quasi nul
+# (population finale identique au témoin à l'échelle w7) tout en multipliant vraiment les
+# organismes (+17 % vivants). Purement structurel pour l'instant : aucune hérédité encore
+# accrochée à la scission (experiments/021). Éteint par défaut.
+split_enabled     = false
+split_cells       = 20    # nombre de cellules à partir duquel un organisme se scinde
 
 [cognition]
 # Cognition (0.0.3, tranche 1 « le premier souvenir »). Une entité qui perçoit assez bien

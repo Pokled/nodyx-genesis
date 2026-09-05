@@ -1696,6 +1696,73 @@ fn organisms_form_and_keep_a_stable_id() {
 }
 
 #[test]
+fn organism_split_multiplies_organisms_without_ecological_cost() {
+    // Reproduction d'organisme (0.0.2, piste D etape 3, `[organism] split_enabled`). Un
+    // organisme qui atteint `split_cells` cellules se scinde en deux : ses cellules sont
+    // projetees sur l'axe de plus grande dispersion (`cloud_shape`, meme technique que la
+    // division de cellule) et reparties en deux moities ; la moitie qui reste garde l'id/le nom
+    // du parent, la moitie qui part recoit un id et un nom neufs. C'est la piece qui manquait
+    // aux etapes 1-2 (`experiments/018-020`, un gene individuel dilue par un contexte de
+    // cellule) : ici la selection pourrait s'exercer sur l'UNITE qui se reproduit vraiment.
+    // Verifie (graine 1, tissu + organisme) : le levier multiplie reellement les organismes
+    // (`organisms_formed_total` monte nettement plus que par la seule reconnaissance naturelle) ;
+    // toute cellule pointant un organisme pointe un organisme vivant (pas de scission qui laisse
+    // une reference pendante) ; l'ecosysteme tient, SANS le cout observe pour `role_gene`/
+    // `role_share` (population comparable avec et sans) ; deterministe.
+    let mut on = SimConfig::default();
+    on.cells.cell_burn_relief = 0.0;
+    on.cells.tissue = true;
+    on.cells.tissue_bond = true;
+    on.cells.tissue_kin = 0.8;
+    on.cells.tissue_reach = 1.3;
+    on.organism.enabled = true;
+    on.organism.min_cells = 3;
+    on.organism.reach = 1.6;
+    on.organism.split_enabled = true;
+    on.organism.split_cells = 8;
+    let mut off = on.clone();
+    off.organism.split_enabled = false;
+
+    let run = |cfg: &SimConfig| -> (u64, u64, bool) {
+        let mut w = WorldState::new(1, cfg);
+        let mut consistent = true;
+        for _ in 0..60_000 {
+            let _ = tick(&mut w, cfg);
+            let live: std::collections::HashSet<u32> = w.organisms.iter().map(|o| o.id).collect();
+            for c in &w.cells {
+                if let Some(oid) = c.organism {
+                    if !live.contains(&oid) {
+                        consistent = false;
+                    }
+                }
+            }
+            if w.entities.is_empty() {
+                break;
+            }
+        }
+        (w.organisms_formed_total, w.population() as u64, consistent)
+    };
+
+    let (on_formed, on_pop, on_ok) = run(&on);
+    let (off_formed, off_pop, off_ok) = run(&off);
+
+    assert!(on_ok && off_ok, "une cellule pointe un organisme mort");
+    assert!(on_pop > 100 && off_pop > 100, "l'ecosysteme s'eteint (on {on_pop}, off {off_pop})");
+    assert!(
+        on_formed > off_formed * 2,
+        "split_enabled ne multiplie pas vraiment les organismes : {on_formed} formes (avec) vs {off_formed} (sans)"
+    );
+    // Le point qui distingue cette piste des etapes 1-2 : multiplier les organismes ne devrait
+    // pas coincer la population, contrairement au blocage dur de `role_reproduction_gate`.
+    let ratio = on_pop as f64 / off_pop as f64;
+    assert!(
+        ratio > 0.7,
+        "la scission d'organisme coute cher a la population : ratio {ratio:.3} (on {on_pop} / off {off_pop})"
+    );
+    assert_eq!(run(&on).0, on_formed, "scission d'organisme non deterministe");
+}
+
+#[test]
 fn bounty_calls_are_heard() {
     // La Voix tranche 2 (schema v17) : un agent qui mange bien sur une case franchement riche
     // lance un appel `Bounty`. Il s'en emet reellement (graine 1, monde mur) ; `bounty_call =

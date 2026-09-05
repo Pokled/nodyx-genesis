@@ -790,6 +790,18 @@ pub struct OrganismCfg {
     pub adipeux_share: f32,
     /// Fraction du plafond d'energie au-dela de laquelle une cellule ronde compte comme "gorgee".
     pub adipeux_rich_frac: f32,
+    /// Reproduction d'organisme (0.0.2, piste D etape 3). Un organisme qui atteint
+    /// `split_cells` cellules se scinde en deux : ses cellules sont projetees sur l'axe de plus
+    /// grande dispersion (meme technique que la division de cellule, `cloud_shape`) et
+    /// reparties en deux moities egales. La moitie qui reste garde l'id et le nom du parent ;
+    /// la moitie qui part recoit un id et un nom neufs (`names::organism_name`), comme une
+    /// naissance. Deterministe, sans RNG, ordre des id d'organisme puis de cellule. C'est la
+    /// piece qui manquait aux etapes 1-2 (`experiments/018-020`) : la selection s'exerce
+    /// enfin sur l'UNITE qui se reproduit vraiment, pas sur une moyenne diluee par des voisins.
+    /// `false` desactive (bouton d'A/B).
+    pub split_enabled: bool,
+    /// Nombre de cellules a partir duquel un organisme se scinde.
+    pub split_cells: u32,
 }
 impl Default for OrganismCfg {
     fn default() -> Self {
@@ -802,6 +814,8 @@ impl Default for OrganismCfg {
             pool_share: 0.15,
             adipeux_share: 0.0,
             adipeux_rich_frac: 0.75,
+            split_enabled: false,
+            split_cells: 20,
         }
     }
 }

@@ -289,9 +289,22 @@ contexte collectif semble structurellement difficile a rendre a la fois reelle e
 ce moteur. Chapitre clos pour l'instant, les trois mecanismes restent au code, eteints par
 defaut, documentes honnetement.
 
-Prochaine marche : l'etape 3 de la piste D (reproduction a l'echelle de l'organisme entier) --
-la seule ou la selection s'exercerait directement sur l'unite qui porte le genome structurel,
-sans avoir besoin de le diluer a travers des voisins de cellule non apparentes au gene.
+**Premier franchissement de l'etape 3, sans cout (2026-09-05, `[organism] split_enabled`).** Un
+organisme qui atteint `split_cells` cellules se scinde en deux (projection sur l'axe de plus
+grande dispersion, meme technique que la division de cellule) : la moitie qui reste garde
+l'id/le nom du parent, la moitie qui part en recoit des neufs. Verifie : le levier multiplie
+reellement les organismes (`organisms_formed_total` plus que double du temoin, organismes
+vivants +17 % a l'echelle w7), et **contrairement a `018`-`020`, le cout ecologique est
+quasi nul** (population finale identique au temoin, 14 900 vs 14 899 ; recul de 5 a 16 %
+seulement sur les mesures de structure/diversite, sans commune mesure avec le 20-70 % de
+`019`/`020`). Purement structurel pour cette tranche : aucun genome d'organisme, aucune
+heredite entre generations d'organismes encore cablee -- juste la preuve que la structure
+PEUT se multiplier sans rien casser. Voir `021_organism_split.md`.
+
+Prochaine marche : accrocher une heredite a la scission (genome structurel propre a
+l'organisme, herite et mute des membres fondateurs a chaque scission) et mesurer si LUI derive
+sous selection au fil des generations d'organismes -- cette fois sans la dilution qui a plombe
+`018`-`020`, puisque l'unite mesuree serait enfin l'unite qui se reproduit vraiment.
 
 **L'organisme, identite persistante (2026-09-03, `[organism] enabled`).** La marche choisie
 comme socle des suivantes. `organism_pass` (phase 5b, aux controles `organism.check_every`)

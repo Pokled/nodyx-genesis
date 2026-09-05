@@ -1724,6 +1724,87 @@ fn organism_pass(
     world.organisms = survivors;
     world.watch.org_pending = new_pending;
 
+    // Reproduction d'organisme (0.0.2, piste D etape 3, `[organism] split_enabled`). Un
+    // organisme assez grand (>= `split_cells`) se scinde en deux : ses cellules sont projetees
+    // sur l'axe de plus grande dispersion (meme technique que la division de cellule,
+    // `cloud_shape`) et reparties en deux moities. La moitie qui reste garde l'id/le nom du
+    // parent ; la moitie qui part recoit un id et un nom neufs. Deterministe, sans RNG, ordre
+    // des id d'organisme puis de cellule.
+    if oc.split_enabled && !world.organisms.is_empty() {
+        let split_at = oc.split_cells.max(4);
+        let mut org_members: HashMap<u32, Vec<usize>> = HashMap::new();
+        for k in 0..world.cells.len() {
+            if let Some(oid) = world.cells[k].organism {
+                org_members.entry(oid).or_default().push(k);
+            }
+        }
+        let mut oids: Vec<u32> = world.organisms.iter().map(|o| o.id).collect();
+        oids.sort_unstable();
+        let mut new_organisms: Vec<crate::world::Organism> = Vec::new();
+        for oid in oids {
+            let Some(members) = org_members.get(&oid) else { continue };
+            if (members.len() as u32) < split_at {
+                continue;
+            }
+            let (mut cx, mut cy) = (0.0f32, 0.0f32);
+            for &k in members {
+                cx += world.cells[k].position.x;
+                cy += world.cells[k].position.y;
+            }
+            let nf = members.len() as f32;
+            cx /= nf;
+            cy /= nf;
+            let offsets: Vec<(f32, f32)> = members
+                .iter()
+                .map(|&k| (world.cells[k].position.x - cx, world.cells[k].position.y - cy))
+                .collect();
+            let (_, (ax, ay)) = cloud_shape(&offsets);
+            let mut proj: Vec<(f32, u32, usize)> = members
+                .iter()
+                .map(|&k| {
+                    let p = world.cells[k].position;
+                    ((p.x - cx) * ax + (p.y - cy) * ay, world.cells[k].id, k)
+                })
+                .collect();
+            proj.sort_by(|a, b| {
+                a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal).then(a.1.cmp(&b.1))
+            });
+            let half = proj.len() / 2;
+            let leaving: Vec<usize> = proj[half..].iter().map(|&(_, _, k)| k).collect();
+            let staying_n = proj.len() - leaving.len();
+            if leaving.len() < 2 || staying_n < 2 {
+                continue; // les deux moities doivent rester des organismes valides
+            }
+            let child_id = world.next_organism_id;
+            world.next_organism_id += 1;
+            let name = crate::names::organism_name(child_id);
+            for &k in &leaving {
+                world.cells[k].organism = Some(child_id);
+            }
+            new_organisms.push(crate::world::Organism {
+                id: child_id,
+                born_tick: t,
+                name,
+                cells: leaving.len().min(u16::MAX as usize) as u16,
+                miss: 0,
+            });
+            world.organisms_formed_total += 1;
+            emit(
+                events,
+                &mut world.next_event_seq,
+                t,
+                EventKind::OrganismFormed { organism: child_id, cells: leaving.len() as u32 },
+            );
+            if let Some(parent) = world.organisms.iter_mut().find(|o| o.id == oid) {
+                parent.cells = staying_n.min(u16::MAX as usize) as u16;
+            }
+        }
+        if !new_organisms.is_empty() {
+            world.organisms.extend(new_organisms);
+            world.organisms.sort_by_key(|o| o.id);
+        }
+    }
+
     // Mise en commun de l'energie : chaque membre d'un organisme est ramene d'une fraction vers
     // l'energie moyenne des membres de l'organisme. L'organisme a faim ou est repu en entier.
     // Conserve (deplacement vers la moyenne), sans RNG, ordre des cellules. Seuls les
