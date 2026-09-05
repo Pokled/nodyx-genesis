@@ -1432,7 +1432,8 @@ fn adhesion_gene_changes_tissue_formation() {
 
 #[test]
 fn role_gene_creates_selectable_variance_without_cell_averaging() {
-    // Gene de role (0.0.2, piste D etape 2, `[cells] role_gene`). Contrairement au gene
+    // Gene de role (0.0.2, piste D etape 2, `[cells] role_gene` + `role_reproduction_gate`, la
+    // consequence DURE -- `role_share` en `020` en essaie une plus douce). Contrairement au gene
     // d'adhesion (etape 1, `018_adhesion_gene.md`) qui moyennait par cellule et diluait toute
     // variance exploitable entre membres, ce gene est lu PAR ENTITE : chaque entite compare
     // SON PROPRE seuil heredite (`germinal_bias`) a l'entassement de sa cellule
@@ -1457,8 +1458,10 @@ fn role_gene_creates_selectable_variance_without_cell_averaging() {
     on.cells.tissue_shelter = true;
     on.predation.enabled = true;
     on.cells.role_gene = true;
+    on.cells.role_reproduction_gate = true;
     let mut off = on.clone();
     off.cells.role_gene = false;
+    off.cells.role_reproduction_gate = false;
 
     let run = |cfg: &SimConfig| -> (u64, i64, f64, u64) {
         let mut w = WorldState::new(1, cfg);
@@ -1507,6 +1510,76 @@ fn role_gene_creates_selectable_variance_without_cell_averaging() {
         "le gene de role n'a pas de variance intra-cellule exploitable : sd {on_sd:.4}"
     );
     assert_eq!(run(&on).1, on_fp, "gene de role non deterministe");
+}
+
+#[test]
+fn role_share_moves_energy_only_when_the_gene_actually_varies() {
+    // Partage de role (0.0.2, piste D etape 2 bis, `[cells] role_share`, `experiments/020`).
+    // Version douce de `role_reproduction_gate` (`019`, blocage dur, cout ecologique severe) :
+    // une entite somatique (sous SON seuil `germinal_bias`) reverse une part de son surplus aux
+    // entites germinales de sa cellule, sans jamais bloquer personne. Verifie deux choses :
+    // (1) avec `role_gene = true` (le seuil varie reellement d'une entite a l'autre), le flux
+    //     change reellement la trajectoire (fingerprint different) ;
+    // (2) avec `role_gene = false` (seuil fige a 0,5 pour tout le monde), `role_share` est un
+    //     no-op MECANIQUE garanti : toutes les entites d'une meme cellule partagent alors le
+    //     meme seuil ET le meme `tissue_bonds` (propriete de la cellule, pas de l'entite), donc
+    //     jamais de scission donneurs/receveurs au sein d'une cellule -- pas juste inefficace,
+    //     structurellement impossible. Confirme par le sondage prealable (deux graines,
+    //     trajectoires bit a bit identiques).
+    // Cout ecologique et derive de selection non asserts ici (voir `020_role_share.md` : reel
+    // mais modere, sans direction fiable -- un troisieme resultat honnete apres `018`/`019`).
+    let mut base = SimConfig::default();
+    base.cells.cell_burn_relief = 0.0;
+    base.cells.tissue = true;
+    base.cells.tissue_bond = true;
+    base.cells.tissue_kin = 0.8;
+    base.cells.tissue_reach = 1.3;
+    base.cells.tissue_shelter = true;
+    base.predation.enabled = true;
+    base.cells.role_reproduction_gate = false;
+
+    let run = |cfg: &SimConfig| -> (u64, i64) {
+        let mut w = WorldState::new(1, cfg);
+        for _ in 0..40_000 {
+            let _ = tick(&mut w, cfg);
+            if w.entities.is_empty() {
+                break;
+            }
+        }
+        let mut fp: i64 = 0;
+        for e in &w.entities {
+            fp = fp.wrapping_add((e.position.x * 97.0) as i64);
+            fp = fp.wrapping_mul(1_000_003).wrapping_add((e.energy * 13.0) as i64);
+        }
+        (w.entities.len() as u64, fp)
+    };
+
+    // (1) gene actif : le partage doit changer quelque chose.
+    let mut gene_off = base.clone();
+    gene_off.cells.role_gene = true;
+    gene_off.cells.role_share = false;
+    let mut gene_on = base.clone();
+    gene_on.cells.role_gene = true;
+    gene_on.cells.role_share = true;
+    let (pop_no_share, fp_no_share) = run(&gene_off);
+    let (pop_share, fp_share) = run(&gene_on);
+    assert!(pop_no_share > 100 && pop_share > 100, "l'ecosysteme s'eteint avec role_share");
+    assert_ne!(fp_no_share, fp_share, "role_share ne change rien alors que le gene varie");
+    assert_eq!(run(&gene_on).1, fp_share, "role_share non deterministe");
+
+    // (2) gene fige (role_gene = false) : role_share doit rester un no-op mecanique garanti.
+    let mut frozen_off = base.clone();
+    frozen_off.cells.role_gene = false;
+    frozen_off.cells.role_share = false;
+    let mut frozen_on = base.clone();
+    frozen_on.cells.role_gene = false;
+    frozen_on.cells.role_share = true;
+    let (_, fp_frozen_off) = run(&frozen_off);
+    let (_, fp_frozen_on) = run(&frozen_on);
+    assert_eq!(
+        fp_frozen_off, fp_frozen_on,
+        "role_share agit alors que le seuil est uniforme (aucune scission possible dans une cellule)"
+    );
 }
 
 #[test]

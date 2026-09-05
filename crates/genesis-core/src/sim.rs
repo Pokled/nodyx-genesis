@@ -820,11 +820,12 @@ pub fn tick(world: &mut WorldState, cfg: &SimConfig) -> Vec<Event> {
     // surpeuplee, sans infrastructure, fait echouer la plupart des divisions.
     let repro_index = SpatialHash::build(&world.entities, &space, 1.0);
 
-    // Role (0.0.2, piste D etape 2, `[cells] role_gene`) : `tissue_bonds` par cellule, pour que
-    // chaque entite compare son PROPRE seuil heredite (`germinal_bias`) a l'entassement de la
-    // sienne. Construit une seule fois ici (pas de moyenne par cellule -- `experiments/018`).
-    let role_gene = cfg.cells.role_gene;
-    let bonds_by_cell: std::collections::HashMap<u32, u8> = if role_gene {
+    // Role (0.0.2, piste D etape 2, `[cells] role_reproduction_gate`) : `tissue_bonds` par
+    // cellule, pour que chaque entite compare son PROPRE seuil heredite (`germinal_bias`) a
+    // l'entassement de la sienne. Construit une seule fois ici (pas de moyenne par cellule --
+    // `experiments/018`). Sans effet si `role_gene = false` (seuil uniforme, jamais determinant).
+    let role_gate = cfg.cells.role_reproduction_gate;
+    let bonds_by_cell: std::collections::HashMap<u32, u8> = if role_gate {
         world.cells.iter().map(|c| (c.id, c.tissue_bonds)).collect()
     } else {
         std::collections::HashMap::new()
@@ -833,8 +834,8 @@ pub fn tick(world: &mut WorldState, cfg: &SimConfig) -> Vec<Event> {
 
     // Eligible : assez d'energie, gestation terminee, et assez age (maturite). Un juvenile
     // ne se reproduit pas, ce qui casse la croissance exponentielle sans plafond artificiel.
-    // Avec `role_gene`, une entite dans une cellule doit aussi etre germinale (son seuil
-    // personnel <= l'entassement de sa cellule) ; hors cellule, toujours eligible (inchange).
+    // Avec `role_reproduction_gate`, une entite dans une cellule doit aussi etre germinale (son
+    // seuil personnel <= l'entassement de sa cellule) ; hors cellule, toujours eligible (inchange).
     let mut candidates: Vec<EntityId> = Vec::new();
     let mut role_blocked_now = 0u64;
     for e in world.entities.iter() {
@@ -845,7 +846,7 @@ pub fn tick(world: &mut WorldState, cfg: &SimConfig) -> Vec<Event> {
         if !base_ok {
             continue;
         }
-        if role_gene {
+        if role_gate {
             let germinal = match e.cell_id.and_then(|id| bonds_by_cell.get(&id)) {
                 Some(&bonds) => (bonds as f32) >= e.genome.structural.germinal_bias * role_bonds_scale,
                 None => true,
@@ -2189,6 +2190,65 @@ fn tissue_pass(
                 for &i in &cmem[k] {
                     delta[i] += per;
                 }
+            }
+        }
+        for (i, d) in delta.into_iter().enumerate() {
+            if d != 0.0 {
+                world.entities[i].energy =
+                    (world.entities[i].energy + d).clamp(0.0, energy_ceiling);
+            }
+        }
+    }
+
+    // Partage de role (0.0.2, piste D etape 2 bis, `[cells] role_share`, `experiments/019`).
+    // Version douce de `role_gene` : jamais de blocage de reproduction (le cout ecologique
+    // confirme d'un tissu jeune ou personne ne peut se reproduire), juste un flux d'energie.
+    // Une entite SOMATIQUE (son entassement personnel sous SON seuil heredite
+    // `germinal_bias`) reverse une part `role_share_frac` de son surplus aux entites
+    // GERMINALES de LA MEME CELLULE -- un avantage qui accelere leur reproduction (deja
+    // gouvernee par le seuil d'energie existant), sans jamais l'interdire a personne. Conserve,
+    // sans RNG, ordre des id de cellule puis d'entite.
+    if cc.role_share && cc.role_share_frac > 0.0 {
+        let starve_floor = starve_at * 2.0;
+        let scale = cc.role_bonds_scale.max(0.5);
+        let frac = cc.role_share_frac.clamp(0.0, 0.9);
+        let cslot2: std::collections::HashMap<u32, usize> =
+            world.cells.iter().enumerate().map(|(k, c)| (c.id, k)).collect();
+        let mut by_cell: std::collections::HashMap<u32, (Vec<usize>, Vec<usize>)> =
+            std::collections::HashMap::new();
+        for (i, e) in world.entities.iter().enumerate() {
+            let Some(id) = e.cell_id else { continue };
+            let Some(&k) = cslot2.get(&id) else { continue };
+            let bonds = world.cells[k].tissue_bonds;
+            let grp = by_cell.entry(id).or_default();
+            if (bonds as f32) >= e.genome.structural.germinal_bias * scale {
+                grp.1.push(i); // germinale : receveuse
+            } else {
+                grp.0.push(i); // somatique : donneuse
+            }
+        }
+        let mut cids: Vec<u32> = by_cell.keys().copied().collect();
+        cids.sort_unstable();
+        let mut delta = vec![0.0f32; world.entities.len()];
+        for cid in cids {
+            let (donors, recipients) = &by_cell[&cid];
+            if donors.is_empty() || recipients.is_empty() {
+                continue;
+            }
+            let mut pot = 0.0f32;
+            for &i in donors {
+                pot += (world.entities[i].energy - starve_floor).max(0.0) * frac;
+            }
+            if pot <= 0.0 {
+                continue;
+            }
+            let per = pot / recipients.len() as f32;
+            for &i in donors {
+                let surplus = (world.entities[i].energy - starve_floor).max(0.0);
+                delta[i] -= surplus * frac;
+            }
+            for &i in recipients {
+                delta[i] += per;
             }
         }
         for (i, d) in delta.into_iter().enumerate() {

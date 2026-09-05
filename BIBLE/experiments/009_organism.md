@@ -267,10 +267,31 @@ rare, exactement le moment ou la population a le plus besoin de croitre. Aucune 
 les graines testees, mais un cout reel, plus proche de `tissue_bond` que des mecanismes gratuits
 de cette session. Garde dans le code (defaut `false`). Voir `019`.
 
-Prochaine marche : soit ajuster ce que le role module (une part d'energie/vitesse de gestation
-plutot qu'un interrupteur tout ou rien sur la reproduction), soit passer directement a l'etape 3
-de la piste D (reproduction a l'echelle de l'organisme entier) -- la seule ou la selection
-s'exercerait directement sur l'unite qui porte le genome structurel.
+**Le partage de role, moins cher mais toujours pas gratuit (2026-09-05, `[cells] role_share`).**
+Le levier de role est scinde en deux (`role_gene` = le gene existe/mute ; `role_reproduction_gate`
+= la consequence dure ci-dessus). `role_share` essaie une consequence douce : au lieu de bloquer
+qui que ce soit, une entite somatique reverse une part de son surplus aux entites germinales de
+sa cellule, un flux d'energie conserve. Verifie mecaniquement : no-op garanti si le gene ne
+varie pas (seuil et entassement partages par toute la cellule -- aucune scission possible),
+change reellement la trajectoire des qu'il varie. A/B : cout ecologique reel mais bien plus
+doux que le blocage dur (suppression 0,20-0,73 selon la graine/le tick, jamais d'extinction) --
+hypothese : rediriger de l'energie pres d'un seuil DUR de reproduction est structurellement a
+perte, quel que soit le sens. Et la derive de `germinal_bias` sous ce regime reste sans direction
+fiable (+0,008 a -0,055 selon la graine), le meme probleme que `018`. Garde dans le code
+(defaut `false`). Voir `020`.
+
+**Bilan du sous-chantier "un gene individuel module une consequence de cellule" (018-020) :**
+aucun des trois essais n'egale ce que `nerve_relay`/`muscle_seek_food` avaient donne (variance
+ET gain net sans contrepartie). Le fil commun : des qu'un gene individuel doit influencer une
+consequence a l'echelle de la CELLULE, soit la mesure se dilue (moyenne, `018`), soit la
+consequence coute reellement (`019`, `020`) -- la selection sur un gene individuel dilue par un
+contexte collectif semble structurellement difficile a rendre a la fois reelle et gratuite dans
+ce moteur. Chapitre clos pour l'instant, les trois mecanismes restent au code, eteints par
+defaut, documentes honnetement.
+
+Prochaine marche : l'etape 3 de la piste D (reproduction a l'echelle de l'organisme entier) --
+la seule ou la selection s'exercerait directement sur l'unite qui porte le genome structurel,
+sans avoir besoin de le diluer a travers des voisins de cellule non apparentes au gene.
 
 **L'organisme, identite persistante (2026-09-03, `[organism] enabled`).** La marche choisie
 comme socle des suivantes. `organism_pass` (phase 5b, aux controles `organism.check_every`)

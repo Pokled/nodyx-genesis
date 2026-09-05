@@ -3,6 +3,13 @@
 2026-09-04/05, v0.0.2. Suite de `018_adhesion_gene.md` (piste D, etape 2). `[cells] role_gene`
 (defaut false).
 
+**Note (2026-09-05, `020_role_share.md`)** : le levier a ete scinde en deux depuis ce doc.
+`role_gene` ne controle plus que l'EXISTENCE/mutation du gene `germinal_bias` ; la consequence
+DURE decrite ici (bloquer la reproduction) vit desormais dans `role_reproduction_gate`, pour
+pouvoir essayer une consequence plus douce (`role_share`) sans reecrire ce test. Tout ce qui
+suit reste exact, juste avec les deux leviers actives ensemble (`role_gene = true` +
+`role_reproduction_gate = true`) au lieu d'un seul.
+
 ## Le probleme laisse par l'etape 1
 
 Le gene d'adhesion (`018`) marchait mecaniquement mais ne se selectionnait presque pas : la
@@ -85,4 +92,5 @@ Alternative a explorer avant la piste D etape 3 (reproduction d'organisme entier
 gene et sa variance, mais lui faire moduler quelque chose de moins vital que le DROIT de se
 reproduire (une part d'energie, une vitesse de gestation) plutot qu'un interrupteur tout ou rien.
 
-Lien : [[organism-path-predation-first]], `009_organism.md`, `018_adhesion_gene.md`.
+Lien : [[organism-path-predation-first]], `009_organism.md`, `018_adhesion_gene.md`,
+`020_role_share.md`.

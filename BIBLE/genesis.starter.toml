@@ -240,13 +240,24 @@ shelter_bonds     = 4     # nb de voisines du même tissu à partir duquel une c
 shelter_feed      = 0.12  # fraction du surplus des cellules de bord reversée au cœur (0 = abri sans nourrissage)
 # Gène de rôle (0.0.2, piste D étape 2, second gène du génome structurel). Contrairement au gène
 # d'adhésion (moyenné par cellule, dilué, experiments/018), chaque ENTITÉ porte son propre seuil
-# hérité et ne peut se reproduire que si l'entassement de sa cellule l'atteint POUR ELLE :
-# variance intra-cellule réelle (vérifiée), vraie prise pour la sélection individuelle. Mais A/B
-# à l'échelle w7 : coût écologique net et constant (ratio final 0,61-0,94 selon la graine, creux
-# profond en cours de route) — couper le droit de se reproduire punit fort tant que le tissu est
-# encore jeune. Aucune extinction observée, mais pas gratuit (experiments/019). Éteint par défaut.
+# hérité (germinal_bias) comparé à l'entassement de sa cellule : variance intra-cellule réelle
+# (vérifiée), vraie prise pour la sélection individuelle. role_gene ne fait qu'exister/muter le
+# gène ; deux conséquences indépendantes en tirent parti ci-dessous.
 role_gene         = false
 role_bonds_scale  = 6.0   # échelle de tissue_bonds (0..~6) à laquelle le seuil personnel se compare
+# Conséquence DURE (experiments/019) : une entité en cellule ne peut se reproduire que si elle
+# est germinale selon son propre seuil. Coût écologique net et constant (ratio final 0,61-0,94
+# selon la graine, creux profond en cours de route) — couper le droit de se reproduire punit
+# fort tant que le tissu est encore jeune. Aucune extinction observée, mais pas gratuit.
+role_reproduction_gate = false
+# Conséquence DOUCE (experiments/020) : jamais de blocage, une entité somatique reverse une part
+# role_share_frac de son surplus aux entités germinales de sa même cellule (flux conservé, sans
+# RNG). Coût plus modéré (suppression 0,20-0,73 selon la graine/le tick, jamais d'extinction)
+# mais toujours pas gratuit — près d'un seuil dur de reproduction, rediriger de l'énergie semble
+# structurellement à perte. Ni l'une ni l'autre conséquence n'a montré de dérive de sélection
+# fiable sur germinal_bias : chapitre clos pour l'instant (voir 009_organism.md).
+role_share        = false
+role_share_frac   = 0.12  # fraction du surplus d'une entité somatique reversée aux germinales de sa cellule
 # Épithélium qui compte (0.0.2, vers l'organe). epithelium_shield = true : une nappe ORDONNÉE
 # (psi6 moyen du tissu >= shield_order) et assez grande (>= shield_cells cellules) fait REMPART :
 # TOUTES ses cellules sont hors d'atteinte d'un prédateur, pas seulement le cœur. Purement passif

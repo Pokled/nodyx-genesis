@@ -589,19 +589,40 @@ pub struct CellsCfg {
 
     /// Gene de role (0.0.2, piste D etape 2, genome structurel). `tissue_shelter` ci-dessus
     /// mesure deja l'entassement (`Cell.tissue_bonds`) mais avec un seuil FIXE
-    /// (`shelter_bonds`) pour toute la population. Avec ce levier, chaque ENTITE (pas une
-    /// moyenne par cellule -- `experiments/018` a montre que moyenner dilue la selection) porte
-    /// son propre seuil heredite (`genome.structural.germinal_bias`) : elle ne peut se
-    /// reproduire (phase 7) que si l'entassement de sa cellule (`tissue_bonds / role_bonds_scale`)
-    /// atteint SON seuil personnel -- germinale si assez entouree, somatique sinon (elle encaisse
-    /// sans se diviser). Une entite hors cellule reste toujours eligible (comportement d'origine
-    /// inchange). `false` desactive : AUCUN tirage RNG pour ce gene (fige au neutre `0,5`), et
-    /// la reproduction ne regarde jamais le role -- trajectoire strictement inchangee.
+    /// (`shelter_bonds`) pour toute la population. Ce levier fait exister et muter
+    /// (`genome.structural.germinal_bias`, comme les autres genes structurels) le seuil
+    /// PERSONNEL d'une entite pour cette meme mesure -- germinale si l'entassement de sa
+    /// cellule (`tissue_bonds / role_bonds_scale`) atteint SON seuil, somatique sinon. `false` :
+    /// AUCUN tirage RNG pour ce gene (fige au neutre `0,5`, donc `role_reproduction_gate` et
+    /// `role_share` ci-dessous restent des no-op puisque tout le monde partage le meme seuil).
+    /// Controle seulement l'EXISTENCE du gene, pas sa consequence (voir les deux leviers
+    /// suivants) : `experiments/019` a montre qu'un blocage dur de la reproduction cree bien de
+    /// la variance mais coute cher a une population jeune ; `020` essaie un flux d'energie
+    /// plus doux a la place.
     pub role_gene: bool,
     /// Echelle de `tissue_bonds` (nombre de voisines du meme tissu) a laquelle le seuil
     /// personnel `germinal_bias` (dans [0, 1]) se compare. Un `tissue_bonds` typique va de 0 a
     /// environ 6 (pavage hexagonal complet).
     pub role_bonds_scale: f32,
+    /// Consequence DURE du gene de role (`experiments/019`) : une entite en cellule ne peut se
+    /// reproduire (phase 7) que si elle est germinale selon son propre seuil. Une entite hors
+    /// cellule reste toujours eligible. Sans effet si `role_gene = false` (le seuil est alors
+    /// uniforme, cette porte ne fait jamais rien). `false` desactive (bouton d'A/B independant
+    /// de `role_share` : les deux consequences peuvent s'essayer separement ou ensemble).
+    pub role_reproduction_gate: bool,
+
+    /// Partage de role (0.0.2, piste D etape 2 bis, `experiments/019`). Version DOUCE de
+    /// `role_gene` : celui-ci bloquait completement la reproduction d'une entite somatique, un
+    /// cout ecologique confirme (un tissu jeune, encore rare en `tissue_bonds`, ne laissait
+    /// personne se reproduire). Ici, rien n'est jamais bloque : une entite SOMATIQUE (son
+    /// entassement personnel sous SON seuil `germinal_bias`) reverse une part `role_share_frac`
+    /// de son surplus (energie au-dessus d'une marge de famine) aux entites GERMINALES de LA
+    /// MEME CELLULE -- un avantage energetique qui accelere leur reproduction (deja gouvernee
+    /// par le seuil d'energie existant), sans jamais l'interdire a personne. Conserve, sans RNG.
+    /// Independant de `role_gene` (peut s'allumer seul). `false` desactive (bouton d'A/B).
+    pub role_share: bool,
+    /// Fraction du surplus d'une entite somatique reversee aux entites germinales de sa cellule.
+    pub role_share_frac: f32,
 
     /// Epithelium qui compte (0.0.2, `[cells]`, vers l'organe). Quand `true`, une nappe de tissu
     /// ORDONNEE et assez grande (psi6 du tissu >= `shield_order`, >= `shield_cells` cellules) fait
@@ -690,6 +711,9 @@ impl Default for CellsCfg {
             shelter_feed: 0.12,
             role_gene: false,
             role_bonds_scale: 6.0,
+            role_reproduction_gate: false,
+            role_share: false,
+            role_share_frac: 0.12,
             epithelium_shield: false,
             shield_order: 0.42,
             shield_cells: 5,
