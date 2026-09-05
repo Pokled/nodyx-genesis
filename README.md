@@ -103,7 +103,7 @@ quantifie un génome en clé d'espèce : épithélium (une nappe ordonnée), con
 lâche), muscle (des cellules étirées), adipeux (des cellules gorgées d'énergie), squelettique
 (vieux et ordonné), nerveux (peuplé d'agents). Et des types qui **comptent**, pas seulement
 nommés : une cellule assez fusiforme exerce une force axiale oscillante, déphasée par une onde
-qui traverse le tissu — le muscle se contracte, et peut suivre le gradient de nourriture au
+qui traverse le tissu : le muscle se contracte, et peut suivre le gradient de nourriture au
 lieu de battre sur place. Une nappe assez ordonnée fait **rempart** : rien ne l'atteint plus,
 pas même son bord. Un tissu assez peuplé d'agents **relaie** leurs alarmes et leurs appels bien
 au-delà de la portée d'un individu seul, comme un influx qui se propage.
@@ -119,7 +119,7 @@ fait individu et plus colonie.
 
 Un organisme assez grand finit par se **scinder** en deux : ses cellules se répartissent selon
 l'axe où il s'étire le plus, une moitié garde le nom, l'autre en reçoit un neuf. Une identité
-qui persistait devient une identité qui se **multiplie** — la condition pour qu'un jour un
+qui persistait devient une identité qui se **multiplie**, la condition pour qu'un jour un
 trait propre à l'organisme, pas seulement à ses cellules, se sélectionne sur la durée.
 
 ### La prédation
@@ -320,7 +320,7 @@ passage de la cellule à l'organe.
 | 0.0.6 Civilisation | villages, économie, institutions, toutes émergentes | à venir |
 | 0.1.0 Le monde qui parle | couche numérique Nodyx : wiki, forum, émissaire ; la bibliothèque de mondes devient publique | à venir |
 
-Le chemin de l'organe a avancé : l'épithélium fait barrière, le nerveux relaie les signaux —
+Le chemin de l'organe a avancé : l'épithélium fait barrière, le nerveux relaie les signaux, et
 seul l'adipeux qui tamponne reste à trouver (le premier essai, une réserve qui ne se vide que
 dans le besoin, s'est révélé sans prise sur un monde déjà lissé par ailleurs). Et l'organisme
 sait désormais se scinder en deux : une identité qui persistait devient une identité qui se
@@ -328,8 +328,8 @@ multiplie, la condition nécessaire à une sélection qui lui soit propre. Un pr
 cette échelle existe déjà, à la façon des créatures de Karl Sims, mais sa dérive sous sélection
 reste à prouver : les organismes sont encore trop rares, sur les durées testées, pour un signal
 net. Plusieurs essais de gènes individuels portés par une cellule (l'adhésion, le rôle) ont
-buté sur le même mur — dilués par un contexte collectif qui n'a rien à voir avec le gène, ou
-coûteux à la population — une leçon consignée dans `BIBLE/experiments/018` à `022` : la
+buté sur le même mur, dilués par un contexte collectif qui n'a rien à voir avec le gène, ou
+coûteux à la population : une leçon consignée dans `BIBLE/experiments/018` à `022`, la
 sélection veut porter le gène directement par l'unité qui se reproduit, pas par un intermédiaire
 dilué.
 
