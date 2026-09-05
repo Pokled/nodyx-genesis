@@ -1763,6 +1763,74 @@ fn organism_split_multiplies_organisms_without_ecological_cost() {
 }
 
 #[test]
+fn organism_split_gene_is_heritable_and_frozen_without_the_lever() {
+    // Gene de scission (0.0.2, piste D etape 3 tranche 2, `[organism] split_gene`). Chaque
+    // ORGANISME (pas une entite, pas une cellule) porte et transmet son propre seuil
+    // (`Organism.split_bias`), mute a chaque scission -- contrairement aux etapes 1-2
+    // (`018`-`020`), l'unite mesuree est enfin l'unite qui se reproduit vraiment, sans
+    // dilution par des voisins non apparentes au gene.
+    // Verifie (graine 1, tissu + organisme + scission) : `split_gene = false` fige TOUT
+    // organisme a `split_bias = 0,5` (aucun tirage RNG, trajectoire strictement inchangee
+    // hors de ce champ) ; `split_gene = true` fait reellement varier le seuil (au moins un
+    // organisme observe s'ecarte de 0,5) ; l'ecosysteme tient ; deterministe.
+    // Pas d'assertion de direction de selection : sondage prealable (5 graines, echantillonnage
+    // periodique) montre un signal faible et incoherent (-0,044 a +0,003) -- meme limite que
+    // `018`/`020`, mais ici probablement une question de puissance statistique (peu
+    // d'organismes vivent a la fois) plutot qu'une absence de selection en principe. Voir
+    // `022_organism_split_gene.md`.
+    let mut on = SimConfig::default();
+    on.cells.cell_burn_relief = 0.0;
+    on.cells.tissue = true;
+    on.cells.tissue_bond = true;
+    on.cells.tissue_kin = 0.8;
+    on.cells.tissue_reach = 1.3;
+    on.organism.enabled = true;
+    on.organism.min_cells = 3;
+    on.organism.reach = 1.6;
+    on.organism.split_enabled = true;
+    on.organism.split_gene = true;
+    on.organism.split_cells_min = 6;
+    on.organism.split_cells_max = 30;
+    let mut off = on.clone();
+    off.organism.split_gene = false;
+
+    let run = |cfg: &SimConfig| -> (u64, bool, bool, i64) {
+        let mut w = WorldState::new(1, cfg);
+        let mut all_neutral = true;
+        let mut saw_variation = false;
+        for _ in 0..60_000 {
+            let _ = tick(&mut w, cfg);
+            for o in &w.organisms {
+                if (o.split_bias - 0.5).abs() > 1e-6 {
+                    all_neutral = false;
+                    saw_variation = true;
+                }
+            }
+            if w.entities.is_empty() {
+                break;
+            }
+        }
+        let mut fp: i64 = 0;
+        for e in &w.entities {
+            fp = fp.wrapping_add((e.position.x * 97.0) as i64);
+            fp = fp.wrapping_mul(1_000_003).wrapping_add((e.energy * 13.0) as i64);
+        }
+        (w.population() as u64, all_neutral, saw_variation, fp)
+    };
+
+    let (off_pop, off_neutral, _, _) = run(&off);
+    let (on_pop, _, on_variation, on_fp) = run(&on);
+
+    assert!(on_pop > 100 && off_pop > 100, "l'ecosysteme s'eteint (on {on_pop}, off {off_pop})");
+    assert!(off_neutral, "split_bias varie alors que split_gene = false");
+    assert!(
+        on_variation,
+        "split_bias ne varie jamais alors que split_gene = true (gene jamais exerce)"
+    );
+    assert_eq!(run(&on).3, on_fp, "gene de scission non deterministe");
+}
+
+#[test]
 fn bounty_calls_are_heard() {
     // La Voix tranche 2 (schema v17) : un agent qui mange bien sur une case franchement riche
     // lance un appel `Bounty`. Il s'en emet reellement (graine 1, monde mur) ; `bounty_call =

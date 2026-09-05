@@ -324,7 +324,16 @@ adipeux_rich_frac = 0.75  # fraction du plafond d'énergie à partir de laquelle
 # organismes (+17 % vivants). Purement structurel pour l'instant : aucune hérédité encore
 # accrochée à la scission (experiments/021). Éteint par défaut.
 split_enabled     = false
-split_cells       = 20    # nombre de cellules à partir duquel un organisme se scinde
+split_cells       = 20    # nombre de cellules à partir duquel un organisme se scinde (si split_gene = false)
+# Gène de scission (0.0.2, piste D étape 3 tranche 2). Chaque organisme porte et transmet son
+# propre seuil (split_bias, muté à chaque scission) au lieu d'un seuil fixe pour tout le monde —
+# l'unité mesurée est enfin celle qui se reproduit, sans dilution par un contexte de cellule non
+# apparenté (contrairement à 018-020). Mécanique saine (vérifiée), mais la dérive de sélection
+# reste non prouvée à cette échelle de test : trop peu d'organismes vivent à la fois pour un
+# échantillon fiable en 60-80k ticks (experiments/022). Éteint par défaut.
+split_gene        = false
+split_cells_min   = 8     # seuil de scission pour l'organisme au gène le plus permissif
+split_cells_max   = 40    # seuil de scission pour l'organisme au gène le plus prudent
 
 [cognition]
 # Cognition (0.0.3, tranche 1 « le premier souvenir »). Une entité qui perçoit assez bien

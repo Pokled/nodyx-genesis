@@ -800,8 +800,21 @@ pub struct OrganismCfg {
     /// enfin sur l'UNITE qui se reproduit vraiment, pas sur une moyenne diluee par des voisins.
     /// `false` desactive (bouton d'A/B).
     pub split_enabled: bool,
-    /// Nombre de cellules a partir duquel un organisme se scinde.
+    /// Nombre de cellules a partir duquel un organisme se scinde. Utilise seulement si
+    /// `split_gene = false` (seuil fixe pour tout le monde).
     pub split_cells: u32,
+    /// Gene de scission (0.0.2, piste D etape 3 tranche 2). Chaque organisme porte et transmet
+    /// son propre seuil (`Organism.split_bias`, mute a chaque scission) au lieu d'un seuil FIXE
+    /// pour tout le monde : une strategie "beaucoup de petits" contre "peu de grands",
+    /// heritable et selectionnable SANS la dilution qui a plombe `018`-`020` (l'unite mesuree
+    /// est enfin l'unite qui se reproduit). Le seuil effectif interpole entre
+    /// `split_cells_min`/`split_cells_max` selon `split_bias`. `false` : AUCUN tirage RNG pour
+    /// ce gene (fige au neutre, seuil = `split_cells`) -- trajectoire strictement inchangee.
+    pub split_gene: bool,
+    /// Seuil de scission pour l'organisme au gene le plus permissif (`split_bias` proche de 0).
+    pub split_cells_min: u32,
+    /// Seuil de scission pour l'organisme au gene le plus prudent (`split_bias` proche de 1).
+    pub split_cells_max: u32,
 }
 impl Default for OrganismCfg {
     fn default() -> Self {
@@ -815,6 +828,9 @@ impl Default for OrganismCfg {
             adipeux_share: 0.0,
             adipeux_rich_frac: 0.75,
             split_enabled: false,
+            split_gene: false,
+            split_cells_min: 8,
+            split_cells_max: 40,
             split_cells: 20,
         }
     }

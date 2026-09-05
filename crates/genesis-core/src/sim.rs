@@ -1533,6 +1533,7 @@ fn cell_phase(
     organism_pass(
         world,
         &cfg.organism,
+        &cfg.reproduction,
         t,
         events,
         cfg.lifecycle.starve_at,
@@ -1559,6 +1560,7 @@ fn cell_phase(
 fn organism_pass(
     world: &mut WorldState,
     oc: &crate::config::OrganismCfg,
+    repro: &crate::config::ReproductionCfg,
     t: u64,
     events: &mut Vec<Event>,
     starve_at: f32,
@@ -1702,12 +1704,17 @@ fn organism_pass(
             for &k in g {
                 world.cells[k].organism = Some(id);
             }
+            // Gene de scission (0.0.2, `[organism] split_gene`) : tire du RNG seulement si le
+            // levier est actif -- sinon fige au neutre, trajectoire strictement inchangee.
+            let split_bias =
+                if oc.split_gene { 0.35 + world.rng.next_f32() * 0.3 } else { 0.5 };
             survivors.push(crate::world::Organism {
                 id,
                 born_tick: t,
                 name,
                 cells: g.len().min(u16::MAX as usize) as u16,
                 miss: 0,
+                split_bias,
             });
             world.organisms_formed_total += 1;
             emit(
@@ -1731,18 +1738,31 @@ fn organism_pass(
     // parent ; la moitie qui part recoit un id et un nom neufs. Deterministe, sans RNG, ordre
     // des id d'organisme puis de cellule.
     if oc.split_enabled && !world.organisms.is_empty() {
-        let split_at = oc.split_cells.max(4);
         let mut org_members: HashMap<u32, Vec<usize>> = HashMap::new();
         for k in 0..world.cells.len() {
             if let Some(oid) = world.cells[k].organism {
                 org_members.entry(oid).or_default().push(k);
             }
         }
-        let mut oids: Vec<u32> = world.organisms.iter().map(|o| o.id).collect();
-        oids.sort_unstable();
+        // Snapshot (id, seuil personnel) : `world.organisms` est mute dans la boucle
+        // (compte de cellules du parent), impossible d'itérer dessus directement.
+        let orgs_snapshot: Vec<(u32, f32)> =
+            world.organisms.iter().map(|o| (o.id, o.split_bias)).collect();
         let mut new_organisms: Vec<crate::world::Organism> = Vec::new();
-        for oid in oids {
+        for (oid, bias) in orgs_snapshot {
             let Some(members) = org_members.get(&oid) else { continue };
+            // Gene de scission (0.0.2, `[organism] split_gene`) : sans lui, `split_cells` est
+            // un seuil fixe pour tout le monde ; avec lui, chaque organisme a SON seuil
+            // personnel herite (`split_bias`), une strategie "beaucoup de petits" contre "peu
+            // de grands" -- l'unite elle-meme porte et transmet ce gene, sans dilution par des
+            // voisins non apparentes (`experiments/021`).
+            let split_at: u32 = if oc.split_gene {
+                let lo = oc.split_cells_min.max(4) as f32;
+                let hi = (oc.split_cells_max.max(oc.split_cells_min + 1)) as f32;
+                (lo + bias.clamp(0.0, 1.0) * (hi - lo)).round() as u32
+            } else {
+                oc.split_cells.max(4)
+            };
             if (members.len() as u32) < split_at {
                 continue;
             }
@@ -1781,12 +1801,25 @@ fn organism_pass(
             for &k in &leaving {
                 world.cells[k].organism = Some(child_id);
             }
+            // Le seuil personnel de l'enfant s'ecarte du parent (meme mecanique que les genes
+            // structurels d'entite) : pas de tirage si le levier est coupe (`bias` vaut alors
+            // toujours 0,5, trajectoire strictement inchangee).
+            let child_bias = if oc.split_gene {
+                let mut b = bias;
+                if world.rng.chance(repro.mutation_rate) {
+                    b = (b + world.rng.gaussian(repro.mutation_scale)).clamp(0.0, 1.0);
+                }
+                b
+            } else {
+                0.5
+            };
             new_organisms.push(crate::world::Organism {
                 id: child_id,
                 born_tick: t,
                 name,
                 cells: leaving.len().min(u16::MAX as usize) as u16,
                 miss: 0,
+                split_bias: child_bias,
             });
             world.organisms_formed_total += 1;
             emit(

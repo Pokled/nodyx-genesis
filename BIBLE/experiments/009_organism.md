@@ -301,10 +301,25 @@ seulement sur les mesures de structure/diversite, sans commune mesure avec le 20
 heredite entre generations d'organismes encore cablee -- juste la preuve que la structure
 PEUT se multiplier sans rien casser. Voir `021_organism_split.md`.
 
-Prochaine marche : accrocher une heredite a la scission (genome structurel propre a
-l'organisme, herite et mute des membres fondateurs a chaque scission) et mesurer si LUI derive
-sous selection au fil des generations d'organismes -- cette fois sans la dilution qui a plombe
-`018`-`020`, puisque l'unite mesuree serait enfin l'unite qui se reproduit vraiment.
+**Le gene sur l'unite qui se reproduit, mecanique OK, preuve incomplete (2026-09-05,
+`[organism] split_gene`).** Chaque organisme porte et transmet directement son propre seuil
+(`Organism.split_bias`, mute a la scission) -- l'unite mesuree est enfin celle qui se reproduit
+vraiment, sans dilution par un contexte de cellule non apparente. Verifie : le gene existe et
+varie reellement, fige au neutre sans le levier. Mais sonde sur 5 graines (echantillonnage
+periodique) : signal de derive faible et incoherent (-0,044 a +0,003), meme ordre de grandeur
+que `018`/`020`. Probablement une question de PUISSANCE STATISTIQUE (rarement plus de 1 a 3
+organismes vivent a la fois en 60-80k ticks) plutot qu'une absence de selection en principe --
+different de `018`-`020` ou le probleme etait structurel (dilution). Garde dans le code
+(defaut `false`). Voir `022_organism_split_gene.md`.
+
+**Bilan de la piste D pour cette session** : `018` (adhesion, dilue, quasi inerte), `019`/`020`
+(role, variance reelle mais cout ecologique), `021` (l'organisme se reproduit enfin, cout quasi
+nul -- le vrai acquis), `022` (le gene sur la bonne unite, mecanique saine, selection non
+prouvee faute d'echantillon). Le fil commun : la dilution par un contexte collectif non
+apparente est le vrai obstacle a la selection individuelle dans ce moteur, confirme quatre fois ;
+la porter directement par l'unite qui se reproduit (`021`/`022`) est la bonne direction, ce qui
+manque n'est pas conceptuel mais un echantillon plus grand ou des runs plus longs -- piste pour
+une prochaine session.
 
 **L'organisme, identite persistante (2026-09-03, `[organism] enabled`).** La marche choisie
 comme socle des suivantes. `organism_pass` (phase 5b, aux controles `organism.check_every`)

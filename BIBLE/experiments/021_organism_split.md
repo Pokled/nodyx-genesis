@@ -76,11 +76,12 @@ ne porte aucune heredite. Les deux organismes issus d'une scission ne different 
 (memes cellules, memes membres, juste separes) -- il n'y a pas encore de "genome d'organisme"
 qui pourrait deriver sous selection entre generations d'organismes.
 
-**Prochaine tranche, la vraie piece de la piste D** : donner a l'organisme un genome structurel
-propre (moyenne des genes `adhesion`/`germinal_bias` de ses membres fondateurs au moment de la
-scission, ou un nouvel objet dedie), muter legerement a chaque scission, et mesurer si CE
-genome-la derive sous selection au fil des generations d'organismes -- cette fois sans la
-dilution qui a plombe `018`-`020`, puisque l'unite mesuree est enfin l'unite qui se reproduit.
+**Note (2026-09-05, `022_organism_split_gene.md`)** : la tranche suivante a bien ete tentee --
+`Organism.split_bias`, un seuil de scission propre a chaque organisme, herite et mute a chaque
+scission. Le mecanisme est sain (le gene existe et varie reellement), mais la preuve de
+selection reste hors de portee a cette echelle de test : trop peu d'organismes vivent
+simultanement pour un echantillon statistique fiable en 60-80k ticks. Une limite de mesure, pas
+de conception -- voir `022` pour le detail.
 
 Lien : [[organism-path-predation-first]], `009_organism.md`, `018_adhesion_gene.md`,
-`019_role_gene.md`, `020_role_share.md`.
+`019_role_gene.md`, `020_role_share.md`, `022_organism_split_gene.md`.

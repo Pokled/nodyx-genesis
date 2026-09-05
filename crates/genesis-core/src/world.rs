@@ -133,6 +133,10 @@ fn half_adhesion() -> f32 {
     0.5
 }
 
+fn half_bias() -> f32 {
+    0.5
+}
+
 /// Un organisme : une composante connexe de cellules qui adherent, reconnue et gardee dans le
 /// temps (0.0.2, `[organism] enabled`). Ce qui le distingue d'un simple groupe : une identite
 /// stable qui survit aux changements de composition, une naissance datee, un nom.
@@ -148,6 +152,13 @@ pub struct Organism {
     /// l'organisme est declare defait.
     #[serde(default)]
     pub miss: u8,
+    /// Seuil personnel de scission (0.0.2, piste D etape 3 tranche 2, `[organism] split_gene`),
+    /// dans `[0, 1]` : `0,5` = neutre. Mute a chaque scission (l'enfant s'ecarte du parent),
+    /// jamais tire ni mute si le levier est coupe -- meme regle que les genes structurels
+    /// d'entite (`StructuralGenome`). C'est l'unite elle-meme (l'organisme) qui porte et
+    /// transmet ce gene, sans dilution par des voisins non apparentes (`experiments/021`).
+    #[serde(default = "half_bias")]
+    pub split_bias: f32,
 }
 
 /// Etat des veilleurs. Fait partie du World State (donc des instantanes et du rejeu).
