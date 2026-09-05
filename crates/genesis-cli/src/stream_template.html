@@ -1146,8 +1146,11 @@ function drawScene(now) {
     ctx.restore();
   }
 
-  // organismes (0.0.2, `[organism]`) : un liseré souple autour des cellules d'un même complexe,
-  // avec son nom. Plusieurs types de tissus dans le même contour = un organe en germe.
+  // organismes (0.0.2, `[organism]`) : une membrane organique enveloppe tout le complexe (meme
+  // langage que la membrane basale du tissu, a l'echelle du corps entier), pulsant avec son etat
+  // (repu / affame). Une circulation interne -- un arbre couvrant minimal sur ses cellules, un
+  // influx qui voyage le long de chaque branche -- le fait lire comme un corps connecte, pas un
+  // contour autour d'un tas de tissus separes.
   {
     const byOrg = {};
     for (const c of CELLS) if (c.org) (byOrg[c.org] = byOrg[c.org] || []).push(c);
@@ -1161,24 +1164,83 @@ function drawScene(now) {
       if (hull.length < 3) continue;
       const hp = hull.map(p => [ox2 + (p[0] - ox2) * 1.22, oy2 + (p[1] - oy2) * 1.22]);
       const oo = orgName[oid];
-      // le lisere prend la couleur de l'etat de l'organisme : il a faim (rose) ou repu (vert)
+      // la membrane prend la couleur de l'etat de l'organisme : il a faim (rose) ou repu (vert)
       // EN ENTIER (mise en commun de l'energie). Neutre a defaut d'info.
       const oe = oo && typeof oo.energy === 'number' ? oo.energy : 50;
       const oHue = oe < 32 ? 350 : oe > 68 ? 145 : 205;
       const oAlpha = 0.24 + 0.18 * Math.abs(oe - 50) / 50;
+      // dephasage propre a l'organisme (tire de son id) : plusieurs corps ne battent pas a
+      // l'unisson, chacun son pouls.
+      const oseed = ((parseInt(oid, 10) || 0) * 0.6180339887) % 1;
+      const obeat = 1 + 0.16 * Math.sin(tsec * 1.7 + oseed * 6.2832);
+
+      const smoothHull = () => {
+        const n = hp.length;
+        ctx.moveTo((hp[0][0] + hp[n - 1][0]) / 2, (hp[0][1] + hp[n - 1][1]) / 2);
+        for (let i = 0; i < n; i++) {
+          const a = hp[i], b = hp[(i + 1) % n];
+          ctx.quadraticCurveTo(a[0], a[1], (a[0] + b[0]) / 2, (a[1] + b[1]) / 2);
+        }
+        ctx.closePath();
+      };
+
       ctx.save();
       ctx.lineJoin = 'round'; ctx.lineCap = 'round';
-      ctx.setLineDash([2, 7]);
-      ctx.strokeStyle = hsl(oHue, 60, 72, oAlpha);
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.moveTo((hp[0][0] + hp[hp.length - 1][0]) / 2, (hp[0][1] + hp[hp.length - 1][1]) / 2);
-      for (let i = 0; i < hp.length; i++) {
-        const a = hp[i], b = hp[(i + 1) % hp.length];
-        ctx.quadraticCurveTo(a[0], a[1], (a[0] + b[0]) / 2, (a[1] + b[1]) / 2);
+      // membrane : un bourrelet sourd puis un fil vif, tous deux pulsant.
+      ctx.strokeStyle = hsl(oHue, 55, 58, oAlpha * 0.4);
+      ctx.lineWidth = (8 + Math.sqrt(cs.length) * 1.8) * obeat;
+      ctx.beginPath(); smoothHull(); ctx.stroke();
+      ctx.strokeStyle = hsl(oHue, 78, 74, Math.min(1, oAlpha * obeat * 1.3));
+      ctx.lineWidth = 1.4 + (obeat - 1) * 5;
+      ctx.beginPath(); smoothHull(); ctx.stroke();
+
+      // circulation interne : arbre couvrant minimal (Prim, O(n^2) sur les cellules du
+      // complexe -- toujours petit) pour des conduits qui relient vraiment le corps, pas une
+      // toile arbitraire. Un influx voyage le long de chaque branche, vitesse et phase propres
+      // a la branche pour eviter un battement synchrone et mecanique.
+      if (cs.length >= 2 && cs.length <= 160) {
+        const n = cs.length;
+        const inTree = new Array(n).fill(false);
+        const dist = new Array(n).fill(Infinity);
+        const parent = new Array(n).fill(-1);
+        dist[0] = 0;
+        const edges = [];
+        for (let k = 0; k < n; k++) {
+          let u = -1, best = Infinity;
+          for (let i = 0; i < n; i++) if (!inTree[i] && dist[i] < best) { best = dist[i]; u = i; }
+          if (u < 0) break;
+          inTree[u] = true;
+          if (parent[u] >= 0) edges.push([parent[u], u]);
+          for (let v = 0; v < n; v++) {
+            if (inTree[v]) continue;
+            const dx = cs[u].x - cs[v].x, dy = cs[u].y - cs[v].y;
+            const d2 = dx * dx + dy * dy;
+            if (d2 < dist[v]) { dist[v] = d2; parent[v] = u; }
+          }
+        }
+        ctx.strokeStyle = hsl(oHue, 55, 68, oAlpha * 0.5);
+        ctx.lineWidth = 1;
+        for (const [a, b] of edges) {
+          ctx.beginPath();
+          ctx.moveTo(cs[a].x, cs[a].y);
+          ctx.lineTo(cs[b].x, cs[b].y);
+          ctx.stroke();
+        }
+        const pulseR = (2.2 + (obeat - 1) * 8) * Math.max(0.7, s / 5);
+        for (let ei = 0; ei < edges.length; ei++) {
+          const [a, b] = edges[ei];
+          const A = cs[a], B = cs[b];
+          const speed = 0.24 + 0.09 * ((ei * 41) % 5 - 2);
+          const ph = ((tsec * speed + ei * 0.371 + oseed) % 1 + 1) % 1;
+          const px = A.x + (B.x - A.x) * ph, py = A.y + (B.y - A.y) * ph;
+          const pg = ctx.createRadialGradient(px, py, 0, px, py, pulseR * 2.4);
+          pg.addColorStop(0, hsl(oHue, 92, 88, 0.55));
+          pg.addColorStop(1, hsl(oHue, 92, 88, 0));
+          ctx.fillStyle = pg;
+          ctx.beginPath(); ctx.arc(px, py, pulseR * 2.4, 0, 6.2832); ctx.fill();
+        }
       }
-      ctx.closePath(); ctx.stroke();
-      ctx.setLineDash([]);
+
       if (oo && oo.name) {
         let top = 1e9; for (const p of hp) top = Math.min(top, p[1]);
         ctx.font = '600 12px ui-monospace, "SF Mono", Menlo, Consolas, monospace';
