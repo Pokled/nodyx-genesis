@@ -5,6 +5,11 @@ Cargo.lock.orig
 # Mondes simules (sorties du CLI : gros, regenerables avec la graine)
 /worlds
 
+# Atlas : les fichiers bruts deposes dans la boite a idees (pdf, xlsx...) restent locaux.
+# L'arbre (data.json), la todo (todo.json) et la liste des depots (inbox/index.json) sont
+# versionnes : c'est de la memoire de projet, pas des pieces de travail jetables.
+/BIBLE/atlas/inbox/files/
+
 # Godot (cache local, ne pas versionner)
 genesis/.godot/
 

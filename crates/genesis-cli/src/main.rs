@@ -9,6 +9,7 @@
 //! `replay` rejoue le monde depuis sa graine et verifie qu'il retombe exactement sur le
 //! meme etat final. C'est le moment public de 0.0.1.
 
+mod atlas_serve;
 mod gallery_html;
 mod http_serve;
 mod index_html;
@@ -179,6 +180,7 @@ fn main() -> ExitCode {
         "serve" => cmd_serve(&flags, args.get(1).cloned()),
         "replay" => cmd_replay(&flags, args.get(1).cloned()),
         "gallery" => cmd_gallery(args.get(1).cloned().unwrap_or_else(|| "worlds".to_string())),
+        "atlas" => cmd_atlas(&flags),
         "-h" | "--help" | "help" => {
             println!("{}", USAGE);
             Ok(())
@@ -222,6 +224,12 @@ genesis, Nodyx Genesis 0.0.1
   genesis gallery [dossier]
       Reconstruit <dossier>/index.html : la grille de tous les mondes du dossier
       (defaut : worlds). Reconstruite aussi a chaque run.
+
+  genesis atlas [--dir <dossier>] [--port <P>]
+      Sert l'atlas du projet : l'arbre d'evolution (statuts, nœuds a inserer entre deux
+      etapes), une todo, et une boite a idees (notes + fichiers deposes, pdf/html/md/xlsx/
+      txt/xml...). Local, jamais publie. Defaut : --dir BIBLE/atlas --port 8090.
+      Ouvre http://localhost:<P>/ dans un navigateur. Ctrl-C pour arreter.
 ";
 
 // ---------------------------------------------------------------------------
@@ -1303,6 +1311,22 @@ fn cmd_gallery(dir: String) -> std::io::Result<()> {
     build_gallery(path)?;
     println!("Bibliotheque : {}", path.join("index.html").display());
     Ok(())
+}
+
+/// `genesis atlas [--dir <dossier>] [--port <P>]` : sert l'arbre d'evolution du projet, la
+/// todo et la boite a idees. Local, aucun rapport avec la simulation d'un monde -- reutilise
+/// juste le meme binaire pour ne pas faire installer un second outil.
+fn cmd_atlas(flags: &HashMap<String, String>) -> std::io::Result<()> {
+    let dir = flags.get("dir").cloned().unwrap_or_else(|| "BIBLE/atlas".to_string());
+    let port: u16 = flags.get("port").and_then(|s| s.parse().ok()).unwrap_or(8090);
+    let root = PathBuf::from(&dir);
+    std::fs::create_dir_all(&root)?;
+    let real = atlas_serve::spawn(root, port)?;
+    println!("Atlas du projet : http://localhost:{real}/");
+    println!("Donnees dans {dir} (data.json, todo.json, inbox/). Ctrl-C pour arreter.");
+    loop {
+        std::thread::sleep(std::time::Duration::from_secs(3600));
+    }
 }
 
 /// Scanne un dossier de mondes et ecrit `<dossier>/index.html`, la grille de tous les mondes.

@@ -1,0 +1,7 @@
+[
+  { "id": "t1", "text": "Entretien actif : trancher quelle ressource il consomme (energie directe vs reserve dediee)", "done": false, "node": "n24" },
+  { "id": "t2", "text": "Entretien actif : trancher quel gene structurel en herite la propension, porte par la bonne unite", "done": false, "node": "n24" },
+  { "id": "t3", "text": "Entretien actif : prevoir un A/B qui verifie qu'entretenir ne fige pas la structure au detriment du renouvellement", "done": false, "node": "n24" },
+  { "id": "t4", "text": "Relais nerveux directionnel (dendrite/axone) : chantier separe, a instruire quand son tour viendra", "done": false, "node": "n27" },
+  { "id": "t5", "text": "split_gene : rallonger les runs de test ou changer le regime pour trancher la selection", "done": false, "node": "n23" }
+]

@@ -1,0 +1,405 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Atlas · Nodyx Genesis</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --abyss:#04060b; --deep:#0a0e17; --panel:rgba(11,16,26,.72); --line:rgba(126,158,214,.16);
+    --ink:#e9edf7; --soft:#9aa6be; --muted:#59637a;
+    --cyan:#52e6df; --green:#7ef0a6; --blue:#74a8ff; --rose:#ff8fa0; --amber:#ffcf72; --violet:#b9a0ff;
+    --serif:"Fraunces","Iowan Old Style",Georgia,serif;
+    --mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+  }
+  * { box-sizing:border-box; }
+  html,body { height:100%; margin:0; }
+  body {
+    background:radial-gradient(120% 90% at 50% 0%, #10151f 0%, #070a11 55%, #04060b 100%);
+    color:var(--ink); font:14px/1.5 var(--mono); display:flex; flex-direction:column;
+  }
+  header {
+    display:flex; align-items:baseline; gap:14px; padding:16px 20px; border-bottom:1px solid var(--line);
+    flex:none;
+  }
+  header .logo { font-family:var(--serif); font-weight:600; font-size:1.5rem; letter-spacing:.02em; }
+  header .tag { color:var(--soft); font-size:.82rem; letter-spacing:.1em; text-transform:uppercase; }
+  header .legend { margin-left:auto; display:flex; gap:14px; font-size:.8rem; color:var(--soft); }
+  header .legend span { display:flex; align-items:center; gap:6px; }
+  header .legend i { width:9px; height:9px; border-radius:50%; display:inline-block; box-shadow:0 0 8px currentColor; }
+  .layout { flex:1; display:grid; grid-template-columns:1fr 380px; gap:16px; padding:16px; min-height:0; }
+  .tree-pane {
+    position:relative; overflow:auto; border:1px solid var(--line); border-radius:14px;
+    background:var(--panel); backdrop-filter:blur(6px);
+  }
+  .side { display:flex; flex-direction:column; gap:16px; overflow:auto; min-height:0; }
+  .card {
+    background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:14px 16px;
+    backdrop-filter:blur(6px); flex:none;
+  }
+  .card h2 {
+    font-family:var(--serif); font-weight:500; font-size:1rem; margin:0 0 10px; color:var(--soft);
+    letter-spacing:.02em;
+  }
+  .field { margin-bottom:10px; }
+  .field label { display:block; font-size:.74rem; color:var(--muted); letter-spacing:.08em; text-transform:uppercase; margin-bottom:4px; }
+  .field input[type=text], .field textarea, .field select {
+    width:100%; background:rgba(255,255,255,.03); border:1px solid var(--line); border-radius:8px;
+    color:var(--ink); font:inherit; padding:7px 9px; resize:vertical;
+  }
+  .field textarea { min-height:70px; }
+  .links-list { display:flex; flex-direction:column; gap:6px; margin-bottom:6px; }
+  .links-list .lk { display:flex; gap:6px; }
+  .links-list .lk input { flex:1; }
+  .btnrow { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+  button {
+    background:rgba(255,255,255,.05); border:1px solid var(--line); color:var(--ink); font:inherit;
+    padding:6px 11px; border-radius:8px; cursor:pointer;
+  }
+  button:hover { background:rgba(255,255,255,.1); }
+  button.danger:hover { background:rgba(255,143,160,.18); border-color:var(--rose); }
+  button.primary { border-color:var(--cyan); color:var(--cyan); }
+  .muted-hint { color:var(--muted); font-size:.86rem; }
+  .todo-item, .inbox-item {
+    display:flex; align-items:flex-start; gap:8px; padding:7px 0; border-bottom:1px solid var(--line);
+    font-size:.88rem;
+  }
+  .todo-item:last-child, .inbox-item:last-child { border-bottom:none; }
+  .todo-item input[type=checkbox] { margin-top:3px; }
+  .todo-item.done span.txt { text-decoration:line-through; color:var(--muted); }
+  .todo-item .txt { flex:1; }
+  .todo-item button, .inbox-item button { padding:2px 7px; font-size:.78rem; }
+  .addrow { display:flex; gap:6px; margin-top:8px; }
+  .addrow input { flex:1; }
+  .inbox-item .chip {
+    font-size:.7rem; padding:1px 7px; border-radius:20px; border:1px solid var(--line); flex:none;
+  }
+  .inbox-item .chip.new { color:var(--amber); border-color:var(--amber); }
+  .inbox-item .chip.done { color:var(--green); border-color:var(--green); }
+  .inbox-item .meta { display:flex; flex-direction:column; gap:2px; flex:1; min-width:0; }
+  .inbox-item .name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .inbox-item .when { color:var(--muted); font-size:.76rem; }
+  #fileDrop {
+    border:1.5px dashed var(--line); border-radius:10px; padding:14px; text-align:center;
+    color:var(--soft); font-size:.86rem; cursor:pointer; margin-top:8px;
+  }
+  #fileDrop:hover { border-color:var(--cyan); color:var(--ink); }
+  svg#tree { display:block; }
+  .node rect { cursor:pointer; transition:filter .15s; }
+  .node:hover rect { filter:brightness(1.25); }
+  .node text { font:12px var(--mono); fill:var(--ink); pointer-events:none; }
+  .node.selected rect { stroke-width:2.6; }
+  .edge { fill:none; stroke:var(--line); stroke-width:1.6; }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">Atlas</div>
+  <div class="tag">Nodyx Genesis · l'arbre d'évolution</div>
+  <div class="legend">
+    <span><i style="color:#5ec98f;background:#5ec98f"></i>fait</span>
+    <span><i style="color:#52e6df;background:#52e6df"></i>en cours</span>
+    <span><i style="color:#b9a0ff;background:#b9a0ff"></i>idée</span>
+    <span><i style="color:#ffcf72;background:#ffcf72"></i>manque</span>
+    <span><i style="color:#59637a;background:#59637a"></i>abandonné</span>
+  </div>
+</header>
+<div class="layout">
+  <div class="tree-pane"><svg id="tree" width="100%" height="100%"></svg></div>
+  <div class="side">
+    <div class="card" id="detailCard"></div>
+    <div class="card" id="todoCard">
+      <h2>Todo</h2>
+      <div id="todoList"></div>
+      <div class="addrow">
+        <input type="text" id="todoInput" placeholder="Ajouter une tâche…">
+        <button id="todoAdd">+</button>
+      </div>
+    </div>
+    <div class="card" id="inboxCard">
+      <h2>Boîte à idées</h2>
+      <textarea id="noteInput" placeholder="Une note, un lien, une pensée en vrac…" style="width:100%;min-height:60px;background:rgba(255,255,255,.03);border:1px solid var(--line);border-radius:8px;color:var(--ink);font:inherit;padding:7px 9px;"></textarea>
+      <div class="btnrow"><button id="noteAdd" class="primary">Déposer la note</button></div>
+      <div id="fileDrop">Clique pour choisir un ou plusieurs fichiers (pdf, html, md, xlsx, txt, xml, csv…)</div>
+      <input type="file" id="fileInput" multiple style="display:none" accept=".pdf,.html,.htm,.md,.xlsx,.xls,.txt,.xml,.csv,.json,.docx">
+      <div id="inboxList" style="margin-top:10px"></div>
+    </div>
+  </div>
+</div>
+<script>
+'use strict';
+const STATUS = {
+  fait:      { label: 'fait',       color: '#5ec98f' },
+  en_cours:  { label: 'en cours',   color: '#52e6df' },
+  idee:      { label: 'idée',       color: '#b9a0ff' },
+  manque:    { label: 'manque',     color: '#ffcf72' },
+  abandonne: { label: 'abandonné',  color: '#59637a' },
+};
+let TREE = { nodes: {} };
+let TODO = [];
+let INBOX = [];
+let SELECTED = null;
+
+async function loadAll() {
+  const [t, d, i] = await Promise.all([
+    fetch('/api/tree').then(r => r.json()).catch(() => ({ nodes: {} })),
+    fetch('/api/todo').then(r => r.json()).catch(() => []),
+    fetch('/api/inbox').then(r => r.json()).catch(() => []),
+  ]);
+  TREE = t && t.nodes ? t : { nodes: {} };
+  TODO = Array.isArray(d) ? d : [];
+  INBOX = Array.isArray(i) ? i : [];
+  renderAll();
+}
+
+function renderAll() { renderTree(); renderDetail(); renderTodo(); renderInbox(); }
+
+function saveTree() { fetch('/api/tree', { method: 'POST', body: JSON.stringify(TREE) }); }
+function saveTodo() { fetch('/api/todo', { method: 'POST', body: JSON.stringify(TODO) }); }
+
+function genId(prefix, obj) {
+  let n = 1;
+  while (obj[prefix + n] !== undefined) n++;
+  return prefix + n;
+}
+
+// ---- arbre ----
+
+function findRoot() {
+  for (const id in TREE.nodes) if (!TREE.nodes[id].parent) return id;
+  return null;
+}
+
+function layoutTree() {
+  const childrenOf = {};
+  for (const id in TREE.nodes) {
+    const p = TREE.nodes[id].parent;
+    if (p) (childrenOf[p] = childrenOf[p] || []).push(id);
+  }
+  const idNum = id => parseInt(String(id).replace(/^\D+/, ''), 10) || 0;
+  for (const k in childrenOf) childrenOf[k].sort((a, b) => idNum(a) - idNum(b));
+  const pos = {};
+  const XSTEP = 30, YSTEP = 96;
+  let cursor = 0;
+  function widthOf(id) {
+    const t = (TREE.nodes[id] && TREE.nodes[id].title) || id;
+    return Math.max(70, t.length * 7.4 + 26);
+  }
+  function place(id, depth) {
+    const kids = childrenOf[id] || [];
+    const w = widthOf(id);
+    if (kids.length === 0) {
+      const x = cursor + w / 2;
+      cursor += w + XSTEP;
+      pos[id] = { x, y: depth * YSTEP, w };
+      return x;
+    }
+    const childXs = kids.map(k => place(k, depth + 1));
+    const x = (Math.min(...childXs) + Math.max(...childXs)) / 2;
+    pos[id] = { x, y: depth * YSTEP, w };
+    return x;
+  }
+  const root = findRoot();
+  if (root) place(root, 0);
+  return { pos, childrenOf, root, totalWidth: cursor, maxDepth: Object.values(pos).reduce((m, p) => Math.max(m, p.y), 0) };
+}
+
+function renderTree() {
+  const svg = document.getElementById('tree');
+  const { pos, root, totalWidth, maxDepth } = layoutTree();
+  const H = maxDepth + 120;
+  const W = Math.max(totalWidth, 400);
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  svg.setAttribute('width', W);
+  svg.setAttribute('height', H);
+  let svgHtml = '';
+  // aretes
+  for (const id in TREE.nodes) {
+    const n = TREE.nodes[id];
+    if (!n.parent || !pos[id] || !pos[n.parent]) continue;
+    const a = pos[n.parent], b = pos[id];
+    const my = (a.y + 28 + b.y - 28) / 2;
+    svgHtml += `<path class="edge" d="M${a.x},${a.y + 28} C${a.x},${my} ${b.x},${my} ${b.x},${b.y - 28}"/>`;
+  }
+  // noeuds
+  for (const id in TREE.nodes) {
+    if (!pos[id]) continue;
+    const n = TREE.nodes[id];
+    const p = pos[id];
+    const st = STATUS[n.status] || STATUS.idee;
+    const h = 34;
+    const sel = id === SELECTED ? ' selected' : '';
+    const title = escXml(n.title || '(sans titre)');
+    svgHtml += `<g class="node${sel}" data-id="${id}">
+      <rect x="${p.x - p.w / 2}" y="${p.y - h / 2}" width="${p.w}" height="${h}" rx="10"
+        fill="${st.color}22" stroke="${st.color}" />
+      <text x="${p.x}" y="${p.y + 4}" text-anchor="middle">${title}</text>
+    </g>`;
+  }
+  svg.innerHTML = svgHtml;
+  svg.querySelectorAll('.node').forEach(g => {
+    g.addEventListener('click', () => { SELECTED = g.getAttribute('data-id'); renderTree(); renderDetail(); });
+  });
+}
+
+function escXml(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function renderDetail() {
+  const card = document.getElementById('detailCard');
+  if (!SELECTED || !TREE.nodes[SELECTED]) {
+    card.innerHTML = '<h2>Nœud</h2><p class="muted-hint">Clique un nœud de l\'arbre pour le voir ou le modifier.</p>';
+    return;
+  }
+  const n = TREE.nodes[SELECTED];
+  const isRoot = !n.parent;
+  const statusOpts = Object.keys(STATUS).map(k =>
+    `<option value="${k}" ${k === n.status ? 'selected' : ''}>${STATUS[k].label}</option>`).join('');
+  const linksHtml = (n.links || []).map((lk, i) =>
+    `<div class="lk"><input type="text" data-i="${i}" value="${escAttr(lk)}"><button data-rm="${i}">×</button></div>`).join('');
+  card.innerHTML = `
+    <h2>Nœud</h2>
+    <div class="field"><label>Titre</label><input type="text" id="fTitle" value="${escAttr(n.title || '')}"></div>
+    <div class="field"><label>Statut</label><select id="fStatus">${statusOpts}</select></div>
+    <div class="field"><label>Résumé</label><textarea id="fSummary">${escXml(n.summary || '')}</textarea></div>
+    <div class="field"><label>Liens (chemins du dépôt)</label>
+      <div class="links-list" id="fLinks">${linksHtml}</div>
+      <button id="fLinkAdd">+ lien</button>
+    </div>
+    <div class="btnrow">
+      <button id="bChild">+ enfant</button>
+      <button id="bInsert" ${isRoot ? 'disabled title="pas au-dessus de la racine"' : ''}>insérer avant</button>
+      <button id="bDelete" class="danger" ${isRoot ? 'disabled title="on ne supprime pas la racine"' : ''}>supprimer</button>
+    </div>
+  `;
+  const commit = () => {
+    n.title = document.getElementById('fTitle').value;
+    n.status = document.getElementById('fStatus').value;
+    n.summary = document.getElementById('fSummary').value;
+    saveTree(); renderTree();
+  };
+  document.getElementById('fTitle').addEventListener('change', commit);
+  document.getElementById('fStatus').addEventListener('change', commit);
+  document.getElementById('fSummary').addEventListener('change', commit);
+  card.querySelectorAll('#fLinks input').forEach(inp => {
+    inp.addEventListener('change', () => {
+      n.links[+inp.getAttribute('data-i')] = inp.value;
+      saveTree();
+    });
+  });
+  card.querySelectorAll('#fLinks button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      n.links.splice(+btn.getAttribute('data-rm'), 1);
+      saveTree(); renderDetail();
+    });
+  });
+  document.getElementById('fLinkAdd').addEventListener('click', () => {
+    n.links = n.links || [];
+    n.links.push('');
+    saveTree(); renderDetail();
+  });
+  document.getElementById('bChild').addEventListener('click', () => {
+    const id = genId('n', TREE.nodes);
+    TREE.nodes[id] = { title: 'Nouvelle étape', status: 'idee', summary: '', links: [], parent: SELECTED };
+    SELECTED = id;
+    saveTree(); renderTree(); renderDetail();
+  });
+  document.getElementById('bInsert').addEventListener('click', () => {
+    if (isRoot) return;
+    const id = genId('n', TREE.nodes);
+    TREE.nodes[id] = { title: 'Étape oubliée', status: 'manque', summary: '', links: [], parent: n.parent };
+    n.parent = id;
+    saveTree(); renderTree(); renderDetail();
+  });
+  document.getElementById('bDelete').addEventListener('click', () => {
+    if (isRoot) return;
+    if (!confirm('Supprimer ce nœud ? Ses enfants seront rattachés à son parent.')) return;
+    for (const id in TREE.nodes) {
+      if (TREE.nodes[id].parent === SELECTED) TREE.nodes[id].parent = n.parent;
+    }
+    delete TREE.nodes[SELECTED];
+    SELECTED = null;
+    saveTree(); renderTree(); renderDetail();
+  });
+}
+
+function escAttr(s) { return escXml(s).replace(/"/g, '&quot;'); }
+
+// ---- todo ----
+
+function renderTodo() {
+  const el = document.getElementById('todoList');
+  if (!TODO.length) { el.innerHTML = '<p class="muted-hint">Rien pour l\'instant.</p>'; return; }
+  el.innerHTML = TODO.map(t => `
+    <div class="todo-item ${t.done ? 'done' : ''}" data-id="${t.id}">
+      <input type="checkbox" ${t.done ? 'checked' : ''}>
+      <span class="txt">${escXml(t.text)}${t.node && TREE.nodes[t.node] ? ' <i style="color:var(--muted)">· ' + escXml(TREE.nodes[t.node].title) + '</i>' : ''}</span>
+      <button data-del="1">×</button>
+    </div>`).join('');
+  el.querySelectorAll('.todo-item').forEach(row => {
+    const id = row.getAttribute('data-id');
+    row.querySelector('input[type=checkbox]').addEventListener('change', e => {
+      const item = TODO.find(x => x.id === id);
+      if (item) { item.done = e.target.checked; saveTodo(); renderTodo(); }
+    });
+    row.querySelector('button[data-del]').addEventListener('click', () => {
+      TODO = TODO.filter(x => x.id !== id);
+      saveTodo(); renderTodo();
+    });
+  });
+}
+
+document.getElementById('todoAdd').addEventListener('click', () => {
+  const inp = document.getElementById('todoInput');
+  const text = inp.value.trim();
+  if (!text) return;
+  const id = genId('t', Object.fromEntries(TODO.map(t => [t.id, 1])));
+  TODO.push({ id, text, done: false, node: SELECTED || null });
+  inp.value = '';
+  saveTodo(); renderTodo();
+});
+
+// ---- boite a idees ----
+
+function renderInbox() {
+  const el = document.getElementById('inboxList');
+  if (!INBOX.length) { el.innerHTML = '<p class="muted-hint">Rien de déposé pour l\'instant.</p>'; return; }
+  const items = INBOX.slice().sort((a, b) => (b.added || 0) - (a.added || 0));
+  el.innerHTML = items.map(it => {
+    const when = it.added ? new Date(it.added).toLocaleString('fr-FR') : '';
+    const label = it.kind === 'file' ? (it.name || 'fichier') : (it.text || '').slice(0, 60);
+    return `<div class="inbox-item">
+      <span class="chip ${it.triaged ? 'done' : 'new'}">${it.triaged ? 'trié' : 'à trier'}</span>
+      <div class="meta"><span class="name">${escXml(label)}</span><span class="when">${when}</span></div>
+    </div>`;
+  }).join('');
+}
+
+document.getElementById('noteAdd').addEventListener('click', async () => {
+  const ta = document.getElementById('noteInput');
+  const text = ta.value.trim();
+  if (!text) return;
+  await fetch('/api/inbox/note', { method: 'POST', body: JSON.stringify({ text }) });
+  ta.value = '';
+  INBOX = await fetch('/api/inbox').then(r => r.json());
+  renderInbox();
+});
+
+document.getElementById('fileDrop').addEventListener('click', () => document.getElementById('fileInput').click());
+document.getElementById('fileInput').addEventListener('change', async e => {
+  for (const f of e.target.files) {
+    await fetch('/api/inbox/upload', { method: 'POST', headers: { 'X-Filename': f.name }, body: f });
+  }
+  e.target.value = '';
+  INBOX = await fetch('/api/inbox').then(r => r.json());
+  renderInbox();
+});
+
+loadAll();
+</script>
+</body>
+</html>

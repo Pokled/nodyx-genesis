@@ -321,6 +321,58 @@ la porter directement par l'unite qui se reproduit (`021`/`022`) est la bonne di
 manque n'est pas conceptuel mais un echantillon plus grand ou des runs plus longs -- piste pour
 une prochaine session.
 
+### Piste E : l'entretien actif (exploration de conception, 2026-09-05)
+
+**Statut : rien d'implemente.** Constat de l'utilisateur apres le deploiement de `split_enabled`
+(w8) : les organismes ne tiennent pas longtemps. Deux causes distinctes, a ne pas confondre.
+
+**Cause immediate : `split_enabled` lui-meme.** Un organisme qui grossit se scinde des qu'il
+atteint `split_cells` -- il ne vieillit donc jamais tres gros ni tres vieux, il se fragmente en
+boucle. C'est le prix attendu de la reproduction (voir `021` : la METRIQUE qui compte est le
+nombre d'organismes vivants, pas la longevite d'un individu) mais ca merite d'etre dit clairement :
+ce n'est pas un bug, c'est la consequence directe de ce qu'on a choisi de mesurer comme succes.
+
+**Cause structurelle, plus profonde : rien ne repare.** Une cellule ou un organisme, dans ce
+moteur, ne fait que PERDRE de la structure -- predation, dissolution faute de membres, liens
+qui cassent sous l'etirement (`tissue_bond`, `013`). Aucun mecanisme n'investit de l'energie
+pour la MAINTENIR active. C'est different du vivant reel, ou une structure ne persiste que parce
+qu'elle se reconstruit sans arret (le renouvellement des proteines, la cicatrisation, le
+remplacement cellulaire) : l'entretien n'est pas un a-cote, c'est la condition meme de la
+persistance. Genesis n'a aujourd'hui aucun equivalent : l'energie sert a se deplacer, se
+reproduire, survivre a la faim -- jamais a resister activement a l'usure d'une structure.
+
+**Ce qu'on ne fait PAS : simuler la biochimie reelle.** L'utilisateur a evoque l'ARNm, les
+proteines (collagene, keratine, enzymes, hemoglobine), la proteomique -- le mecanisme reel qui
+fait qu'un corps s'entretient. C'est la bonne intuition (l'entretien vient de la
+synthese/reparation moleculaire), mais la simuler litteralement reviendrait a sauter par-dessus
+la **piste C** (plus haut, `## Piste C : attendre, et d'abord la chimie`) : sans une vraie
+couche chimie (`experiments/002_pseudo_chemistry.md`, deferee a 0.1+), coder des "proteines"
+serait arbitraire -- une etiquette sur un nombre, pas une chimie qui contraint vraiment quoi que
+ce soit. La regle du projet reste : mesurer une condition geometrique/energetique que le monde
+franchit de lui-meme, jamais nommer un mecanisme biologique reel avant d'avoir le substrat qui le
+justifie.
+
+**La version Genesis de l'entretien, a l'echelle actuelle du moteur** : un **entretien actif**,
+fonctionnellement equivalent a la reparation proteique sans en simuler la chimie -- une cellule
+ou un organisme investit une part de son energie pooled pour resister a la dissolution ou
+renforcer ses liens (`tissue_bond`), au lieu que ceux-ci ne cassent que passivement sous
+l'etirement ou l'age. Piste concrete a instruire avant tout code : quelle ressource `entretien`
+consomme-t-il (energie directe, ou une reserve dediee comme l'a ete `adipeux_share`) ; quel
+gene structurel pourrait en heriter la propension (encore une fois, porte par l'unite qui en
+beneficie -- la lecon de `018`-`022`) ; et surtout, un A/B pour verifier qu'entretenir une
+structure ne se contente pas de la figer au detriment du renouvellement (une nappe qui ne se
+renouvelle jamais pourrait etouffer sa propre selection, le meme piege que `pool_share` genereux
+deja note en `piste A`).
+
+**Note deposee pour plus tard, distincte de ce chantier : les neurones.** L'utilisateur a
+apporte la structure reelle du neurone (dendrites qui recoivent et peuvent amplifier ou bloquer
+l'influx, corps cellulaire qui traite, axone et gaine de myeline qui transmettent). `nerve_relay`
+(`017`) est aujourd'hui une abstraction grossiere : un tissu assez peuple d'agents etend un
+rayon de perception, sans direction ni structure. Une vraie marche future pour le tissu
+`nerveux` serait un relais DIRECTIONNEL (signal recu d'un cote, propage d'un autre), plus proche
+du graphe de Sims que d'un simple rayon -- mais c'est un chantier a part, pas une reponse a la
+persistance, a instruire quand son tour viendra.
+
 **L'organisme, identite persistante (2026-09-03, `[organism] enabled`).** La marche choisie
 comme socle des suivantes. `organism_pass` (phase 5b, aux controles `organism.check_every`)
 reconnait les **composantes connexes de cellules qui se touchent** (`organism.reach` x (r1+r2),

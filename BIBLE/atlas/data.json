@@ -1,0 +1,283 @@
+{
+  "nodes": {
+    "n1": {
+      "title": "Nodyx Genesis",
+      "status": "idee",
+      "summary": "Un monde vivant qui pousse a partir d'une graine, que personne ne dirige. L'histoire n'est jamais ecrite.",
+      "links": [
+        "README.md",
+        "BIBLE/01_VISION.md"
+      ],
+      "parent": null
+    },
+    "n2": {
+      "title": "0.0.1 Deux",
+      "status": "fait",
+      "summary": "Energie, mouvement, reproduction, mutation, mort, graine, ViewState, rejeu deterministe.",
+      "links": [
+        "BIBLE/10_ROADMAP.md"
+      ],
+      "parent": "n1"
+    },
+    "n3": {
+      "title": "0.0.2 Vie",
+      "status": "en_cours",
+      "summary": "Genome complet, selection naturelle, cellules, fusion, division, tissus, types de tissus qui comptent, organismes qui se reproduisent, predation, muscle.",
+      "links": [
+        "BIBLE/10_ROADMAP.md"
+      ],
+      "parent": "n2"
+    },
+    "n4": {
+      "title": "Cellule : fusion",
+      "status": "fait",
+      "summary": "Deux cellules stables aux membranes chevauchantes et aux genomes proches fusionnent.",
+      "links": [
+        "BIBLE/experiments/007_cell_fusion.md"
+      ],
+      "parent": "n3"
+    },
+    "n5": {
+      "title": "Cellule : division",
+      "status": "fait",
+      "summary": "Une cellule grande, mure et assez etiree se pince en deux. La cellule devient une unite qui se reproduit, la selection agit a son niveau.",
+      "links": [],
+      "parent": "n4"
+    },
+    "n6": {
+      "title": "Tissu : adhesion et pavage",
+      "status": "fait",
+      "summary": "Des cellules de genome proche dont les membranes se touchent adherent. Une traction douce fait emerger le pavage hexagonal (psi6, phase hexatique).",
+      "links": [
+        "BIBLE/experiments/009_organism.md"
+      ],
+      "parent": "n5"
+    },
+    "n7": {
+      "title": "Tissu : adhesion persistante (tissue_bond)",
+      "status": "fait",
+      "summary": "Des liens de paire gardes dans le temps, hysteresis, au lieu d'un verdict recompose chaque tick. Cout net sur la biomasse pluricellulaire. Jamais a chaud sur un monde qui tourne (lecon confirmee deux fois).",
+      "links": [
+        "BIBLE/experiments/013_tissue_bond.md"
+      ],
+      "parent": "n6"
+    },
+    "n8": {
+      "title": "Tissu : abri (tissue_shelter)",
+      "status": "fait",
+      "summary": "Une cellule interieure est a l'abri de la predation et nourrie par le bord. Division du travail germinal/somatique emergente de la seule geometrie.",
+      "links": [
+        "BIBLE/experiments/009_organism.md"
+      ],
+      "parent": "n7"
+    },
+    "n9": {
+      "title": "Tissu : les types qui comptent",
+      "status": "en_cours",
+      "summary": "Un type de tissu, lu de sa forme, qui produit un vrai effet mecanique plutot qu'une simple etiquette.",
+      "links": [],
+      "parent": "n8"
+    },
+    "n10": {
+      "title": "muscle_contract",
+      "status": "fait",
+      "summary": "Une cellule fusiforme dans un tissu exerce une force axiale oscillante, dephasee par une onde qui traverse le tissu.",
+      "links": [],
+      "parent": "n9"
+    },
+    "n11": {
+      "title": "muscle_seek_food",
+      "status": "fait",
+      "summary": "L'onde peristaltique suit le gradient de ressources au lieu d'un axe arbitraire. Retenu net : tissus vivants x2,1, biomasse pluricellulaire +26%, diversite +39%.",
+      "links": [
+        "BIBLE/experiments/015_muscle_seek_food.md"
+      ],
+      "parent": "n10"
+    },
+    "n12": {
+      "title": "epithelium_shield",
+      "status": "fait",
+      "summary": "Une nappe ordonnee et assez grande fait rempart : toutes ses cellules hors d'atteinte d'un predateur. Positif mais modeste.",
+      "links": [
+        "BIBLE/experiments/009_organism.md"
+      ],
+      "parent": "n9"
+    },
+    "n13": {
+      "title": "epithelium_seal (digestion)",
+      "status": "abandonne",
+      "summary": "Premier essai pour que le type compte : une nappe digere les entites libres a sa portee. Negatif -- nourrir la nappe l'active, l'activite fait fondre l'ordre. Lecon : le benefice d'un tissu ne doit pas ajouter d'activite metabolique.",
+      "links": [
+        "BIBLE/experiments/014_epithelium.md"
+      ],
+      "parent": "n12"
+    },
+    "n14": {
+      "title": "adipeux_share (reserve)",
+      "status": "abandonne",
+      "summary": "Premier essai de tampon d'energie dans le temps. Inerte a l'echelle de w6 : pool_share efface deja l'ecart dont il aurait besoin pour se declencher.",
+      "links": [
+        "BIBLE/experiments/016_adipeux_reserve.md"
+      ],
+      "parent": "n9"
+    },
+    "n15": {
+      "title": "nerve_relay",
+      "status": "fait",
+      "summary": "Un tissu assez peuple d'agents relaie leurs alarmes/appels bien au-dela de la portee d'un individu seul. Retenu net : population +50%, tissus x1,6, psi6 x2,8.",
+      "links": [
+        "BIBLE/experiments/017_nerve_relay.md"
+      ],
+      "parent": "n9"
+    },
+    "n16": {
+      "title": "Organisme : identite persistante",
+      "status": "fait",
+      "summary": "Composante connexe de cellules qui se touchent, sans exiger la parente. Identite stable, nom, mise en commun de l'energie (l'organisme a faim ou est repu EN ENTIER).",
+      "links": [
+        "BIBLE/experiments/009_organism.md"
+      ],
+      "parent": "n15"
+    },
+    "n17": {
+      "title": "Organisme : pool_share",
+      "status": "fait",
+      "summary": "Chaque membre est ramene d'une fraction vers l'energie moyenne des membres de l'organisme. L'organisme devient une unite economique, plus une colonie.",
+      "links": [
+        "BIBLE/experiments/009_organism.md"
+      ],
+      "parent": "n16"
+    },
+    "n18": {
+      "title": "Piste D : le genome structurel",
+      "status": "en_cours",
+      "summary": "A la Karl Sims : un second genome, distinct du genome de traits, pour que la forme/le comportement d'un organisme devienne heritable et selectionnable.",
+      "links": [
+        "BIBLE/experiments/009_organism.md"
+      ],
+      "parent": "n17"
+    },
+    "n19": {
+      "title": "018 -- adhesion_gene",
+      "status": "abandonne",
+      "summary": "Mecanique reelle (change la formation de tissu), mais selection quasi nulle : la formation de cellule regroupe par parente de TRAITS, sans rapport avec le gene -- dilution par un contexte de cellule non apparente.",
+      "links": [
+        "BIBLE/experiments/018_adhesion_gene.md"
+      ],
+      "parent": "n18"
+    },
+    "n20": {
+      "title": "019 -- role_gene (blocage dur)",
+      "status": "fait",
+      "summary": "Variance intra-cellule reelle (contrairement a 018), mais cout ecologique severe : couper la reproduction punit fort tant que le tissu est jeune.",
+      "links": [
+        "BIBLE/experiments/019_role_gene.md"
+      ],
+      "parent": "n18"
+    },
+    "n21": {
+      "title": "020 -- role_share (partage doux)",
+      "status": "fait",
+      "summary": "Version douce de 019 : jamais de blocage, un flux d'energie a la place. Cout plus modere mais toujours pas gratuit, et pas de derive de selection fiable.",
+      "links": [
+        "BIBLE/experiments/020_role_share.md"
+      ],
+      "parent": "n18"
+    },
+    "n22": {
+      "title": "021 -- organism_split",
+      "status": "fait",
+      "summary": "LE vrai acquis : un organisme assez grand se scinde en deux, cout ecologique quasi nul, l'unite se multiplie enfin. Premiere reproduction reelle a l'echelle organisme.",
+      "links": [
+        "BIBLE/experiments/021_organism_split.md"
+      ],
+      "parent": "n18"
+    },
+    "n23": {
+      "title": "022 -- split_gene",
+      "status": "en_cours",
+      "summary": "Le gene est enfin porte par la bonne unite (l'organisme, pas une moyenne de cellule). Mecanique saine, mais preuve de selection incomplete : trop peu d'organismes vivent a la fois pour un echantillon fiable en 60-80k ticks.",
+      "links": [
+        "BIBLE/experiments/022_organism_split_gene.md"
+      ],
+      "parent": "n22"
+    },
+    "n24": {
+      "title": "Piste E : l'entretien actif",
+      "status": "idee",
+      "summary": "Constat (2026-09-05) : les organismes ne tiennent pas longtemps. Cause structurelle : rien dans le moteur n'investit de l'energie pour MAINTENIR une structure, tout ne fait que perdre (predation, dissolution, liens qui cassent). Proposition : un entretien actif, fonctionnellement equivalent a la reparation proteique sans en simuler la chimie -- deliberement PAS de simulation litterale d'ARN/proteines (sauterait la piste C, deferee a 0.1+).",
+      "links": [
+        "BIBLE/experiments/009_organism.md"
+      ],
+      "parent": "n23"
+    },
+    "n25": {
+      "title": "manque : quelle ressource consomme l'entretien",
+      "status": "manque",
+      "summary": "Energie directe pooled, ou une reserve dediee (comme adipeux_share l'aurait ete) ? A trancher avant tout code.",
+      "links": [],
+      "parent": "n24"
+    },
+    "n26": {
+      "title": "manque : quel gene en herite la propension",
+      "status": "manque",
+      "summary": "Doit etre porte par l'unite qui en beneficie (lecon de 018-022), pas dilue par un contexte collectif non apparente.",
+      "links": [],
+      "parent": "n24"
+    },
+    "n27": {
+      "title": "Neurones directionnels (dendrite / axone / myeline)",
+      "status": "idee",
+      "summary": "nerve_relay est une abstraction grossiere (un rayon elargi, sans direction). Chantier separe, pour plus tard : un relais DIRECTIONNEL (signal recu d'un cote, propage d'un autre), plus proche du graphe de Sims.",
+      "links": [
+        "BIBLE/experiments/017_nerve_relay.md"
+      ],
+      "parent": "n15"
+    },
+    "n28": {
+      "title": "0.0.3 Individus",
+      "status": "fait",
+      "summary": "Memoire, personnalite, besoins, relations, biographie, sans LLM. Cible probante atteinte.",
+      "links": [
+        "README.md"
+      ],
+      "parent": "n3"
+    },
+    "n29": {
+      "title": "0.0.4 Voix",
+      "status": "en_cours",
+      "summary": "Signaux, saisons, tolerance a la chaleur, langage emergent. Demarre.",
+      "links": [
+        "README.md"
+      ],
+      "parent": "n28"
+    },
+    "n30": {
+      "title": "0.0.5 Societe",
+      "status": "idee",
+      "summary": "Culture, memoire collective, premier LLM en cloud.",
+      "links": [
+        "README.md"
+      ],
+      "parent": "n29"
+    },
+    "n31": {
+      "title": "0.0.6 Civilisation",
+      "status": "idee",
+      "summary": "Villages, economie, institutions, toutes emergentes.",
+      "links": [
+        "README.md"
+      ],
+      "parent": "n30"
+    },
+    "n32": {
+      "title": "0.1.0 Le monde qui parle",
+      "status": "idee",
+      "summary": "Couche numerique Nodyx : wiki, forum, emissaire ; la bibliotheque de mondes devient publique.",
+      "links": [
+        "README.md"
+      ],
+      "parent": "n31"
+    }
+  }
+}
